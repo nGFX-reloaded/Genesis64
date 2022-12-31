@@ -1,0 +1,5 @@
+﻿https://github.com/salarcode/BundlerMinifierPlus
+
+https://blog.elmah.io/how-we-do-bundling-and-minification-in-asp-net-core/
+
+-> <environment include="Development">(dev)</environment> for bundles ?
