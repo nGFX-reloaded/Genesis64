@@ -4,16 +4,23 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>@ViewData["Title"] - Genesis64</title>
+	<link rel="stylesheet" href="~/css/genesis64.css" asp-append-version="true" />
 	<link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
-	<header>head</header>
+	<header>
+		<nav id="G64Menu" class="navbar">
+			<ul>
+				<li class="item"><a asp-area="" asp-controller="Home" asp-action=""><img src="~/lib/images/g64.png"/></a></li>
+				<li><a href="#" role="button">Genesis64</a></li>
+				<li><a href="#" role="button">Options</a></li>
+			</ul>
+		</nav>
+	</header>
 	@RenderBody()
-	<footer>
-		&copy; 2022 - <a href="@@nGFX@@oldbytes.space ">nGFX</a> Genesis64 <environment include="Development">(dev)</environment> - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-	</footer>
+	<footer>&copy; 2022 - <a href="https://@@nGFX@@oldbytes.space ">nGFX</a> Genesis64 <environment include="Development">(dev)</environment> - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a></footer>
 	<script src="~/lib/jquery/jquery.min.js"></script>
 	<script src="~/js/site.js" asp-append-version="true"></script>
-	@await RenderSectionAsync("Scripts", required: false)
+	@RenderSection("Scripts", required: false)
 </body>
 </html>

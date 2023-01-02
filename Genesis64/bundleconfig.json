@@ -10,5 +10,13 @@
     "inputFiles": [
       "wwwroot/js/genesis64.js"
     ]
+  },
+  {
+    "outputFileName": "wwwroot/css/genesis64.css",
+    "inputFiles": [
+        "Sources/css/fonts.css",
+        "Sources/css/g64_colors.css",
+        "Sources/css/g64_editor.css"
+    ]
   }
 ]

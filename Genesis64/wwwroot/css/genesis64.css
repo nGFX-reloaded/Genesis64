@@ -1,0 +1,89 @@
+/* asap-condensed-regular - latin */
+@font-face {
+	font-family: 'Asap Condensed';
+	font-style: normal;
+	font-weight: 400;
+	src: local(''), url('/lib/fonts/asap-condensed-v8-latin-regular.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/asap-condensed-v8-latin-regular.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+/* asap-condensed-italic - latin */
+@font-face {
+	font-family: 'Asap Condensed';
+	font-style: italic;
+	font-weight: 400;
+	src: local(''), url('/lib/fonts/asap-condensed-v8-latin-italic.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/asap-condensed-v8-latin-italic.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+/* asap-condensed-700 - latin */
+@font-face {
+	font-family: 'Asap Condensed';
+	font-style: normal;
+	font-weight: 700;
+	src: local(''), url('/lib/fonts/asap-condensed-v8-latin-700.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/asap-condensed-v8-latin-700.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+
+/* courier-prime-regular - latin */
+@font-face {
+	font-family: 'Courier Prime';
+	font-style: normal;
+	font-weight: 400;
+	src: local(''), url('/lib/fonts/courier-prime-v2-latin-regular.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/courier-prime-v2-latin-regular.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+/* courier-prime-700 - latin */
+@font-face {
+	font-family: 'Courier Prime';
+	font-style: normal;
+	font-weight: 700;
+	src: local(''), url('/lib/fonts/courier-prime-v2-latin-700.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/courier-prime-v2-latin-700.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+/* courier-prime-italic - latin */
+@font-face {
+	font-family: 'Courier Prime';
+	font-style: italic;
+	font-weight: 400;
+	src: local(''), url('/lib/fonts/courier-prime-v2-latin-italic.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/courier-prime-v2-latin-italic.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+/* “C64 Pro Mono/Style” */
+@font-face {
+	font-family: 'C64 Pro Mono/Style';
+	font-style: normal;
+	font-weight: normal;
+	src: local(''), url('/lib/fonts/C64_Pro_Mono-STYLE.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+	url('/lib/fonts/C64_Pro_Mono-STYLE.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
+:root {
+	/* 
+		set the default c64 colors 
+	*/
+	--Black: #000000; /* 144, 0 */
+	--White: #ffffff; /* 5, 1 */
+	--Red: #68372b; /* 28, 2 */
+	--Cyan: #70a4b2; /* 159, 3 */
+	--Purple: #6f3d86; /* 156, 4 */
+	--Green: #588d43; /* 30, 5 */
+	--Blue: #352879; /* 31, 6 */
+	--Yellow: #B8C76F; /* 158, 7 */
+	--Orange: #6F4F25; /* 129, 8 */
+	--Brown: #433900; /* 149, 9 */
+	--Lightred: #9A6759; /* 150, 10 */
+	--Darkgrey: #444444; /* 151, 11 */
+	--Grey: #6C6C6C; /* 152, 12 */
+	--Lightgreen: #9AD284; /* 153, 13 */
+	--Lightblue: #6C5EB5; /* 154, 14 */
+	--Lightgrey: #959595; /* 155, 15 */
+}
+
+.screeneditor {
+	border: 1px solid green;
+}

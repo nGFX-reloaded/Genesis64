@@ -1,3 +1,15 @@
+class Genesis64 {
+    constructor() {
+        this.Init();
+    }
+    static get Instance() {
+        return this.m_instance || (this.m_instance = new this());
+    }
+    Init() {
+        console.log("Genesis64 Init.");
+        this.m_divContainer = document.getElementById("Genesis64");
+    }
+}
 class MersenneTwister {
     constructor() {
         this.N = 624;
@@ -401,16 +413,4 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
-class Genesis64 {
-    constructor() {
-        this.Init();
-    }
-    static get Instance() {
-        return this.m_instance || (this.m_instance = new this());
-    }
-    Init() {
-        console.log("Genesis64 Init.");
-        this.m_divContainer = document.getElementById("Genesis64");
-    }
-}
 //# sourceMappingURL=genesis64.js.map
