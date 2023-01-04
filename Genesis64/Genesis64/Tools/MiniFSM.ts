@@ -43,7 +43,7 @@ class MiniFSMWorker {
 
 }
 
-enum ActionType {
+enum FsmActionType {
 	onEnter, onUpdate, onExit
 }
 
@@ -62,12 +62,14 @@ class MiniFSM {
 	private m_iLastState: number = -1;
 	private m_iWorker: number = -1;
 
-	private m_strCallbackState: string = ""; // just as a convenience
+	private m_NextState: string = ""; // just as a convenience
 
-	private m_dictNames: Map<string, number> = new Map<string, number>();
+	private m_mapStates: Map<string, number> = new Map<string, number>();
 	private m_lstStates: Array<MiniFSMState> = [];
 	private m_lstWorker: Array<MiniFSMWorker> = [];
 	private m_lstAction: Array<Function> = [];
+
+	private m_iTimerId: number = -1;
 
 	//#endregion
 
@@ -89,8 +91,8 @@ class MiniFSM {
 
 	get StateID(): number { return this.m_iCurrentState; }
 
-	get CallbackState(): string { return this.m_strCallbackState; }
-	set CallbackState(value: string) { this.m_strCallbackState = value; }
+	get NextState(): string { return this.m_NextState; }
+	set NextState(value: string) { this.m_NextState = value; }
 
 	get LastState(): string { return ((this.m_iLastState != -1) ? this.m_lstStates[this.m_iLastState].Name : ""); }
 
@@ -139,6 +141,27 @@ class MiniFSM {
 		}
 	}
 
+	//#region " ----- Internal Timer ----- "
+
+	public StartTimer(delay: number) {
+		if (this.m_iTimerId != -1)
+			this.StopTimer();
+
+		this.m_iTimerId = setInterval(
+			() => {	this.Update(); },
+			delay
+		)
+	}
+
+	public StopTimer(): void {
+		if (this.m_iTimerId != -1)
+			clearInterval(this.m_iTimerId);
+
+		this.m_iTimerId = -1;
+	}
+
+	//#endregion
+
 	//#region " ----- public commands ----- "
 	
 	/**
@@ -154,9 +177,9 @@ class MiniFSM {
 		this.m_iLastState = -1;
 		this.m_iWorker = -1;
 
-		this.m_strCallbackState = ""; // just as a convenience
+		this.m_NextState = ""; // just as a convenience
 
-		this.m_dictNames.clear();
+		this.m_mapStates.clear();
 		this.m_lstStates = [];
 		this.m_lstWorker = [];
 		this.m_lstAction = [];
@@ -179,14 +202,14 @@ class MiniFSM {
 		if (typeof parameter === "undefined")
 			parameter = "";
 
-		if (this.m_dictNames.has(name)) {
-			this.m_lstStates[this.m_dictNames.get(name)].Parameter = parameter;
+		if (this.m_mapStates.has(name)) {
+			this.m_lstStates[this.m_mapStates.get(name)].Parameter = parameter;
 
 		} else {
 			return;
 		}
 
-		if (this.m_debug) console.log("fsm:", name, parameter);
+		if (this.m_debug) console.log("fsm -> setstate:", name, parameter);
 
 		if (this.m_iCurrentState != -1 && parameter != MiniFSM.SKIP_ONEXIT) {
 
@@ -199,8 +222,8 @@ class MiniFSM {
 		}
 
 		// if we had an OnExit, run the new state one frame later
-		if (this.m_dictNames.has(name)) {
-			id = this.m_dictNames.get(name);
+		if (this.m_mapStates.has(name)) {
+			id = this.m_mapStates.get(name);
 
 			this.m_iCurrentState = id;
 
@@ -232,8 +255,8 @@ class MiniFSM {
 			this.m_isRunning = false;
 
 		} else { // state pause
-			if (this.m_dictNames.has(name)) {
-				this.m_lstStates[this.m_dictNames.get(name)].IsRunning = false;
+			if (this.m_mapStates.has(name)) {
+				this.m_lstStates[this.m_mapStates.get(name)].IsRunning = false;
 			}
 		}
 
@@ -245,8 +268,8 @@ class MiniFSM {
 	 */
 	public PauseWorker(name: string): void {
 
-		if (this.m_dictNames.has(name)) {
-			this.m_lstWorker[this.m_dictNames.get(name)].IsRunning = false;
+		if (this.m_mapStates.has(name)) {
+			this.m_lstWorker[this.m_mapStates.get(name)].IsRunning = false;
 		}
 
 	}
@@ -262,8 +285,8 @@ class MiniFSM {
 			this.m_isRunning = true;
 
 		} else { // state unpause
-			if (this.m_dictNames.has(name)) {
-				this.m_lstStates[this.m_dictNames.get(name)].IsRunning = true;
+			if (this.m_mapStates.has(name)) {
+				this.m_lstStates[this.m_mapStates.get(name)].IsRunning = true;
 			}
 		}
 
@@ -275,11 +298,15 @@ class MiniFSM {
 	 */
 	public UnpauseWorker(name: string): void {
 
-		if (this.m_dictNames.has(name)) {
-			if (typeof this.m_lstWorker[this.m_dictNames.get(name)] !== "undefined")
-				this.m_lstWorker[this.m_dictNames.get(name)].IsRunning = true;
+		if (this.m_mapStates.has(name)) {
+			if (typeof this.m_lstWorker[this.m_mapStates.get(name)] !== "undefined")
+				this.m_lstWorker[this.m_mapStates.get(name)].IsRunning = true;
 		}
 
+	}
+
+	public Next(): void {
+		this.SetState(this.GetNextState());
 	}
 
 	/** Exits the current state and tries to run its OnExit event */
@@ -296,10 +323,10 @@ class MiniFSM {
 	}
 
 	/** returns the name for a given callback state and clears it */
-	public UseCallbackState(): string {
-		const tmp: string = this.m_strCallbackState;
+	public GetNextState(): string {
+		const tmp: string = this.m_NextState;
 
-		this.m_strCallbackState = "";
+		this.m_NextState = "";
 
 		return tmp;
 	}
@@ -351,7 +378,7 @@ class MiniFSM {
 		if (typeof onUpdate === "undefined")
 			onUpdate = null;
 
-		if (this.m_dictNames.has(name)) {
+		if (!this.m_mapStates.has(name)) {
 			id = this.m_lstStates.length;
 
 			this.m_lstStates.push(
@@ -364,7 +391,7 @@ class MiniFSM {
 				)
 			);
 
-			this.m_dictNames.set(name, id);
+			this.m_mapStates.set(name, id);
 
 		} else {
 			console.error("MiniFSM: Cannot add state '" + name + "', name already exists.")
@@ -380,20 +407,20 @@ class MiniFSM {
 	 * @param action		function for that event
 	 * @param type			event type
 	 */
-	public AddSingle(name: string, action: Function, type: ActionType) {
+	public AddSingle(name: string, action: Function, type: FsmActionType) {
 
 		let id: number = -1;
 
 		switch (type) {
-			case ActionType.onEnter:
+			case FsmActionType.onEnter:
 				id = this.Add(name, "", action);
 				break;
 
-			case ActionType.onExit:
+			case FsmActionType.onExit:
 				id = this.Add(name, "", null, action);
 				break;
 
-			case ActionType.onUpdate:
+			case FsmActionType.onUpdate:
 				id = this.Add(name, "", null, null, action);
 				break;
 		}
@@ -411,14 +438,14 @@ class MiniFSM {
 
 		let id: number = -1;
 
-		if (this.m_dictNames.has(name)) {
+		if (this.m_mapStates.has(name)) {
 			id = this.m_lstWorker.length;
 
 			this.m_lstWorker.push(
 				new MiniFSMWorker(name, this.AddAction(action), autostart)
 			);
 
-			this.m_dictNames.set(name, id);
+			this.m_mapStates.set(name, id);
 
 		} else {
 			console.error("MiniFSM: Cannot add worker '" + name + "', name already exists.")

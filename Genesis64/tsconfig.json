@@ -9,7 +9,7 @@
         "outFile":  "wwwroot/js/genesis64.js"
     },
     "exclude": [
-        "wwwroot"
+        "wwwroot/*"
     ],
     "include": [
         "Genesis64/**/*"

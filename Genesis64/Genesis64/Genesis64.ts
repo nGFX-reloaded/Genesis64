@@ -6,12 +6,15 @@ class Genesis64 {
 
 	private static m_instance: Genesis64;
 
-	private constructor() {
-		this.Init();
-	}
+	private constructor() { }
 
 	public static get Instance(): Genesis64 {
-		return this.m_instance || (this.m_instance = new this());
+		if (typeof this.m_instance === "undefined") {
+			this.m_instance = new this();
+			this.m_instance.Init();
+		}
+
+		return this.m_instance;
 	}
 
 	//#endregion
@@ -21,13 +24,71 @@ class Genesis64 {
 	private m_divContainer: HTMLDivElement;		// anchor element to which everything Genesis64 is added to
 	private m_fsm: MiniFSM;
 
+	private m_ram: G64Memory;
+	private m_colors: G64Colors;
+
+	private m_LogBuffer: string = "";
+
 	//#endregion
 
 	private Init() {
 
-		console.log("Genesis64 Init."); 
+		this.m_fsm = new MiniFSM("init", false);
+		this.m_ram = new G64Memory();
+		this.m_colors = new G64Colors();
 
-		this.m_divContainer = document.getElementById("Genesis64") as HTMLDivElement;
+		this.m_fsm.AddSingle("Startup",
+			() => {
+				this.Log("Starting Genesis64\n");
+				this.m_fsm.SetState("CreateHTML");
+			}
+			, FsmActionType.onEnter);
+
+		this.m_fsm.AddSingle("CreateHTML",
+			() => {
+				this.m_divContainer = document.getElementById("Genesis64") as HTMLDivElement;
+				//...
+				this.m_fsm.SetState("InitRam");
+			},
+			FsmActionType.onEnter);
+
+		this.m_fsm.Add("InitRam", "",
+			() => {
+				if (this.m_ram.Init() === -666)
+					this.m_fsm.SetState("SetColors");
+			},
+			null,
+			() => { if (this.m_ram.IsDone) { this.m_fsm.SetState("InitRam"); } }
+		);
+
+		this.m_fsm.AddSingle("SetColors",
+			() => {
+				this.m_colors.SetColorView();
+				this.m_fsm.SetState("Done");
+			},
+			FsmActionType.onEnter);
+
+
+		this.m_fsm.AddSingle("Done",
+			() => {
+				console.log("done");
+				this.m_fsm.StopTimer();
+			},
+			FsmActionType.onEnter);
+
+		this.m_fsm.StartTimer(100);
+		this.m_fsm.Unpause();
+		this.m_fsm.SetState("Startup");
+	}
+
+	public Log(message: string): void {
+
+		this.m_LogBuffer += message;
+
+		if (this.m_LogBuffer.endsWith("\n")) {
+			console.log(this.m_LogBuffer.substring(0, this.m_LogBuffer.length - 1));
+			this.m_LogBuffer = "";
+		}
 
 	}
 
