@@ -1,3 +1,203 @@
+class G64Colors {
+    get ColorView() { return this.m_colorView; }
+    constructor() {
+        this.m_isDirty = false;
+        Genesis64.Instance.Log(" - G64 colors created\n");
+        this.m_colorBuffer = new ArrayBuffer(256 * 4);
+        this.m_colorView = new Uint8Array(this.m_colorBuffer);
+        this.m_colorView.fill(0);
+        this.Init();
+    }
+    Init() {
+        this.m_Colors = new Array();
+        this.m_Colors.push({ "r": 0x00, "g": 0x00, "b": 0x00, "name": "Black", "css": "#000000", "chr": 144 });
+        this.m_Colors.push({ "r": 0xff, "g": 0xff, "b": 0xff, "name": "White", "css": "#ffffff", "chr": 5 });
+        this.m_Colors.push({ "r": 0x68, "g": 0x37, "b": 0x2b, "name": "Red", "css": "#68372b", "chr": 28 });
+        this.m_Colors.push({ "r": 0x70, "g": 0xa4, "b": 0xb2, "name": "Cyan", "css": "#70a4b2", "chr": 159 });
+        this.m_Colors.push({ "r": 0x6f, "g": 0x3d, "b": 0x86, "name": "Purple", "css": "#6f3d86", "chr": 156 });
+        this.m_Colors.push({ "r": 0x58, "g": 0x8d, "b": 0x43, "name": "Green", "css": "#588d43", "chr": 30 });
+        this.m_Colors.push({ "r": 0x35, "g": 0x28, "b": 0x79, "name": "Blue", "css": "#352879", "chr": 31 });
+        this.m_Colors.push({ "r": 0xb8, "g": 0xc7, "b": 0x6f, "name": "Yellow", "css": "#B8C76F", "chr": 158 });
+        this.m_Colors.push({ "r": 0x6f, "g": 0x4f, "b": 0x25, "name": "Orange", "css": "#6F4F25", "chr": 129 });
+        this.m_Colors.push({ "r": 0x43, "g": 0x39, "b": 0x00, "name": "Brown", "css": "#433900", "chr": 149 });
+        this.m_Colors.push({ "r": 0x9a, "g": 0x67, "b": 0x59, "name": "Lightred", "css": "#9A6759", "chr": 150 });
+        this.m_Colors.push({ "r": 0x44, "g": 0x44, "b": 0x44, "name": "Darkgrey", "css": "#444444", "chr": 151 });
+        this.m_Colors.push({ "r": 0x6c, "g": 0x6c, "b": 0x6c, "name": "Grey", "css": "#6C6C6C", "chr": 152 });
+        this.m_Colors.push({ "r": 0x9a, "g": 0xd2, "b": 0x84, "name": "Lightgreen", "css": "#9AD284", "chr": 153 });
+        this.m_Colors.push({ "r": 0x6c, "g": 0x5e, "b": 0xb5, "name": "Lightblue", "css": "#6C5EB5", "chr": 154 });
+        this.m_Colors.push({ "r": 0x95, "g": 0x95, "b": 0x95, "name": "Lightgrey", "css": "#959595", "chr": 155 });
+    }
+    SetColorView() {
+        let ptr = 0;
+        for (let j = 0; j < 16; j++) {
+            for (let i = 0; i < this.m_Colors.length; i++) {
+                this.m_colorView[ptr++] = this.m_Colors[i].r;
+                this.m_colorView[ptr++] = this.m_Colors[i].g;
+                this.m_colorView[ptr++] = this.m_Colors[i].b;
+                this.m_colorView[ptr++] = 255;
+            }
+        }
+        this.m_isDirty = false;
+    }
+    SetColor(color, r, g, b, a) {
+        const id = color * 4;
+        this.m_isDirty = true;
+    }
+    GetColor(color) {
+        return this.m_Colors[color];
+    }
+}
+class G64Memory {
+    get IsDone() { return this.m_isDone; }
+    constructor() {
+        this.m_isDirty = false;
+        this.m_isDone = false;
+        this.m_initStep = 0;
+        this.ADR_CHARACTERROM = 0xE000;
+        this.PTR_SCREENRAM = 0x0400;
+        this.PTR_COLORRAM = 0xD800;
+        this.PTR_SPRITEPTR = 0x07FF;
+        this.PTR_FONTBANK = 0xE000;
+        this.PTR_BITMAP = 0x0000;
+        Genesis64.Instance.Log(" - G64 memory created\n");
+    }
+    Init() {
+        switch (this.m_initStep) {
+            case 0:
+                this.InitRam();
+                this.m_initStep++;
+                break;
+            case 1:
+                this.InitFont();
+                this.m_initStep++;
+                break;
+            case 2:
+                this.SetFontRom();
+                this.m_initStep++;
+                break;
+            case 3:
+                this.SetBootMsg();
+                this.m_initStep++;
+                break;
+            default:
+                this.m_initStep = -666;
+                break;
+        }
+        return this.m_initStep;
+    }
+    InitRam() {
+        this._start("   ... setting up RAM values ... ");
+        this.m_ramBuffer = new ArrayBuffer(1024 * 64);
+        this.m_ramView = new Uint8Array(this.m_ramBuffer);
+        this.m_ramView.fill(0);
+        let val = true;
+        for (let i = 0; i < this.m_ramView.length; i++) {
+            if ((i % 64) == 0)
+                val = !val;
+            this.m_ramView[i] = (val) ? 255 : 0;
+        }
+        this._done();
+    }
+    InitFont() {
+        this._start("   ... creating font data ... ");
+        const imgFont = document.createElement("img");
+        imgFont.setAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAYAAADktbcKAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAE7JJREFUeNrsXYmO5LoN3DX8/7/8kkXSQUcrkcViUZI9EtDATLcl6+AtHr//+eefX3/a79+///PHf9u/v//9q2mfZ9rf2r7I"
+            + "M9+/e+/ujf/9nPc7+v52vMgcrWe88Uf7au3793fZ+avPT9E/s3+R/UD2D/2fhT8Gx0b9o+1qXzpa1Pf/1oJ7/ZHx0Q39/qC/o++32vd4o81HnvGQ3WqfvqO5e98j+589P6Z/e16j8921eXA52qPeOX1+7yG8N/afPhZc9367kIcUCIQuRjF+5v2VLYP8HpKjv++EMDvNp0Ugdn5s/yyH9xj0CC6u6Es8CqMAcsX7vWdG"
+            + "m1SNQJl9+fStQp7s+Y36twi2kkgh4nq7dpRAKJCf2R8P4Xvjfz53BEBRneczuBpQEfEKGYO1KagAUEEEomurJk7eOK1KVgEfGRWqRZIeEahAfmTsiAQTHeNaIUpaVK5SglixnhXqzSoR2bIfzVgzIsF4yMucUYXaoNyvnn3l87m/KVBrmMmIV+1LkfFRa3h0jor1WRyiHR/h0j0uU2XpVay/RYwRB++tL/t+pD/CRdv5"
+            + "VKsXCIyPRHX0JoyRMv5v3M814Gmnnfbsxkgit+IFinvZ6PctB4pwT0aXe6JqUs29Iv0z56Py82D7V0pnqBSd7TOa/7UjAEbvMyM6HGvIscZt57vyloGxWyh14IwfgfferJ/H6PpROX8VB4+qSB58jp67ZyN2+1tEdxshqcLGkNHfVTaUHURFFjEVhsmIjwNyW4XCzywRnIU/RILx4FOiAjAbjrhaqoyE3oIrD92aqyWx"
+            + "ZN6RMdSO9ndkLEINZyggI67YljjuGVEj8OPBX+93JSFkbi6iTGr0rjuD6CoJoAcQIx0/almt5sQI0GbuaZVrUAIaK0GhCNyz80TOItK3Bz8WF1WL/yjSIucVlTLKVYBIsAUqtmUlAeYQokZQxtGl0g11V9GXMSrvpDKp9sGCP5aQIfhwzwRQlIt6nmTW5mU5iMedkLnNVEFUgGGJwKgKM5KCqv0Adhk/e74RfxLGNpKW"
+            + "ANgFZhEE6V/pxjoDeRXENTP3iFFNPT7ybPUclNJk5nwzrsDMcxe7kNFvu0ajoXPLrIEJVvqWOEaiOzOfNuiD/VTsP3ptmtlzNqgmCyPROJPIPDNrGn0oFWBmIEfW8vqWxhi1Ks8hsu9WZJrSwInchVfCzQr8iNjgeu1mAUC1yCfEryuQlV3n9wEie97qg6oQ1QxBmgXgXkYmj2BkjI4sflQZOlvnnxH83QiHtcSdCEAq"
+            + "9drZBjRUf/Oy9mTDRZFbirdLRr1sQgiHr/LiYzM0VSD8aA9GeHyvPkyVcWUGAUEIHpJvoEIS2Bn5LeeiHSRGhZ8G6zylzhLlwV/7282IKZEJP50ToWGwM9Y8IgIrkR8lwC3wKcPNURWlOidBb36eM5tiTpHw5vbZ5TaA1RJExSYrEcmKe58VoYaK2Og4ivtyiyi0RBKZv8I4yaxvhbPT937cuyHaafMQUkFoV7k1R/Xd"
+            + "WVLbKjxBg3/aPXITgiizlTIbFnWvVLltZufv5aLPSAm7u8RG+keyQK24Bt0pOzBTr8L7/Z5Jmd7IiY88ctqT2/0WJJwdQHKQ/x1E+o1+KD+KADyR8yut4RVi60wR+0hxa/f6rp7g7CAaNpIK7T9rPUfSeEfLGiPVSUj+8gM4RzSfW6iiKqu4RZXh64mSw2oGVz3+j7cBoElKnsqJTzDVs0X019sAnlLM8oD6aW9sN5rd"
+            + "JcodeymnR+OzOditNMpodpXWW6znPYa6lY6yyER9GHrzG+0ZGxzUWxt7v4z29zz4ovYZ5P/I/qnqWzAwHsUxFeO8ehvWeyHiaYRWh/WIhje+lwRilL4pU/3WC49Fn8lEpHnVgZGS697+Z8+P6a9MELJKikWTqFjPeCnpEHUumvXoQh5S1k/3FjPD220VgCnCUVcFIr1h/z3irij8wfbPcniPQY/g4oq+xKMwlZVTIu/3"
+            + "nhlt0uxrPqZvFfJkzw+trLOSSCHiOlt5SoH8zP54CO9WB0YBNOKXXxE9F6kcYz3Dpq9WAaCCCETXVk2cvHGQJB6zkB9BGCv6VYn8yNgRCSY6xsVy0ipOXilBrFjPCvVmlYhs2Y9mrJmtPZhVcSvUBnUim5G94lLqQNniikg1WEaMVKzP0rEiFNirL1AhJivWj+bd9yL+KoqPeiL8bBXKY3CIeO7doqgYw58Bf3QwxGmn"
+            + "vaUxxPVWvCB7jxodv6enRayojBTyRNUkY0iKSmhRX47I+WTv2RX39LPSizHpwpA+o/lfOwJg9D4zosOxKggiunvzX20BH81FqQNn/Ai892b9PEbXj8r5qzh4VEVCStf1nrtnI3b7G2IBtfK+ff62PM2yyN97D/P+J4iKLGIqDJMRHwfEzoLCzywRnIU/NLjKgk+JCsBsOOJqqUBgyOBReOjWXC2JJfOOjDehlcZ6xD3Z"
+            + "DNIeAnsi/8gghqTPQubmwZ9Vuk1BCJmbiyiTGr3rziC6SgLoAcRIx0cWNZMTI0CbuadVrkEJaKwEhSJwz84TOYtoqmyvf2XqdRRpkfOKShnlKgBbggnhECrREzmEqBGUcXSpdEPdVfRljMo7qUyqfbDgjyVkCD7cMwEU5aJIcUdPhGM5iMedkLnNVEFUgBGJ1otGrGVtJIyIvmL87Pm271HeAkgkgEwJ5wyCIP0r3Vhn"
+            + "IK+CuGbmHjGqqcdHnq2eg1KazJxvxhWYee5iFzL6bddoNHRumTUwwUptLgLVfFqvNPZTsf/otWlmz9mgmiyMRONMIvPMrGn0oVSAmYEcJ61zXJ2pvKNm9t1yfVUaOJG78Eq4WYEfERtcr9GlwVSLfGO6LWXprjZjTyTHXybKDIkv3wHIRxmNLK47IhgZoyOLH1WGzlFWpL8IAMJhLXGnOunkaiCLGJYsYMzqeAgReIoj"
+            + "kvpM0JRtVV58bIamCoQf7cEIjx+fFHSmioDWe69Ii+0RgZ2R33Iu2kFiVPhpsM5T6ixRHvz9VRuQEVMiE346J2rXjhKBGeLuCscnlgC3wJdFfs8xZ3YF5dH6PGc2xZwiiWDaZ5fbAFZLEBWbrEQkKzPNrAg1VMRGx1Hcl1tEoSWSyPwVxklmfSucnb73494N0U6bh5AKQrvKrTmq786S2lbhCRr88xex+uUkBFFmK2U2"
+            + "LOpeqXLbzM7fy0WfkRJ2d4mN9EfPN/LeqnRaM/YKyWugzGNwz6RMb+TERx457cntfgsSzg4gOcj/DiL908u+nerAC5BfaQ2vEFtnithHilu713f1BGcH0bCRVGj/Wes5ksY7WtYYqU5C8pcfwDmi+dxCFVVZxS2qDF9PlBxWM7jq8X+8DQBNUvJUTnyCqZ4tor/eBvCUYpYH1E97Y7vR7C4swqoQnDVQRavpRiqrsvNm"
+            + "Um5X7bl6vcyeo++s3ouZTCSaN6DKrfkeicFR/+IKHZQZj/GzRt/HPof0q0w6+VR17qepDG349qg2Abt/3WAgVNzNUqAZ/dEko9XSDMupvL2P2DkiHITpn32/1Z+tMBVJPvv9nWr8DBwo8SPiCn1FABSpDttLbYXUhx/17fW3gOZ7LKv/aBOtOaAVW6znolVfrL5WAUm2OCva34IRr7+XEqwytVxVdWCr6GcUeRXxFSM4"
+            + "aasr3SjVQialUiGYO3gvJVSEc/fmr4xie7uIP4ocXa3mWNWBFfDD9s++O6JqwhIAwwFmABaTsJKtuVaFGNl79kruiNbGy5xdZg/Q80W4sZUGPAo/CrtVVV6HUQny/yUF9Si0lbUWMWRlx1dwkOzmIumVItTeSpDhpWHLvNMaBy3IqhBRrSQeVlx/lotahTc8CRBBVm+PLWmXrXadsTH9WeWPsS5nEanSiLPD/qy69Xka"
+            + "/Oy6buZcbsULFFbZ6PdeiilLBLRsFNG5PRHhWQkhcsuSucdmrOxMjsQI/KgkwAixiRLkiA3v89y1I5X1xD3vlgExJEYBHLn98Oa/2gYxmktk/7w9zdxCeO8d2YCYW46q+as4OHMLYcHn6Ll7NmK3vyG6m5X3Tc3BEP1xdEPwFGeeqL8Egpio/SWqqjHc0fLurFRfEEcchXRlrdOyX6RVAGbDEUcLBQIjAFd56NZcPaMT"
+            + "+w6VxXlEkBEjEgvIFlIi6oTn7BKBH5URnIVLpXppJULtvevOILpKAugBxEjHj1pWqzkxArSZe1rlGirtGKgEhSIwo2sr/VAsLqoW/1GkRc4rKmWUqwBsCSaEQ6hET+QQokZQxlBU6Yiyq+jLGJV3UplU+2DBn+p2Jl0ZqLq0UqS4oyfCsRzE407I3Ha7KUAAwxKBURVmJAVlbSSMiL5ifEUUJeOOjK47LQFkXWxZBKkO"
+            + "2d0BeRXENTP3iFFNPT7ybPUclNJk5nwrQ567kmHEESiSLScTjYZ6QanviVFvL9Ram/WLsPY9Es0W3f/s+Sn6Z/Zv12hAbx5KFQ/9/4oiv7fgbDQaMv7onjR7T4xST4TTsvowcgbRq7qKaEBl/5nRgFV2LiZGZYX61/5/RQdRVTP1kKjSYWbVQSnE/FWFSd+w/4gNanZE4GcvWCexb5tVa8NCpIE7crepctRYZW325jgD"
+            + "ebI6vqrAZsX5VRnp1Gv0qgmz4cxoVN/sa2qLSFzRwZiEELM4B8JZsv2VSKYmIAortGIPPPVslaRiqVCeiuupd6zk0OPYzJmNkNyzA1yt/jJDn6mKq16pZ0UTpuwoYWRFZCtb04w1IyI8EwuQkUytDEgzYFxiA2AQwUsowVDRNp3RTB0PTRiBcmkv7djMhBmM9MVWRWZTbnn9I0baasYWOb/VNoAfkQ/gtNN2kRQzKgRy"
+            + "jRh95kYnzYqY2QCKqOFvhxTf6EEoAWg1ALP90fONvLcqnVbW4MhIhlk34F4eg+mxAE+n3JYo9dPLS59WT4Qq2/1m5FQQoGz14dP2gI+ZiPokQ/apDkwcqEoUZseoqhKMIsObiJ8CSS234t0libt6grODaLIJLrN+++r9PCrGcxkFc55R57TseEcCWGADUEVVVnGLKiPlEyWHKAJWhcofFaDIBqCOAHs6AJ+2L7K+kgA8"
+            + "AZF2y1Bz2kF8GQGIxPgzCKtCcNZAFY2e84qORufk+Z1X7F92fFUNRPU7q/eiEi6zOS6qAtfuEWeLRJypxeLMeEzyRvR97HNIv8qkk09V597YIuXNRjkV2P3r4TRcHThLgWb0j9Srr5RmWE6F5khAVJEIB2H6Z99v9a/KBDSKT1BmGmLhQIkfPUQfzTGUEQiJButFObXBHFY2GS/KDA0GYarbotmGkMOwkDlzC4CUPOvt"
+            + "h7d/0f4WjHj9vUpKldGDVdGAvTWwyKtIGz+Ck2514IhughrLMioEk9yyR8kzxr6KenA/xYtwlJ15tZpjRQMq4Iftn3135obqinCa1bXt2HBZtuZaFWJk79kruSOa0y9zdpk9QM8X4cZWBqMo/CjsVlWZgnrS1edzIxQazVgS6R8ZX8FBspvr6VhRat+OgY6fsS9EUlUp9w+1v4zi2BH4Q7moVXjDkwARZEWzJVuqEmpD"
+            + "UdiY/nzxeouzwgBYbcTZYX9W3fo8DX52XTdzLrfiBSpvusj3Fgf1REDLRhGd2xMRnpUQIrcsmXtsxsoeveWI9B9Vg64mNoyPQbRGwbUjlUWSf44ABjUkRgEcuf3w5r9TOuzvuVSn7Mrm7PNsQMwtR9X8VRycuYWw4HP03D0bsdvfEN1tdNgVHAzRH0c3BE9x5on6SyCIidpfoqoawx0tj83qrNUIF1b4sIzWadkv0ioA"
+            + "s+GIo4UCgRGAqzx0a66e0Yl9h8riPCLIiBGJBWQLKRF1wnN2icCPygjOwqVSvRwRgdG77gyiqySAHkCMdPyoZXWWLzhig8jcE8/gUNlqTyhnRhCY0bWVfigWF1WL/yjSIucVlTLKVYCIqyUqtmUlAeYQokZQxlBU6Yiyq+jLGJV3UplU+2DBn+p2pvf9PRNAUS7K3FGPXJBVRCAyt91uChDAsERgVIUZSUFZGwkjoq8Y"
+            + "XxFFybgjo+tOSwBZF1sWQZD+1WHH1cirIK6ZuUeMaurxkWer51BddLVCao326e7rr4AjUCR3eSYaDfWCUt8To95eqLVWXWeejWaL7n/2/BT9M/u3azSgNw+liof+f0WR31vwytJg2XtilHoinJbVh5EziF7VVUQDKvvPjAassnNVlHSrkCzb/6/oIKoa9yuLg646KIWYn6l+vBvC7DSfb+NtlSHW2otV1YHvyN2mylFj"
+            + "lbXZm+PMaq0ZI1FVRaLs+VUZ6dRrtKzwI5sT66fixerPuKa2iMQVHYxJCDGLcyCcJdtfiWRqAqKwQiv2wFPPVkkqlgrlqbieesdKDqurA1+t/jJDn6mKq16pZ0UTpuwoYWRFZCtb04w1IyI8EwuQkUytDEgzYFxiA2AQwUsowVDRNp3RTB0PTRiBcmkv7djMhBmM9BW5mVGk3PL6R4y01Ywtcn6rbQA/Ih/AaaftIilm"
+            + "VAjkGjH6zI1OmhUxswEUUcPfDim+0YNQAtBqAGb7o+cbeW9VOq2swZGRDLNuwL08BtNjAZ5OuS1R6pQJP62aCFW2+83IqSBApyzYO+BjJqI+yZB9qgMTB6oShdkxqqoEo8jwJuKnQFLLrXh3SeKunuDsIJpsgsvV1YGfnFz0MAouhsT6XZ2EpB3vSAALbACqqMoqblFlpHyi5BBFwKpQ+aMCFNkA1BFgTwfg0/ZF1lcS"
+            + "gCcg0m4Zak47iK9q/xJgAF348sAfGGjJAAAAAElFTkSuQmCC");
+        imgFont.width = 256;
+        imgFont.height = 128;
+        const canvasFont = document.createElement("canvas");
+        canvasFont.id = "G64Font";
+        canvasFont.width = 256;
+        canvasFont.height = 128;
+        this.m_ctxFont = canvasFont.getContext("2d");
+        imgFont.onload = (event) => {
+            this.m_ctxFont.drawImage(imgFont, 0, 0);
+            this._done();
+        };
+    }
+    SetFontRom() {
+        this._start("   ... copy font data to ram ... ");
+        const w = this.m_ctxFont.canvas.width;
+        const h = this.m_ctxFont.canvas.height;
+        const imgDataChr = this.m_ctxFont.getImageData(0, 0, w, h);
+        let ptr = 0;
+        let pixel;
+        let aBank = [this.ADR_CHARACTERROM, this.ADR_CHARACTERROM + 0x1000];
+        let byte = 0;
+        for (let bank = 0; bank < aBank.length; bank++) {
+            ptr = aBank[bank];
+            for (let y = (bank * 8); y < (8 * (bank + 1)); y++) {
+                for (let x = 0; x < 32; x++) {
+                    for (let yy = 0; yy < 8; yy++) {
+                        byte = 0;
+                        for (let xx = 0; xx < 8; xx++) {
+                            pixel = ((xx * 4) + (x * 8 * 4)) + ((yy * w * 4) + (y * 8 * w * 4));
+                            byte = BitHelper.BitPlace(byte, 7 - xx, (imgDataChr.data[pixel + 3] >= 128));
+                        }
+                        this.m_ramView[ptr++] = byte;
+                    }
+                }
+            }
+        }
+        this._done();
+    }
+    SetBootMsg() {
+        this._start("   ... writing boot message ... ");
+        const strBootMsg = "                                        " +
+            "     **** genesis 64 basic v2 ****      " +
+            "                                        " +
+            " 64k ram system  38911 basic bytes free " +
+            "                                        " +
+            "ready.                                  ";
+        for (let i = 0; i < strBootMsg.length; i++) {
+            this.m_ramView[this.PTR_SCREENRAM + i] = Petscii.TXTSCREENCODE.indexOf(strBootMsg.charAt(i));
+        }
+        this._done();
+    }
+    _start(message) {
+        Genesis64.Instance.Log(message);
+        this.m_isDone = false;
+    }
+    _done() {
+        Genesis64.Instance.Log("OK\n");
+        this.m_isDone = true;
+    }
+    Poke(ptr, byte) {
+        this.m_ramView[ptr] = byte;
+        this.m_isDirty = true;
+    }
+    Peek(ptr) {
+        return this.m_ramView[ptr];
+    }
+}
 class Genesis64 {
     constructor() {
         this.m_LogBuffer = "";
@@ -45,6 +245,418 @@ class Genesis64 {
             console.log(this.m_LogBuffer.substring(0, this.m_LogBuffer.length - 1));
             this.m_LogBuffer = "";
         }
+    }
+}
+class Petscii {
+    static PetToBas(pet) {
+        let basText = "";
+        let bas = "";
+        for (let i = 0; i < pet.length; i++) {
+            bas = Petscii.BasText[pet[i]];
+            basText += (bas.length == 1) ? bas : "{" + bas + "}";
+        }
+        return basText;
+    }
+    static BasToPet(text) {
+        let pet = [];
+        let bas = new Map();
+        for (let i = 0; i < Petscii.BasText.length; i++) {
+            bas.set(Petscii.BasText[i], i);
+        }
+        let c = 0;
+        let len = -1;
+        while (len++ < text.length) {
+            c++;
+            if (c > 256)
+                break;
+            if (text.charAt(len) == "{") {
+                let end = text.indexOf("}", len);
+                if (end == -1)
+                    end = text.length - 1;
+                let basText = text.substring(len + 1, end);
+                if (bas.has(basText)) {
+                    pet.push(bas.get(basText));
+                }
+                else {
+                    pet.push(46);
+                }
+                len = end;
+                continue;
+            }
+            if (bas.has(text.charAt(len))) {
+                pet.push(bas.get(text.charAt(len)));
+            }
+            else {
+                if (text.charAt(len) != "")
+                    pet.push(46);
+            }
+        }
+        return pet;
+    }
+    static PetToText(pet) {
+        let text = Petscii.BasText[pet];
+        if (text.length > 1)
+            text = "{" + text + "}";
+        return text;
+    }
+    static ScreenToPet(screen) {
+        let pet = screen;
+        if (screen <= 31) {
+            pet = screen + 64;
+        }
+        else if (screen >= 32 && screen <= 63) {
+        }
+        else if (screen >= 64 && screen <= 93) {
+            pet = screen + 128;
+        }
+        else if (screen >= 96 && screen <= 127) {
+            pet = screen + +64;
+        }
+        else if (screen >= 128 && screen <= 159) {
+            pet = screen - 128;
+        }
+        else if (screen >= 160 && screen <= 191) {
+            pet = screen - 64;
+        }
+        else if (screen >= 192 && screen <= 223) {
+            pet = screen - 64;
+        }
+        else if (screen >= 224 && screen <= 254) {
+        }
+        return pet;
+    }
+    static PetToScreen(pet) {
+        let code = pet;
+        if (pet <= 31) {
+            code = pet + 128;
+        }
+        else if (pet >= 64 && pet <= 95) {
+            code = pet - 64;
+        }
+        else if (pet >= 96 && pet <= 127) {
+            code = pet - 32;
+        }
+        else if (pet >= 128 && pet <= 159) {
+            code = pet + 64;
+        }
+        else if (pet >= 160 && pet <= 191) {
+            code = pet - 64;
+        }
+        else if (pet >= 192 && pet <= 254) {
+            code = pet - 128;
+        }
+        return code;
+    }
+    static BasToHtml(text, useLower = false) {
+        const low = useLower ? 1 : 0;
+        const pet = this.BasToPet(text);
+        let literal = "";
+        for (let i = 0; i < pet.length; i++) {
+            if (pet[i] >= 0) {
+                if (pet[i] <= 31 || (pet[i] >= 128 && pet[i] <= 159)) {
+                    literal += "&#xe" + (low + 2).toString() + (pet[0] + 64).toString(16).padStart(2, "0") + ";";
+                }
+                else {
+                    literal += "&#xe" + low.toString() + pet[i].toString(16).padStart(2, "0") + ";";
+                }
+            }
+        }
+        return literal;
+    }
+}
+Petscii.BasText = [
+    "null",
+    "ct a",
+    "ct b",
+    "ct c",
+    "ct d",
+    "white",
+    "ct f",
+    "ct g",
+    "ct h",
+    "ct i",
+    "ct j",
+    "ct k",
+    "ct l",
+    "return",
+    "ct n",
+    "ct o",
+    "ct p",
+    "down",
+    "reverse on",
+    "home",
+    "delete",
+    "ct u",
+    "ct v",
+    "ct w",
+    "ct x",
+    "ct y",
+    "ct z",
+    "027",
+    "red",
+    "right",
+    "green",
+    "blue",
+    " ",
+    "!",
+    "\"",
+    "#",
+    "$",
+    "%",
+    "&",
+    "'",
+    "(",
+    ")",
+    "*",
+    "+",
+    ",",
+    "-",
+    ".",
+    "/",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    ":",
+    ";",
+    "<",
+    "=",
+    ">",
+    "?",
+    "@",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+    "[",
+    "pound",
+    "]",
+    "^",
+    "arrow left",
+    "096",
+    "097",
+    "098",
+    "099",
+    "100",
+    "101",
+    "102",
+    "103",
+    "104",
+    "105",
+    "106",
+    "107",
+    "108",
+    "109",
+    "110",
+    "111",
+    "112",
+    "113",
+    "114",
+    "115",
+    "116",
+    "117",
+    "118",
+    "119",
+    "120",
+    "121",
+    "122",
+    "123",
+    "124",
+    "125",
+    "126",
+    "127",
+    "128",
+    "orange",
+    "130",
+    "131",
+    "132",
+    "f1",
+    "f3",
+    "f5",
+    "f7",
+    "f2",
+    "f4",
+    "f6",
+    "f8",
+    "141",
+    "142",
+    "143",
+    "black",
+    "up",
+    "reverse off",
+    "clear",
+    "148",
+    "brown",
+    "pink",
+    "dark gray",
+    "gray",
+    "light green",
+    "light blue",
+    "light gray",
+    "156",
+    "left",
+    "yellow",
+    "cyan",
+    "sh space",
+    "cm k",
+    "cm i",
+    "cm t",
+    "cm @",
+    "cm g",
+    "cm +",
+    "cm m",
+    "cm pound",
+    "sh pound",
+    "cm n",
+    "cm q",
+    "cm d",
+    "cm z",
+    "cm s",
+    "cm p",
+    "cm a",
+    "cm e",
+    "cm r",
+    "cm w",
+    "cm h",
+    "cm j",
+    "cm l",
+    "cm y",
+    "cm u",
+    "cm d",
+    "sh @",
+    "cm f",
+    "cm c",
+    "cm x",
+    "cm v",
+    "cm b",
+    "sh asterisk",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "sh +",
+    "cm -",
+    "sh -",
+    "222",
+    "cm asterisk",
+    "224",
+    "225",
+    "226",
+    "227",
+    "228",
+    "229",
+    "230",
+    "231",
+    "232",
+    "233",
+    "234",
+    "235",
+    "236",
+    "237",
+    "238",
+    "239",
+    "240",
+    "241",
+    "242",
+    "243",
+    "244",
+    "245",
+    "246",
+    "247",
+    "248",
+    "249",
+    "250",
+    "251",
+    "252",
+    "253",
+    "254",
+    "pi",
+];
+Petscii.TXTSCREENCODE = "@abcdefghijklmnopqrstuvwxyz[£]^_ !\"#$%&'()*+,-./0123456789:;<=>?~ABCDEFGHIJKLMNOPQRSTUVWXYZ~~~|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~";
+class BitHelper {
+    static Byte(bits) {
+        let byte;
+        if (typeof bits === "number") {
+            byte = bits;
+        }
+        else {
+            byte = this.BitCreate(bits);
+        }
+        return byte;
+    }
+    static BitCreate(bits) {
+        let byte = 0;
+        for (let i = 0; i < 8; i++) {
+            if (bits.charAt(i) == "1") {
+                byte = this.BitSet(byte, 7 - i);
+            }
+        }
+        return byte;
+    }
+    static BitTest(byte, bit) {
+        return (((byte >> bit) % 2) != 0);
+    }
+    static BitSet(byte, bit) {
+        return (byte | (1 << bit));
+    }
+    static BitClear(byte, bit) {
+        return byte & ~(1 << bit);
+    }
+    static BitToggle(byte, bit) {
+        return (this.BitTest(byte, bit)) ? this.BitClear(byte, bit) : this.BitSet(byte, bit);
+    }
+    static BitPlace(byte, bit, set) {
+        return (set) ? this.BitSet(byte, bit) : this.BitClear(byte, bit);
     }
 }
 class MersenneTwister {
@@ -464,616 +1076,4 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
-class G64Memory {
-    get IsDone() { return this.m_isDone; }
-    constructor() {
-        this.m_isDirty = false;
-        this.m_isDone = false;
-        this.m_initStep = 0;
-        this.ADR_CHARACTERROM = 0xE000;
-        this.PTR_SCREENRAM = 0x0400;
-        this.PTR_COLORRAM = 0xD800;
-        this.PTR_SPRITEPTR = 0x07FF;
-        this.PTR_FONTBANK = 0xE000;
-        this.PTR_BITMAP = 0x0000;
-        Genesis64.Instance.Log(" - G64 memory created\n");
-    }
-    Init() {
-        switch (this.m_initStep) {
-            case 0:
-                this.InitRam();
-                this.m_initStep++;
-                break;
-            case 1:
-                this.InitFont();
-                this.m_initStep++;
-                break;
-            case 2:
-                this.SetFontRom();
-                this.m_initStep++;
-                break;
-            case 3:
-                this.SetBootMsg();
-                this.m_initStep++;
-                break;
-            default:
-                this.m_initStep = -666;
-                break;
-        }
-        return this.m_initStep;
-    }
-    InitRam() {
-        this._start("   ... setting up RAM values ... ");
-        this.m_ramBuffer = new ArrayBuffer(1024 * 64);
-        this.m_ramView = new Uint8Array(this.m_ramBuffer);
-        this.m_ramView.fill(0);
-        let val = true;
-        for (let i = 0; i < this.m_ramView.length; i++) {
-            if ((i % 64) == 0)
-                val = !val;
-            this.m_ramView[i] = (val) ? 255 : 0;
-        }
-        this._done();
-    }
-    InitFont() {
-        this._start("   ... creating font data ... ");
-        const imgFont = document.createElement("img");
-        imgFont.setAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAYAAADktbcKAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAE7JJREFUeNrsXYmO5LoN3DX8/7/8kkXSQUcrkcViUZI9EtDATLcl6+AtHr//+eefX3/a79+///PHf9u/v//9q2mfZ9rf2r7I"
-            + "M9+/e+/ujf/9nPc7+v52vMgcrWe88Uf7au3793fZ+avPT9E/s3+R/UD2D/2fhT8Gx0b9o+1qXzpa1Pf/1oJ7/ZHx0Q39/qC/o++32vd4o81HnvGQ3WqfvqO5e98j+589P6Z/e16j8921eXA52qPeOX1+7yG8N/afPhZc9367kIcUCIQuRjF+5v2VLYP8HpKjv++EMDvNp0Ugdn5s/yyH9xj0CC6u6Es8CqMAcsX7vWdG"
-            + "m1SNQJl9+fStQp7s+Y36twi2kkgh4nq7dpRAKJCf2R8P4Xvjfz53BEBRneczuBpQEfEKGYO1KagAUEEEomurJk7eOK1KVgEfGRWqRZIeEahAfmTsiAQTHeNaIUpaVK5SglixnhXqzSoR2bIfzVgzIsF4yMucUYXaoNyvnn3l87m/KVBrmMmIV+1LkfFRa3h0jor1WRyiHR/h0j0uU2XpVay/RYwRB++tL/t+pD/CRdv5"
-            + "VKsXCIyPRHX0JoyRMv5v3M814Gmnnfbsxkgit+IFinvZ6PctB4pwT0aXe6JqUs29Iv0z56Py82D7V0pnqBSd7TOa/7UjAEbvMyM6HGvIscZt57vyloGxWyh14IwfgfferJ/H6PpROX8VB4+qSB58jp67ZyN2+1tEdxshqcLGkNHfVTaUHURFFjEVhsmIjwNyW4XCzywRnIU/RILx4FOiAjAbjrhaqoyE3oIrD92aqyWx"
-            + "ZN6RMdSO9ndkLEINZyggI67YljjuGVEj8OPBX+93JSFkbi6iTGr0rjuD6CoJoAcQIx0/almt5sQI0GbuaZVrUAIaK0GhCNyz80TOItK3Bz8WF1WL/yjSIucVlTLKVYBIsAUqtmUlAeYQokZQxtGl0g11V9GXMSrvpDKp9sGCP5aQIfhwzwRQlIt6nmTW5mU5iMedkLnNVEFUgGGJwKgKM5KCqv0Adhk/e74RfxLGNpKW"
-            + "ANgFZhEE6V/pxjoDeRXENTP3iFFNPT7ybPUclNJk5nwzrsDMcxe7kNFvu0ajoXPLrIEJVvqWOEaiOzOfNuiD/VTsP3ptmtlzNqgmCyPROJPIPDNrGn0oFWBmIEfW8vqWxhi1Ks8hsu9WZJrSwInchVfCzQr8iNjgeu1mAUC1yCfEryuQlV3n9wEie97qg6oQ1QxBmgXgXkYmj2BkjI4sflQZOlvnnxH83QiHtcSdCEAq"
-            + "9drZBjRUf/Oy9mTDRZFbirdLRr1sQgiHr/LiYzM0VSD8aA9GeHyvPkyVcWUGAUEIHpJvoEIS2Bn5LeeiHSRGhZ8G6zylzhLlwV/7282IKZEJP50ToWGwM9Y8IgIrkR8lwC3wKcPNURWlOidBb36eM5tiTpHw5vbZ5TaA1RJExSYrEcmKe58VoYaK2Og4ivtyiyi0RBKZv8I4yaxvhbPT937cuyHaafMQUkFoV7k1R/Xd"
-            + "WVLbKjxBg3/aPXITgiizlTIbFnWvVLltZufv5aLPSAm7u8RG+keyQK24Bt0pOzBTr8L7/Z5Jmd7IiY88ctqT2/0WJJwdQHKQ/x1E+o1+KD+KADyR8yut4RVi60wR+0hxa/f6rp7g7CAaNpIK7T9rPUfSeEfLGiPVSUj+8gM4RzSfW6iiKqu4RZXh64mSw2oGVz3+j7cBoElKnsqJTzDVs0X019sAnlLM8oD6aW9sN5rd"
-            + "JcodeymnR+OzOditNMpodpXWW6znPYa6lY6yyER9GHrzG+0ZGxzUWxt7v4z29zz4ovYZ5P/I/qnqWzAwHsUxFeO8ehvWeyHiaYRWh/WIhje+lwRilL4pU/3WC49Fn8lEpHnVgZGS697+Z8+P6a9MELJKikWTqFjPeCnpEHUumvXoQh5S1k/3FjPD220VgCnCUVcFIr1h/z3irij8wfbPcniPQY/g4oq+xKMwlZVTIu/3"
-            + "nhlt0uxrPqZvFfJkzw+trLOSSCHiOlt5SoH8zP54CO9WB0YBNOKXXxE9F6kcYz3Dpq9WAaCCCETXVk2cvHGQJB6zkB9BGCv6VYn8yNgRCSY6xsVy0ipOXilBrFjPCvVmlYhs2Y9mrJmtPZhVcSvUBnUim5G94lLqQNniikg1WEaMVKzP0rEiFNirL1AhJivWj+bd9yL+KoqPeiL8bBXKY3CIeO7doqgYw58Bf3QwxGmn"
-            + "vaUxxPVWvCB7jxodv6enRayojBTyRNUkY0iKSmhRX47I+WTv2RX39LPSizHpwpA+o/lfOwJg9D4zosOxKggiunvzX20BH81FqQNn/Ai892b9PEbXj8r5qzh4VEVCStf1nrtnI3b7G2IBtfK+ff62PM2yyN97D/P+J4iKLGIqDJMRHwfEzoLCzywRnIU/NLjKgk+JCsBsOOJqqUBgyOBReOjWXC2JJfOOjDehlcZ6xD3Z"
-            + "DNIeAnsi/8gghqTPQubmwZ9Vuk1BCJmbiyiTGr3rziC6SgLoAcRIx0cWNZMTI0CbuadVrkEJaKwEhSJwz84TOYtoqmyvf2XqdRRpkfOKShnlKgBbggnhECrREzmEqBGUcXSpdEPdVfRljMo7qUyqfbDgjyVkCD7cMwEU5aJIcUdPhGM5iMedkLnNVEFUgBGJ1otGrGVtJIyIvmL87Pm271HeAkgkgEwJ5wyCIP0r3Vhn"
-            + "IK+CuGbmHjGqqcdHnq2eg1KazJxvxhWYee5iFzL6bddoNHRumTUwwUptLgLVfFqvNPZTsf/otWlmz9mgmiyMRONMIvPMrGn0oVSAmYEcJ61zXJ2pvKNm9t1yfVUaOJG78Eq4WYEfERtcr9GlwVSLfGO6LWXprjZjTyTHXybKDIkv3wHIRxmNLK47IhgZoyOLH1WGzlFWpL8IAMJhLXGnOunkaiCLGJYsYMzqeAgReIoj"
-            + "kvpM0JRtVV58bIamCoQf7cEIjx+fFHSmioDWe69Ii+0RgZ2R33Iu2kFiVPhpsM5T6ixRHvz9VRuQEVMiE346J2rXjhKBGeLuCscnlgC3wJdFfs8xZ3YF5dH6PGc2xZwiiWDaZ5fbAFZLEBWbrEQkKzPNrAg1VMRGx1Hcl1tEoSWSyPwVxklmfSucnb73494N0U6bh5AKQrvKrTmq786S2lbhCRr88xex+uUkBFFmK2U2"
-            + "LOpeqXLbzM7fy0WfkRJ2d4mN9EfPN/LeqnRaM/YKyWugzGNwz6RMb+TERx457cntfgsSzg4gOcj/DiL908u+nerAC5BfaQ2vEFtnithHilu713f1BGcH0bCRVGj/Wes5ksY7WtYYqU5C8pcfwDmi+dxCFVVZxS2qDF9PlBxWM7jq8X+8DQBNUvJUTnyCqZ4tor/eBvCUYpYH1E97Y7vR7C4swqoQnDVQRavpRiqrsvNm"
-            + "Um5X7bl6vcyeo++s3ouZTCSaN6DKrfkeicFR/+IKHZQZj/GzRt/HPof0q0w6+VR17qepDG349qg2Abt/3WAgVNzNUqAZ/dEko9XSDMupvL2P2DkiHITpn32/1Z+tMBVJPvv9nWr8DBwo8SPiCn1FABSpDttLbYXUhx/17fW3gOZ7LKv/aBOtOaAVW6znolVfrL5WAUm2OCva34IRr7+XEqwytVxVdWCr6GcUeRXxFSM4"
-            + "aasr3SjVQialUiGYO3gvJVSEc/fmr4xie7uIP4ocXa3mWNWBFfDD9s++O6JqwhIAwwFmABaTsJKtuVaFGNl79kruiNbGy5xdZg/Q80W4sZUGPAo/CrtVVV6HUQny/yUF9Si0lbUWMWRlx1dwkOzmIumVItTeSpDhpWHLvNMaBy3IqhBRrSQeVlx/lotahTc8CRBBVm+PLWmXrXadsTH9WeWPsS5nEanSiLPD/qy69Xka"
-            + "/Oy6buZcbsULFFbZ6PdeiilLBLRsFNG5PRHhWQkhcsuSucdmrOxMjsQI/KgkwAixiRLkiA3v89y1I5X1xD3vlgExJEYBHLn98Oa/2gYxmktk/7w9zdxCeO8d2YCYW46q+as4OHMLYcHn6Ll7NmK3vyG6m5X3Tc3BEP1xdEPwFGeeqL8Egpio/SWqqjHc0fLurFRfEEcchXRlrdOyX6RVAGbDEUcLBQIjAFd56NZcPaMT"
-            + "+w6VxXlEkBEjEgvIFlIi6oTn7BKBH5URnIVLpXppJULtvevOILpKAugBxEjHj1pWqzkxArSZe1rlGirtGKgEhSIwo2sr/VAsLqoW/1GkRc4rKmWUqwBsCSaEQ6hET+QQokZQxlBU6Yiyq+jLGJV3UplU+2DBn+p2Jl0ZqLq0UqS4oyfCsRzE407I3Ha7KUAAwxKBURVmJAVlbSSMiL5ifEUUJeOOjK47LQFkXWxZBKkO"
-            + "2d0BeRXENTP3iFFNPT7ybPUclNJk5nwrQ567kmHEESiSLScTjYZ6QanviVFvL9Ram/WLsPY9Es0W3f/s+Sn6Z/Zv12hAbx5KFQ/9/4oiv7fgbDQaMv7onjR7T4xST4TTsvowcgbRq7qKaEBl/5nRgFV2LiZGZYX61/5/RQdRVTP1kKjSYWbVQSnE/FWFSd+w/4gNanZE4GcvWCexb5tVa8NCpIE7crepctRYZW325jgD"
-            + "ebI6vqrAZsX5VRnp1Gv0qgmz4cxoVN/sa2qLSFzRwZiEELM4B8JZsv2VSKYmIAortGIPPPVslaRiqVCeiuupd6zk0OPYzJmNkNyzA1yt/jJDn6mKq16pZ0UTpuwoYWRFZCtb04w1IyI8EwuQkUytDEgzYFxiA2AQwUsowVDRNp3RTB0PTRiBcmkv7djMhBmM9MVWRWZTbnn9I0baasYWOb/VNoAfkQ/gtNN2kRQzKgRy"
-            + "jRh95kYnzYqY2QCKqOFvhxTf6EEoAWg1ALP90fONvLcqnVbW4MhIhlk34F4eg+mxAE+n3JYo9dPLS59WT4Qq2/1m5FQQoGz14dP2gI+ZiPokQ/apDkwcqEoUZseoqhKMIsObiJ8CSS234t0libt6grODaLIJLrN+++r9PCrGcxkFc55R57TseEcCWGADUEVVVnGLKiPlEyWHKAJWhcofFaDIBqCOAHs6AJ+2L7K+kgA8"
-            + "AZF2y1Bz2kF8GQGIxPgzCKtCcNZAFY2e84qORufk+Z1X7F92fFUNRPU7q/eiEi6zOS6qAtfuEWeLRJypxeLMeEzyRvR97HNIv8qkk09V597YIuXNRjkV2P3r4TRcHThLgWb0j9Srr5RmWE6F5khAVJEIB2H6Z99v9a/KBDSKT1BmGmLhQIkfPUQfzTGUEQiJButFObXBHFY2GS/KDA0GYarbotmGkMOwkDlzC4CUPOvt"
-            + "h7d/0f4WjHj9vUpKldGDVdGAvTWwyKtIGz+Ck2514IhughrLMioEk9yyR8kzxr6KenA/xYtwlJ15tZpjRQMq4Iftn3135obqinCa1bXt2HBZtuZaFWJk79kruSOa0y9zdpk9QM8X4cZWBqMo/CjsVlWZgnrS1edzIxQazVgS6R8ZX8FBspvr6VhRat+OgY6fsS9EUlUp9w+1v4zi2BH4Q7moVXjDkwARZEWzJVuqEmpD"
-            + "UdiY/nzxeouzwgBYbcTZYX9W3fo8DX52XTdzLrfiBSpvusj3Fgf1REDLRhGd2xMRnpUQIrcsmXtsxsoeveWI9B9Vg64mNoyPQbRGwbUjlUWSf44ABjUkRgEcuf3w5r9TOuzvuVSn7Mrm7PNsQMwtR9X8VRycuYWw4HP03D0bsdvfEN1tdNgVHAzRH0c3BE9x5on6SyCIidpfoqoawx0tj83qrNUIF1b4sIzWadkv0ioA"
-            + "s+GIo4UCgRGAqzx0a66e0Yl9h8riPCLIiBGJBWQLKRF1wnN2icCPygjOwqVSvRwRgdG77gyiqySAHkCMdPyoZXWWLzhig8jcE8/gUNlqTyhnRhCY0bWVfigWF1WL/yjSIucVlTLKVYCIqyUqtmUlAeYQokZQxlBU6Yiyq+jLGJV3UplU+2DBn+p2pvf9PRNAUS7K3FGPXJBVRCAyt91uChDAsERgVIUZSUFZGwkjoq8Y"
-            + "XxFFybgjo+tOSwBZF1sWQZD+1WHH1cirIK6ZuUeMaurxkWer51BddLVCao326e7rr4AjUCR3eSYaDfWCUt8To95eqLVWXWeejWaL7n/2/BT9M/u3azSgNw+liof+f0WR31vwytJg2XtilHoinJbVh5EziF7VVUQDKvvPjAassnNVlHSrkCzb/6/oIKoa9yuLg646KIWYn6l+vBvC7DSfb+NtlSHW2otV1YHvyN2mylFj"
-            + "lbXZm+PMaq0ZI1FVRaLs+VUZ6dRrtKzwI5sT66fixerPuKa2iMQVHYxJCDGLcyCcJdtfiWRqAqKwQiv2wFPPVkkqlgrlqbieesdKDqurA1+t/jJDn6mKq16pZ0UTpuwoYWRFZCtb04w1IyI8EwuQkUytDEgzYFxiA2AQwUsowVDRNp3RTB0PTRiBcmkv7djMhBmM9BW5mVGk3PL6R4y01Ywtcn6rbQA/Ih/AaaftIilm"
-            + "VAjkGjH6zI1OmhUxswEUUcPfDim+0YNQAtBqAGb7o+cbeW9VOq2swZGRDLNuwL08BtNjAZ5OuS1R6pQJP62aCFW2+83IqSBApyzYO+BjJqI+yZB9qgMTB6oShdkxqqoEo8jwJuKnQFLLrXh3SeKunuDsIJpsgsvV1YGfnFz0MAouhsT6XZ2EpB3vSAALbACqqMoqblFlpHyi5BBFwKpQ+aMCFNkA1BFgTwfg0/ZF1lcS"
-            + "gCcg0m4Zak47iK9q/xJgAF348sAfGGjJAAAAAElFTkSuQmCC");
-        imgFont.width = 256;
-        imgFont.height = 128;
-        const canvasFont = document.createElement("canvas");
-        canvasFont.id = "G64Font";
-        canvasFont.width = 256;
-        canvasFont.height = 128;
-        this.m_ctxFont = canvasFont.getContext("2d");
-        imgFont.onload = (event) => {
-            this.m_ctxFont.drawImage(imgFont, 0, 0);
-            this._done();
-        };
-    }
-    SetFontRom() {
-        this._start("   ... copy font data to ram ... ");
-        const w = this.m_ctxFont.canvas.width;
-        const h = this.m_ctxFont.canvas.height;
-        const imgDataChr = this.m_ctxFont.getImageData(0, 0, w, h);
-        let ptr = 0;
-        let pixel;
-        let aBank = [this.ADR_CHARACTERROM, this.ADR_CHARACTERROM + 0x1000];
-        let byte = 0;
-        for (let bank = 0; bank < aBank.length; bank++) {
-            ptr = aBank[bank];
-            for (let y = (bank * 8); y < (8 * (bank + 1)); y++) {
-                for (let x = 0; x < 32; x++) {
-                    for (let yy = 0; yy < 8; yy++) {
-                        byte = 0;
-                        for (let xx = 0; xx < 8; xx++) {
-                            pixel = ((xx * 4) + (x * 8 * 4)) + ((yy * w * 4) + (y * 8 * w * 4));
-                            byte = BitHelper.BitPlace(byte, 7 - xx, (imgDataChr.data[pixel + 3] >= 128));
-                        }
-                        this.m_ramView[ptr++] = byte;
-                    }
-                }
-            }
-        }
-        this._done();
-    }
-    SetBootMsg() {
-        this._start("   ... writing boot message ... ");
-        const strBootMsg = "                                        " +
-            "     **** genesis 64 basic v2 ****      " +
-            "                                        " +
-            " 64k ram system  38911 basic bytes free " +
-            "                                        " +
-            "ready.                                  ";
-        for (let i = 0; i < strBootMsg.length; i++) {
-            this.m_ramView[this.PTR_SCREENRAM + i] = Petscii.TXTSCREENCODE.indexOf(strBootMsg.charAt(i));
-        }
-        this._done();
-    }
-    _start(message) {
-        Genesis64.Instance.Log(message);
-        this.m_isDone = false;
-    }
-    _done() {
-        Genesis64.Instance.Log("OK\n");
-        this.m_isDone = true;
-    }
-    Poke(ptr, byte) {
-        this.m_ramView[ptr] = byte;
-        this.m_isDirty = true;
-    }
-    Peek(ptr) {
-        return this.m_ramView[ptr];
-    }
-}
-class BitHelper {
-    static Byte(bits) {
-        let byte;
-        if (typeof bits === "number") {
-            byte = bits;
-        }
-        else {
-            byte = this.BitCreate(bits);
-        }
-        return byte;
-    }
-    static BitCreate(bits) {
-        let byte = 0;
-        for (let i = 0; i < 8; i++) {
-            if (bits.charAt(i) == "1") {
-                byte = this.BitSet(byte, 7 - i);
-            }
-        }
-        return byte;
-    }
-    static BitTest(byte, bit) {
-        return (((byte >> bit) % 2) != 0);
-    }
-    static BitSet(byte, bit) {
-        return (byte | (1 << bit));
-    }
-    static BitClear(byte, bit) {
-        return byte & ~(1 << bit);
-    }
-    static BitToggle(byte, bit) {
-        return (this.BitTest(byte, bit)) ? this.BitClear(byte, bit) : this.BitSet(byte, bit);
-    }
-    static BitPlace(byte, bit, set) {
-        return (set) ? this.BitSet(byte, bit) : this.BitClear(byte, bit);
-    }
-}
-class G64Colors {
-    get ColorView() { return this.m_colorView; }
-    constructor() {
-        this.m_isDirty = false;
-        Genesis64.Instance.Log(" - G64 colors created\n");
-        this.m_colorBuffer = new ArrayBuffer(256 * 4);
-        this.m_colorView = new Uint8Array(this.m_colorBuffer);
-        this.m_colorView.fill(0);
-        this.Init();
-    }
-    Init() {
-        this.m_Colors = new Array();
-        this.m_Colors.push({ "r": 0x00, "g": 0x00, "b": 0x00, "name": "Black", "css": "#000000", "chr": 144 });
-        this.m_Colors.push({ "r": 0xff, "g": 0xff, "b": 0xff, "name": "White", "css": "#ffffff", "chr": 5 });
-        this.m_Colors.push({ "r": 0x68, "g": 0x37, "b": 0x2b, "name": "Red", "css": "#68372b", "chr": 28 });
-        this.m_Colors.push({ "r": 0x70, "g": 0xa4, "b": 0xb2, "name": "Cyan", "css": "#70a4b2", "chr": 159 });
-        this.m_Colors.push({ "r": 0x6f, "g": 0x3d, "b": 0x86, "name": "Purple", "css": "#6f3d86", "chr": 156 });
-        this.m_Colors.push({ "r": 0x58, "g": 0x8d, "b": 0x43, "name": "Green", "css": "#588d43", "chr": 30 });
-        this.m_Colors.push({ "r": 0x35, "g": 0x28, "b": 0x79, "name": "Blue", "css": "#352879", "chr": 31 });
-        this.m_Colors.push({ "r": 0xb8, "g": 0xc7, "b": 0x6f, "name": "Yellow", "css": "#B8C76F", "chr": 158 });
-        this.m_Colors.push({ "r": 0x6f, "g": 0x4f, "b": 0x25, "name": "Orange", "css": "#6F4F25", "chr": 129 });
-        this.m_Colors.push({ "r": 0x43, "g": 0x39, "b": 0x00, "name": "Brown", "css": "#433900", "chr": 149 });
-        this.m_Colors.push({ "r": 0x9a, "g": 0x67, "b": 0x59, "name": "Lightred", "css": "#9A6759", "chr": 150 });
-        this.m_Colors.push({ "r": 0x44, "g": 0x44, "b": 0x44, "name": "Darkgrey", "css": "#444444", "chr": 151 });
-        this.m_Colors.push({ "r": 0x6c, "g": 0x6c, "b": 0x6c, "name": "Grey", "css": "#6C6C6C", "chr": 152 });
-        this.m_Colors.push({ "r": 0x9a, "g": 0xd2, "b": 0x84, "name": "Lightgreen", "css": "#9AD284", "chr": 153 });
-        this.m_Colors.push({ "r": 0x6c, "g": 0x5e, "b": 0xb5, "name": "Lightblue", "css": "#6C5EB5", "chr": 154 });
-        this.m_Colors.push({ "r": 0x95, "g": 0x95, "b": 0x95, "name": "Lightgrey", "css": "#959595", "chr": 155 });
-    }
-    SetColorView() {
-        let ptr = 0;
-        for (let j = 0; j < 16; j++) {
-            for (let i = 0; i < this.m_Colors.length; i++) {
-                this.m_colorView[ptr++] = this.m_Colors[i].r;
-                this.m_colorView[ptr++] = this.m_Colors[i].g;
-                this.m_colorView[ptr++] = this.m_Colors[i].b;
-                this.m_colorView[ptr++] = 255;
-            }
-        }
-        this.m_isDirty = false;
-    }
-    SetColor(color, r, g, b, a) {
-        const id = color * 4;
-        this.m_isDirty = true;
-    }
-    GetColor(color) {
-        return this.m_Colors[color];
-    }
-}
-class Petscii {
-    static PetToBas(pet) {
-        let basText = "";
-        let bas = "";
-        for (let i = 0; i < pet.length; i++) {
-            bas = Petscii.BasText[pet[i]];
-            basText += (bas.length == 1) ? bas : "{" + bas + "}";
-        }
-        return basText;
-    }
-    static BasToPet(text) {
-        let pet = [];
-        let bas = new Map();
-        for (let i = 0; i < Petscii.BasText.length; i++) {
-            bas.set(Petscii.BasText[i], i);
-        }
-        let c = 0;
-        let len = -1;
-        while (len++ < text.length) {
-            c++;
-            if (c > 256)
-                break;
-            if (text.charAt(len) == "{") {
-                let end = text.indexOf("}", len);
-                if (end == -1)
-                    end = text.length - 1;
-                let basText = text.substring(len + 1, end);
-                if (bas.has(basText)) {
-                    pet.push(bas.get(basText));
-                }
-                else {
-                    pet.push(46);
-                }
-                len = end;
-                continue;
-            }
-            if (bas.has(text.charAt(len))) {
-                pet.push(bas.get(text.charAt(len)));
-            }
-            else {
-                if (text.charAt(len) != "")
-                    pet.push(46);
-            }
-        }
-        return pet;
-    }
-    static PetToText(pet) {
-        let text = Petscii.BasText[pet];
-        if (text.length > 1)
-            text = "{" + text + "}";
-        return text;
-    }
-    static ScreenToPet(screen) {
-        let pet = screen;
-        if (screen <= 31) {
-            pet = screen + 64;
-        }
-        else if (screen >= 32 && screen <= 63) {
-        }
-        else if (screen >= 64 && screen <= 93) {
-            pet = screen + 128;
-        }
-        else if (screen >= 96 && screen <= 127) {
-            pet = screen + +64;
-        }
-        else if (screen >= 128 && screen <= 159) {
-            pet = screen - 128;
-        }
-        else if (screen >= 160 && screen <= 191) {
-            pet = screen - 64;
-        }
-        else if (screen >= 192 && screen <= 223) {
-            pet = screen - 64;
-        }
-        else if (screen >= 224 && screen <= 254) {
-        }
-        return pet;
-    }
-    static PetToScreen(pet) {
-        let code = pet;
-        if (pet <= 31) {
-            code = pet + 128;
-        }
-        else if (pet >= 64 && pet <= 95) {
-            code = pet - 64;
-        }
-        else if (pet >= 96 && pet <= 127) {
-            code = pet - 32;
-        }
-        else if (pet >= 128 && pet <= 159) {
-            code = pet + 64;
-        }
-        else if (pet >= 160 && pet <= 191) {
-            code = pet - 64;
-        }
-        else if (pet >= 192 && pet <= 254) {
-            code = pet - 128;
-        }
-        return code;
-    }
-    static BasToHtml(text, useLower = false) {
-        const low = useLower ? 1 : 0;
-        const pet = this.BasToPet(text);
-        let literal = "";
-        for (let i = 0; i < pet.length; i++) {
-            if (pet[i] >= 0) {
-                if (pet[i] <= 31 || (pet[i] >= 128 && pet[i] <= 159)) {
-                    literal += "&#xe" + (low + 2).toString() + (pet[0] + 64).toString(16).padStart(2, "0") + ";";
-                }
-                else {
-                    literal += "&#xe" + low.toString() + pet[i].toString(16).padStart(2, "0") + ";";
-                }
-            }
-        }
-        return literal;
-    }
-}
-Petscii.BasText = [
-    "null",
-    "ct a",
-    "ct b",
-    "ct c",
-    "ct d",
-    "white",
-    "ct f",
-    "ct g",
-    "ct h",
-    "ct i",
-    "ct j",
-    "ct k",
-    "ct l",
-    "return",
-    "ct n",
-    "ct o",
-    "ct p",
-    "down",
-    "reverse on",
-    "home",
-    "delete",
-    "ct u",
-    "ct v",
-    "ct w",
-    "ct x",
-    "ct y",
-    "ct z",
-    "027",
-    "red",
-    "right",
-    "green",
-    "blue",
-    " ",
-    "!",
-    "\"",
-    "#",
-    "$",
-    "%",
-    "&",
-    "'",
-    "(",
-    ")",
-    "*",
-    "+",
-    ",",
-    "-",
-    ".",
-    "/",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    ":",
-    ";",
-    "<",
-    "=",
-    ">",
-    "?",
-    "@",
-    "a",
-    "b",
-    "c",
-    "d",
-    "e",
-    "f",
-    "g",
-    "h",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "n",
-    "o",
-    "p",
-    "q",
-    "r",
-    "s",
-    "t",
-    "u",
-    "v",
-    "w",
-    "x",
-    "y",
-    "z",
-    "[",
-    "pound",
-    "]",
-    "^",
-    "arrow left",
-    "096",
-    "097",
-    "098",
-    "099",
-    "100",
-    "101",
-    "102",
-    "103",
-    "104",
-    "105",
-    "106",
-    "107",
-    "108",
-    "109",
-    "110",
-    "111",
-    "112",
-    "113",
-    "114",
-    "115",
-    "116",
-    "117",
-    "118",
-    "119",
-    "120",
-    "121",
-    "122",
-    "123",
-    "124",
-    "125",
-    "126",
-    "127",
-    "128",
-    "orange",
-    "130",
-    "131",
-    "132",
-    "f1",
-    "f3",
-    "f5",
-    "f7",
-    "f2",
-    "f4",
-    "f6",
-    "f8",
-    "141",
-    "142",
-    "143",
-    "black",
-    "up",
-    "reverse off",
-    "clear",
-    "148",
-    "brown",
-    "pink",
-    "dark gray",
-    "gray",
-    "light green",
-    "light blue",
-    "light gray",
-    "156",
-    "left",
-    "yellow",
-    "cyan",
-    "sh space",
-    "cm k",
-    "cm i",
-    "cm t",
-    "cm @",
-    "cm g",
-    "cm +",
-    "cm m",
-    "cm pound",
-    "sh pound",
-    "cm n",
-    "cm q",
-    "cm d",
-    "cm z",
-    "cm s",
-    "cm p",
-    "cm a",
-    "cm e",
-    "cm r",
-    "cm w",
-    "cm h",
-    "cm j",
-    "cm l",
-    "cm y",
-    "cm u",
-    "cm d",
-    "sh @",
-    "cm f",
-    "cm c",
-    "cm x",
-    "cm v",
-    "cm b",
-    "sh asterisk",
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    "sh +",
-    "cm -",
-    "sh -",
-    "222",
-    "cm asterisk",
-    "224",
-    "225",
-    "226",
-    "227",
-    "228",
-    "229",
-    "230",
-    "231",
-    "232",
-    "233",
-    "234",
-    "235",
-    "236",
-    "237",
-    "238",
-    "239",
-    "240",
-    "241",
-    "242",
-    "243",
-    "244",
-    "245",
-    "246",
-    "247",
-    "248",
-    "249",
-    "250",
-    "251",
-    "252",
-    "253",
-    "254",
-    "pi",
-];
-Petscii.TXTSCREENCODE = "@abcdefghijklmnopqrstuvwxyz[£]^_ !\"#$%&'()*+,-./0123456789:;<=>?~ABCDEFGHIJKLMNOPQRSTUVWXYZ~~~|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~";
 //# sourceMappingURL=genesis64.js.map

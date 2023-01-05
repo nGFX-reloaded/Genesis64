@@ -1,12 +1,4 @@
 ﻿
-interface ColorData {
-	r: number;
-	g: number;
-	b: number;
-	name: string;
-	css: string;
-	chr: number;
-}
 
 class G64Memory {
 
