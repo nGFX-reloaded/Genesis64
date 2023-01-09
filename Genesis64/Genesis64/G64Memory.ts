@@ -203,7 +203,7 @@ class G64Memory {
 		// "    **** commodore 64 basic v2 ****     "
 		const strBootMsg: string =
 			"                                        " +
-			"     **** genesis 64 basic v2 ****      " +
+			"     **** genesis 64 v. " + Genesis64.Instance.Version + " ****      " +
 			"                                        " +
 			" 64k ram system  38911 basic bytes free " +
 			"                                        " +

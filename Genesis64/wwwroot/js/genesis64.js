@@ -172,7 +172,7 @@ class G64Memory {
     SetBootMsg() {
         this._start("   ... writing boot message ... ");
         const strBootMsg = "                                        " +
-            "     **** genesis 64 basic v2 ****      " +
+            "     **** genesis 64 v. " + Genesis64.Instance.Version + " ****      " +
             "                                        " +
             " 64k ram system  38911 basic bytes free " +
             "                                        " +
@@ -201,6 +201,7 @@ class G64Memory {
 class Genesis64 {
     constructor() {
         this.m_LogBuffer = "";
+        this.Version = "0.0.1";
     }
     static get Instance() {
         if (typeof this.m_instance === "undefined") {
@@ -209,10 +210,12 @@ class Genesis64 {
         }
         return this.m_instance;
     }
+    get Memory() { return this.m_Mem; }
     Init() {
         this.m_fsm = new MiniFSM("init", false);
-        this.m_ram = new G64Memory();
+        this.m_Mem = new G64Memory();
         this.m_colors = new G64Colors();
+        this.m_Basic = new G64Basic();
         this.m_fsm.AddSingle("Startup", () => {
             this.Log("Starting Genesis64\n");
             this.m_fsm.SetState("CreateHTML");
@@ -222,13 +225,17 @@ class Genesis64 {
             this.m_fsm.SetState("InitRam");
         }, FsmActionType.onEnter);
         this.m_fsm.Add("InitRam", "", () => {
-            if (this.m_ram.Init() === -666)
+            if (this.m_Mem.Init() === -666)
                 this.m_fsm.SetState("SetColors");
-        }, null, () => { if (this.m_ram.IsDone) {
+        }, null, () => { if (this.m_Mem.IsDone) {
             this.m_fsm.SetState("InitRam");
         } });
         this.m_fsm.AddSingle("SetColors", () => {
             this.m_colors.SetColorView();
+            this.m_fsm.SetState("InitBasic");
+        }, FsmActionType.onEnter);
+        this.m_fsm.AddSingle("InitBasic", () => {
+            this.m_Basic.Init(BasicVersion.v2);
             this.m_fsm.SetState("Done");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Done", () => {
@@ -1083,104 +1090,175 @@ var CmdType;
     CmdType[CmdType["fstr"] = 2] = "fstr";
     CmdType[CmdType["fout"] = 3] = "fout";
     CmdType[CmdType["ops"] = 4] = "ops";
+    CmdType[CmdType["comp"] = 5] = "comp";
 })(CmdType || (CmdType = {}));
 var Tokentype;
 (function (Tokentype) {
     Tokentype[Tokentype["nop"] = 0] = "nop";
-    Tokentype[Tokentype["cmd"] = 1] = "cmd";
-    Tokentype[Tokentype["ops"] = 2] = "ops";
+    Tokentype[Tokentype["err"] = 1] = "err";
+    Tokentype[Tokentype["cmd"] = 2] = "cmd";
     Tokentype[Tokentype["fnnum"] = 3] = "fnnum";
     Tokentype[Tokentype["fnstr"] = 4] = "fnstr";
     Tokentype[Tokentype["fnout"] = 5] = "fnout";
-    Tokentype[Tokentype["num"] = 6] = "num";
-    Tokentype[Tokentype["int"] = 7] = "int";
-    Tokentype[Tokentype["str"] = 8] = "str";
-    Tokentype[Tokentype["vnum"] = 9] = "vnum";
-    Tokentype[Tokentype["vint"] = 10] = "vint";
-    Tokentype[Tokentype["vstr"] = 11] = "vstr";
-    Tokentype[Tokentype["anum"] = 12] = "anum";
-    Tokentype[Tokentype["aint"] = 13] = "aint";
-    Tokentype[Tokentype["astr"] = 14] = "astr";
-    Tokentype[Tokentype["link"] = 15] = "link";
-    Tokentype[Tokentype["comp"] = 16] = "comp";
-    Tokentype[Tokentype["err"] = 17] = "err";
+    Tokentype[Tokentype["ops"] = 6] = "ops";
+    Tokentype[Tokentype["comp"] = 7] = "comp";
+    Tokentype[Tokentype["num"] = 8] = "num";
+    Tokentype[Tokentype["int"] = 9] = "int";
+    Tokentype[Tokentype["str"] = 10] = "str";
+    Tokentype[Tokentype["vnum"] = 11] = "vnum";
+    Tokentype[Tokentype["vint"] = 12] = "vint";
+    Tokentype[Tokentype["vstr"] = 13] = "vstr";
+    Tokentype[Tokentype["anum"] = 14] = "anum";
+    Tokentype[Tokentype["aint"] = 15] = "aint";
+    Tokentype[Tokentype["astr"] = 16] = "astr";
+    Tokentype[Tokentype["link"] = 17] = "link";
     Tokentype[Tokentype["eop"] = 18] = "eop";
     Tokentype[Tokentype["run"] = 19] = "run";
     Tokentype[Tokentype["jmp"] = 20] = "jmp";
     Tokentype[Tokentype["end"] = 21] = "end";
-    Tokentype[Tokentype["list"] = 22] = "list";
-    Tokentype[Tokentype["input"] = 23] = "input";
 })(Tokentype || (Tokentype = {}));
-class Basic {
+var BasicVersion;
+(function (BasicVersion) {
+    BasicVersion[BasicVersion["v2"] = 0] = "v2";
+    BasicVersion[BasicVersion["g64"] = 1] = "g64";
+})(BasicVersion || (BasicVersion = {}));
+class G64Basic {
+    get Commands() { return this.m_Commands; }
+    get Version() { return this.m_currentVersion; }
+    constructor() {
+        this.m_Commands = [];
+        this.m_lstCmd = [];
+        this.m_lstFnNum = [];
+        this.m_lstFnStr = [];
+        this.m_lstFnOut = [];
+        this.m_lstOps = [];
+        this.m_lstComp = [];
+        this.m_currentVersion = BasicVersion.v2;
+        Genesis64.Instance.Log(" - Basic created\n");
+        this.m_Mem = Genesis64.Instance.Memory;
+    }
+    Init(version) {
+        switch (version) {
+            case BasicVersion.v2:
+                Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
+                this.InitV2();
+                this.InitLists();
+                break;
+            case BasicVersion.g64:
+                Genesis64.Instance.Log("   ... setting up G64 BASIC ... ");
+                this.InitG64();
+                this.InitLists();
+                break;
+        }
+        Genesis64.Instance.Log("OK\n");
+        this.m_currentVersion = version;
+    }
+    InitV2() {
+        this.m_Commands = [
+            { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
+            { name: "clr", abbrv: "cR", tkn: 156, type: CmdType.cmd },
+            { name: "cont", abbrv: "cO", tkn: 154, type: CmdType.cmd },
+            { name: "cmd", abbrv: "cM", tkn: 157, type: CmdType.cmd },
+            { name: "data", abbrv: "dA", tkn: 131, type: CmdType.cmd },
+            { name: "def", abbrv: "dE", tkn: 150, type: CmdType.cmd },
+            { name: "dim", abbrv: "dI", tkn: 134, type: CmdType.cmd },
+            { name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
+            { name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
+            { name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
+            { name: "get#", abbrv: "", reg: "get\\#", tkn: 161, type: CmdType.cmd },
+            { name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
+            { name: "goto", abbrv: "gO", tkn: 137, type: CmdType.cmd },
+            { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
+            { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
+            { name: "input#", abbrv: "iN", reg: "input\\#", tkn: 132, type: CmdType.cmd },
+            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+            { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
+            { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
+            { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
+            { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
+            { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
+            { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
+            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
+            { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
+            { name: "print#", abbrv: "pR", reg: "print\\#", tkn: 152, type: CmdType.cmd },
+            { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
+            { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
+            { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
+            { name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
+            { name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
+            { name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd },
+            { name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
+            { name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
+            { name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
+            { name: "then", abbrv: "tH", tkn: 167, type: CmdType.cmd },
+            { name: "to", abbrv: "", tkn: 164, type: CmdType.cmd },
+            { name: "verify", abbrv: "vE", tkn: 149, type: CmdType.cmd },
+            { name: "wait", abbrv: "wA", tkn: 146, type: CmdType.cmd },
+            { name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum },
+            { name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum },
+            { name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum },
+            { name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum },
+            { name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum },
+            { name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
+            { name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum },
+            { name: "int", abbrv: "", tkn: 181, type: CmdType.fnum },
+            { name: "len", abbrv: "", tkn: 195, type: CmdType.fnum },
+            { name: "log", abbrv: "", tkn: 188, type: CmdType.fnum },
+            { name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum },
+            { name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum },
+            { name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum },
+            { name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum },
+            { name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum },
+            { name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum },
+            { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum },
+            { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum },
+            { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum },
+            { name: "chr$", abbrv: "cH", tkn: 199, reg: "chr\\$", type: CmdType.fstr },
+            { name: "left$", abbrv: "leF", tkn: 200, reg: "left\\$", type: CmdType.fstr },
+            { name: "mid$", abbrv: "mI", tkn: 202, reg: "mid\\$", type: CmdType.fstr },
+            { name: "right$", abbrv: "rI", tkn: 201, reg: "right\\$", type: CmdType.fstr },
+            { name: "str$", abbrv: "stR", tkn: 196, reg: "str\\$", type: CmdType.fstr },
+            { name: "spc(", abbrv: "sP", tkn: 166, reg: "spc\\(", type: CmdType.fout },
+            { name: "tab(", abbrv: "tA", tkn: 163, reg: "tab\\(", type: CmdType.fout },
+            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
+            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
+            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
+        ];
+    }
+    InitG64() {
+        this.InitV2();
+    }
+    InitLists() {
+        this.m_lstCmd = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.cmd)
+                this.m_lstCmd.push(i);
+        }
+        this.m_lstFnNum = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.fnum)
+                this.m_lstFnNum.push(i);
+        }
+        this.m_lstFnStr = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.fstr)
+                this.m_lstFnStr.push(i);
+        }
+        this.m_lstFnOut = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.fout)
+                this.m_lstFnOut.push(i);
+        }
+        this.m_lstOps = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.ops)
+                this.m_lstOps.push(i);
+        }
+        this.m_lstComp = [];
+        for (let i = 0; i < this.m_Commands.length; i++) {
+            if (this.m_Commands[i].type == CmdType.comp)
+                this.m_lstComp.push(i);
+        }
+    }
 }
-Basic.Commands = [
-    { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
-    { name: "clr", abbrv: "cR", tkn: 156, type: CmdType.cmd },
-    { name: "cont", abbrv: "cO", tkn: 154, type: CmdType.cmd },
-    { name: "cmd", abbrv: "cM", tkn: 157, type: CmdType.cmd },
-    { name: "data", abbrv: "dA", tkn: 131, type: CmdType.cmd },
-    { name: "def", abbrv: "dE", tkn: 150, type: CmdType.cmd },
-    { name: "dim", abbrv: "dI", tkn: 134, type: CmdType.cmd },
-    { name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
-    { name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
-    { name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-    { name: "get#", abbrv: "", reg: "get\\#", tkn: 161, type: CmdType.cmd },
-    { name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
-    { name: "goto", abbrv: "gO", tkn: 137, type: CmdType.cmd },
-    { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
-    { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-    { name: "input#", abbrv: "iN", reg: "input\\#", tkn: 132, type: CmdType.cmd },
-    { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
-    { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
-    { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
-    { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
-    { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
-    { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
-    { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-    { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
-    { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
-    { name: "print#", abbrv: "pR", reg: "print\\#", tkn: 152, type: CmdType.cmd },
-    { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
-    { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
-    { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
-    { name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
-    { name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
-    { name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd },
-    { name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
-    { name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
-    { name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
-    { name: "then", abbrv: "tH", tkn: 167, type: CmdType.cmd },
-    { name: "to", abbrv: "", tkn: 164, type: CmdType.cmd },
-    { name: "verify", abbrv: "vE", tkn: 149, type: CmdType.cmd },
-    { name: "wait", abbrv: "wA", tkn: 146, type: CmdType.cmd },
-    { name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum },
-    { name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum },
-    { name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum },
-    { name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum },
-    { name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum },
-    { name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
-    { name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum },
-    { name: "int", abbrv: "", tkn: 181, type: CmdType.fnum },
-    { name: "len", abbrv: "", tkn: 195, type: CmdType.fnum },
-    { name: "log", abbrv: "", tkn: 188, type: CmdType.fnum },
-    { name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum },
-    { name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum },
-    { name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum },
-    { name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum },
-    { name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum },
-    { name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum },
-    { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum },
-    { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum },
-    { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum },
-    { name: "chr$", abbrv: "cH", tkn: 199, reg: "chr\\$", type: CmdType.fstr },
-    { name: "left$", abbrv: "leF", tkn: 200, reg: "left\\$", type: CmdType.fstr },
-    { name: "mid$", abbrv: "mI", tkn: 202, reg: "mid\\$", type: CmdType.fstr },
-    { name: "right$", abbrv: "rI", tkn: 201, reg: "right\\$", type: CmdType.fstr },
-    { name: "str$", abbrv: "stR", tkn: 196, reg: "str\\$", type: CmdType.fstr },
-    { name: "spc(", abbrv: "sP", tkn: 166, reg: "spc\\(", type: CmdType.fout },
-    { name: "tab(", abbrv: "tA", tkn: 163, reg: "tab\\(", type: CmdType.fout },
-    { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
-    { name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
-    { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
-];
 //# sourceMappingURL=genesis64.js.map

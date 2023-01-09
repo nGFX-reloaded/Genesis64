@@ -24,18 +24,28 @@ class Genesis64 {
 	private m_divContainer: HTMLDivElement;		// anchor element to which everything Genesis64 is added to
 	private m_fsm: MiniFSM;
 
-	private m_ram: G64Memory;
+	private m_Mem: G64Memory;
+	private m_Basic: G64Basic;
 	private m_colors: G64Colors;
 
 	private m_LogBuffer: string = "";
 
 	//#endregion
 
+	//#region " ----- Publics ----- "
+
+	public get Memory(): G64Memory { return this.m_Mem; }
+
+	public readonly Version: string = "0.0.1";
+
+	//#endregion
+
 	private Init() {
 
 		this.m_fsm = new MiniFSM("init", false);
-		this.m_ram = new G64Memory();
+		this.m_Mem = new G64Memory();
 		this.m_colors = new G64Colors();
+		this.m_Basic = new G64Basic();
 
 		this.m_fsm.AddSingle("Startup",
 			() => {
@@ -54,16 +64,23 @@ class Genesis64 {
 
 		this.m_fsm.Add("InitRam", "",
 			() => {
-				if (this.m_ram.Init() === -666)
+				if (this.m_Mem.Init() === -666)
 					this.m_fsm.SetState("SetColors");
 			},
 			null,
-			() => { if (this.m_ram.IsDone) { this.m_fsm.SetState("InitRam"); } }
+			() => { if (this.m_Mem.IsDone) { this.m_fsm.SetState("InitRam"); } }
 		);
 
 		this.m_fsm.AddSingle("SetColors",
 			() => {
 				this.m_colors.SetColorView();
+				this.m_fsm.SetState("InitBasic");
+			},
+			FsmActionType.onEnter);
+
+		this.m_fsm.AddSingle("InitBasic",
+			() => {
+				this.m_Basic.Init(BasicVersion.v2);
 				this.m_fsm.SetState("Done");
 			},
 			FsmActionType.onEnter);
