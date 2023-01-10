@@ -1,4 +1,14 @@
 ﻿
+//#region " ----- Interfaces / Enums / Types ----- "
+
+enum BasicVersion {
+	v2, g64
+}
+
+type G64BasicOptions = {
+	basicVersion: BasicVersion;
+}
+
 enum CmdType {
 	cmd		/*  0, commands, PRINT */,
 	fnum	/*  1, numerical method, SIN */,
@@ -33,10 +43,6 @@ enum Tokentype {
 	end		/* 21, prg ends here */,
 }
 
-enum BasicVersion {
-	v2, g64
-}
-
 interface BasicCmd {
 	name: string;
 	abbrv: string;
@@ -44,6 +50,8 @@ interface BasicCmd {
 	type: CmdType;
 	reg?: string;
 }
+
+//#endregion
 
 class G64Basic {
 
@@ -59,14 +67,14 @@ class G64Basic {
 	private m_lstOps: number[] = [];		// list of ops
 	private m_lstComp: number[] = [];		// list of comparers
 
-	private m_currentVersion: BasicVersion = BasicVersion.v2;
+	private m_Options: G64BasicOptions;
 
 	//#endregion
 
 	//#region " ----- Publics ----- "
 
 	public get Commands(): BasicCmd[] { return this.m_Commands; }
-	public get Version(): BasicVersion { return this.m_currentVersion; }
+	public get Version(): BasicVersion { return this.m_Options.basicVersion; }
 
 	//#endregion
 
@@ -74,16 +82,19 @@ class G64Basic {
 
 		Genesis64.Instance.Log(" - Basic created\n");
 
-		this.m_Mem = Genesis64.Instance.Memory;
+		this.m_Options = {
+			basicVersion: BasicVersion.v2
+		}
 
+		this.m_Mem = Genesis64.Instance.Memory;
 
 	}
 
 	//#region " ----- Init ----- "
 
-	public Init(version: BasicVersion) {
+	public Init(options: G64BasicOptions) {
 
-		switch (version) {
+		switch (options.basicVersion) {
 			case BasicVersion.v2:
 				Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
 				this.InitV2();
@@ -98,7 +109,9 @@ class G64Basic {
 		}
 
 		Genesis64.Instance.Log("OK\n");
-		this.m_currentVersion = version;
+		this.m_Options = {
+			...options
+		}
 
 	}
 
@@ -256,4 +269,12 @@ class G64Basic {
 
 	//#endregion
 
+	public Tokenizer(code: string): void {
+
+		// split code into lines
+		// line number?
+		// - split line into parts
+		// - parse each part
+		
+	}
 }

@@ -1,5 +1,18 @@
 ﻿/// <reference path="Tools/*">
 
+//#region " ----- Types / Enums ----- "
+
+enum KeyboardMode {
+	default, german
+}
+
+type Genesis64Options = {
+	keyboardMode: KeyboardMode;
+	basicVersion: BasicVersion;
+};
+
+//#endregion
+
 class Genesis64 {
 
 	//#region " ----- singleton setup ----- "
@@ -21,6 +34,8 @@ class Genesis64 {
 
 	//#region " ----- Privates ----- "
 
+	private m_Options: Genesis64Options;
+
 	private m_divContainer: HTMLDivElement;		// anchor element to which everything Genesis64 is added to
 	private m_fsm: MiniFSM;
 
@@ -36,11 +51,20 @@ class Genesis64 {
 
 	public get Memory(): G64Memory { return this.m_Mem; }
 
+	public get Options(): Genesis64Options { return this.m_Options; }
+
 	public readonly Version: string = "0.0.1";
 
 	//#endregion
 
+	//#region " ----- Private Methods ----- "
+
 	private Init() {
+
+		this.m_Options = {
+			basicVersion: BasicVersion.v2,
+			keyboardMode: KeyboardMode.default
+		}
 
 		this.m_fsm = new MiniFSM("init", false);
 		this.m_Mem = new G64Memory();
@@ -80,7 +104,7 @@ class Genesis64 {
 
 		this.m_fsm.AddSingle("InitBasic",
 			() => {
-				this.m_Basic.Init(BasicVersion.v2);
+				this.m_Basic.Init({ basicVersion: BasicVersion.v2 });
 				this.m_fsm.SetState("Done");
 			},
 			FsmActionType.onEnter);
@@ -88,7 +112,7 @@ class Genesis64 {
 
 		this.m_fsm.AddSingle("Done",
 			() => {
-				console.log("done");
+				console.log("Genesis64 instance initialized.");
 				this.m_fsm.StopTimer();
 			},
 			FsmActionType.onEnter);
@@ -96,6 +120,14 @@ class Genesis64 {
 		this.m_fsm.StartTimer(100);
 		this.m_fsm.Unpause();
 		this.m_fsm.SetState("Startup");
+	}
+
+	//#endregion
+
+	public SetOptions(options: Genesis64Options): void {
+		this.m_Options = {
+			...options
+		}
 	}
 
 	public Log(message: string): void {
