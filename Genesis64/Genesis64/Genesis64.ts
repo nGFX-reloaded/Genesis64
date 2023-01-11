@@ -122,8 +122,11 @@ class Genesis64 {
 			() => {
 				this.m_Basic.Temp(
 					"10 ?\"test\": rem test\n" +
-					"20 goto10:rem print \"nope\"\n" +
-					"30 end\nrun\n"
+					"20 rem goto10: print \"nope\"\n" +
+					"30 printend\n" +
+					"40 leta=1:leta(2)=2:leta(b(3))=3\n" +
+					"50 a=4:a(2)=5:a(b(3))=6\n" + 
+					"60printa,a(2),a(b(3))"
 				);
 			},
 			FsmActionType.onEnter);

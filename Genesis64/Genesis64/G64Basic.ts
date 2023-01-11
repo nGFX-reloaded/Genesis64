@@ -157,13 +157,13 @@ class G64Basic {
 			{ name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
 			{ name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
 			{ name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-			{ name: "get#", abbrv: "", reg: "get\\#", tkn: 161 /*161 35*/, type: CmdType.cmd },
+			{ name: "get#", abbrv: "", tkn: 161 /*161 35*/, type: CmdType.cmd, reg: "get\\#" },
 			{ name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
 			{ name: "goto", abbrv: "gO", tkn: 137 /*203 164*/, type: CmdType.cmd },
 			{ name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
 			{ name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-			{ name: "input#", abbrv: "iN", reg: "input\\#", tkn: 132, type: CmdType.cmd },
-			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
+			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "(?:(?:let)?\\s*(?:[_a-z]+[_a-z0-9]*[$%]?(?:\\s*\\[.+\\])?)\s*=\\s*(?:[^=]+))" },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
 			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
 			{ name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -172,7 +172,7 @@ class G64Basic {
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
 			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
 			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
-			{ name: "print#", abbrv: "pR", reg: "print\\#", tkn: 152, type: CmdType.cmd },
+			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd, reg: "print\\#" },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
 			{ name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
@@ -252,8 +252,8 @@ class G64Basic {
 	 **/
 	private InitLists(): void {
 
-		const aCmd:string[] = [];
-		const aFnNum:string[] = [];
+		const aCmd: string[] = [];
+		const aFnNum: string[] = [];
 		this.m_lstFnStr = [];
 		this.m_lstFnOut = [];
 		this.m_lstOps = [];
@@ -321,7 +321,7 @@ class G64Basic {
 
 		const lines: string[] = CodeHelper.CodeSplitter(code, "\n");
 
-		console.log(lines);
+		//console.log(lines);
 
 		for (let i: number = 0; i < lines.length; i++) {
 			if (lines[i].trim() !== "") {
@@ -329,7 +329,7 @@ class G64Basic {
 				let lineNr: number = -1;
 				const line = match[2];
 
-				console.log(match);
+				//console.log(match);
 
 				if (match[1] !== "") {
 					lineNr = parseInt(match[1]);
@@ -338,7 +338,11 @@ class G64Basic {
 				if (line !== "") {
 					const parts: string[] = CodeHelper.CodeSplitter(line, ":");
 
-					console.log(lineNr, parts);
+					//console.log(lineNr, parts);
+
+					// do not split rem lines
+					// translate arrays () into []
+					// translate = into ==
 
 					for (let p: number = 0; p < parts.length; p++) {
 						this.Tokenizer(parts[p]);
@@ -355,7 +359,12 @@ class G64Basic {
 
 	public Tokenizer(code: string): void {
 
-		console.log("-p:", code.match(this.regexCmd));
+		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
+			const match: string[] = new RegExp("(" + this.m_Commands[this.m_lstCmd[i]].reg + ")(.*)").exec(code);
+
+			if (match !== null)
+				console.log(code, match);
+		}
 
 	}
 }

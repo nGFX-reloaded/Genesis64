@@ -85,13 +85,13 @@ class G64Basic {
             { name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
             { name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
             { name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-            { name: "get#", abbrv: "", reg: "get\\#", tkn: 161, type: CmdType.cmd },
+            { name: "get#", abbrv: "", tkn: 161, type: CmdType.cmd, reg: "get\\#" },
             { name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
             { name: "goto", abbrv: "gO", tkn: 137, type: CmdType.cmd },
             { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
             { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-            { name: "input#", abbrv: "iN", reg: "input\\#", tkn: 132, type: CmdType.cmd },
-            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+            { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
+            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "(?:(?:let)?\\s*(?:[_a-z]+[_a-z0-9]*[$%]?(?:\\s*\\[.+\\])?)\s*=\\s*(?:[^=]+))" },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
             { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
             { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -100,7 +100,7 @@ class G64Basic {
             { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
             { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
             { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
-            { name: "print#", abbrv: "pR", reg: "print\\#", tkn: 152, type: CmdType.cmd },
+            { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd, reg: "print\\#" },
             { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
             { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
             { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
@@ -191,19 +191,16 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        console.log(lines);
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].trim() !== "") {
                 let match = lines[i].match(this.regexLineNr);
                 let lineNr = -1;
                 const line = match[2];
-                console.log(match);
                 if (match[1] !== "") {
                     lineNr = parseInt(match[1]);
                 }
                 if (line !== "") {
                     const parts = CodeHelper.CodeSplitter(line, ":");
-                    console.log(lineNr, parts);
                     for (let p = 0; p < parts.length; p++) {
                         this.Tokenizer(parts[p]);
                     }
@@ -213,7 +210,11 @@ class G64Basic {
         console.timeEnd("temp");
     }
     Tokenizer(code) {
-        console.log("-p:", code.match(this.regexCmd));
+        for (let i = 0; i < this.m_lstCmd.length; i++) {
+            const match = new RegExp("(" + this.m_Commands[this.m_lstCmd[i]].reg + ")(.*)").exec(code);
+            if (match !== null)
+                console.log(code, match);
+        }
     }
 }
 class G64Colors {
@@ -473,8 +474,11 @@ class Genesis64 {
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
             this.m_Basic.Temp("10 ?\"test\": rem test\n" +
-                "20 goto10:rem print \"nope\"\n" +
-                "30 end\nrun\n");
+                "20 rem goto10: print \"nope\"\n" +
+                "30 printend\n" +
+                "40 leta=1:leta(2)=2:leta(b(3))=3\n" +
+                "50 a=4:a(2)=5:a(b(3))=6\n" +
+                "60printa,a(2),a(b(3))");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();
@@ -905,6 +909,92 @@ class BitHelper {
         return (set) ? this.BitSet(byte, bit) : this.BitClear(byte, bit);
     }
 }
+class CodeHelper {
+    static CodeSplitter(code, chars) {
+        let aResult = [];
+        let tuple = [];
+        let iPos = 0;
+        const len = chars.length;
+        const open = "([{\"'";
+        const close = ")]}\"'";
+        if (code.includes(chars)) {
+            while (iPos < code.length) {
+                if (open.includes(code.charAt(iPos))) {
+                    const item = open.indexOf(code.charAt(iPos));
+                    tuple = this.FindMatching(code, iPos, open.charAt(item), close.charAt(item));
+                    if (this.IsMatching(tuple)) {
+                        iPos = tuple[1];
+                    }
+                }
+                if (code.substring(iPos, iPos + len) == chars) {
+                    aResult.push(code.substring(0, iPos).trim());
+                    code = code.substring(iPos + len);
+                    iPos = 0;
+                }
+                else {
+                    iPos++;
+                }
+            }
+        }
+        aResult.push(code.trim());
+        return aResult;
+    }
+    static FindMatching(code, offset, start, end) {
+        if (typeof code == "undefined") {
+            console.log("You fucked up in FindMatching", code);
+            return [-1, -1];
+        }
+        if (typeof start === "undefined")
+            start = "(";
+        if (typeof end === "undefined")
+            end = ")";
+        const iStart = code.indexOf(start, (typeof offset === "undefined") ? 0 : offset);
+        let iEnd = -1;
+        let i;
+        let count = 0;
+        if (iStart != -1) {
+            for (i = iStart; i < code.length; i++) {
+                if (code.charAt(i) == start)
+                    count++;
+                if (code.charAt(i) == end)
+                    count--;
+                if (count == 0) {
+                    iEnd = i;
+                    break;
+                }
+            }
+        }
+        return [iStart, iEnd];
+    }
+    static IsMatching(tuple) {
+        return (tuple.length == 2 && tuple[0] != -1 && tuple[1] != -1);
+    }
+    static EncodeLiterals(line) {
+        let item = { Source: line, List: new Array() };
+        let iStart, iEnd, i, id;
+        if (line.indexOf("\"") != -1) {
+            while (line.indexOf("\"") != -1) {
+                iStart = line.indexOf("\"");
+                iEnd = -1;
+                for (i = iStart; i < line.length; i++) {
+                    if (i > iStart && line.charAt(i) === "\"") {
+                        iEnd = i;
+                        break;
+                    }
+                }
+                if (iEnd == -1) {
+                    iEnd = line.length;
+                    line += "\"";
+                }
+                id = item.List.length;
+                item.List.push(line.substring(iStart + 1, iEnd));
+                line = line.substring(0, iStart) + "{" + id.toString() + "}" + line.substring(iEnd + 1);
+            }
+        }
+        item.Source = line;
+        return item;
+    }
+}
 class MersenneTwister {
     constructor() {
         this.N = 624;
@@ -1322,90 +1412,4 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
-class CodeHelper {
-    static CodeSplitter(code, chars) {
-        let aResult = [];
-        let tuple = [];
-        let iPos = 0;
-        const len = chars.length;
-        const open = "([{\"'";
-        const close = ")]}\"'";
-        if (code.includes(chars)) {
-            while (iPos < code.length) {
-                if (open.includes(code.charAt(iPos))) {
-                    const item = open.indexOf(code.charAt(iPos));
-                    tuple = this.FindMatching(code, iPos, open.charAt(item), close.charAt(item));
-                    if (this.IsMatching(tuple)) {
-                        iPos = tuple[1];
-                    }
-                }
-                if (code.substring(iPos, iPos + len) == chars) {
-                    aResult.push(code.substring(0, iPos).trim());
-                    code = code.substring(iPos + len);
-                    iPos = 0;
-                }
-                else {
-                    iPos++;
-                }
-            }
-        }
-        aResult.push(code.trim());
-        return aResult;
-    }
-    static FindMatching(code, offset, start, end) {
-        if (typeof code == "undefined") {
-            console.log("You fucked up in FindMatching", code);
-            return [-1, -1];
-        }
-        if (typeof start === "undefined")
-            start = "(";
-        if (typeof end === "undefined")
-            end = ")";
-        const iStart = code.indexOf(start, (typeof offset === "undefined") ? 0 : offset);
-        let iEnd = -1;
-        let i;
-        let count = 0;
-        if (iStart != -1) {
-            for (i = iStart; i < code.length; i++) {
-                if (code.charAt(i) == start)
-                    count++;
-                if (code.charAt(i) == end)
-                    count--;
-                if (count == 0) {
-                    iEnd = i;
-                    break;
-                }
-            }
-        }
-        return [iStart, iEnd];
-    }
-    static IsMatching(tuple) {
-        return (tuple.length == 2 && tuple[0] != -1 && tuple[1] != -1);
-    }
-    static EncodeLiterals(line) {
-        let item = { Source: line, List: new Array() };
-        let iStart, iEnd, i, id;
-        if (line.indexOf("\"") != -1) {
-            while (line.indexOf("\"") != -1) {
-                iStart = line.indexOf("\"");
-                iEnd = -1;
-                for (i = iStart; i < line.length; i++) {
-                    if (i > iStart && line.charAt(i) === "\"") {
-                        iEnd = i;
-                        break;
-                    }
-                }
-                if (iEnd == -1) {
-                    iEnd = line.length;
-                    line += "\"";
-                }
-                id = item.List.length;
-                item.List.push(line.substring(iStart + 1, iEnd));
-                line = line.substring(0, iStart) + "{" + id.toString() + "}" + line.substring(iEnd + 1);
-            }
-        }
-        item.Source = line;
-        return item;
-    }
-}
 //# sourceMappingURL=genesis64.js.map
