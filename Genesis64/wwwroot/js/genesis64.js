@@ -48,6 +48,7 @@ class G64Basic {
         this.m_lstFnOut = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
+        this.regexLineNr = /^\s*(\d*)\s*(.*)\s*/;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -58,12 +59,12 @@ class G64Basic {
         switch (options.basicVersion) {
             case BasicVersion.v2:
                 Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
-                this.InitV2();
+                this.InitBasicV2();
                 this.InitLists();
                 break;
             case BasicVersion.g64:
                 Genesis64.Instance.Log("   ... setting up G64 BASIC ... ");
-                this.InitG64();
+                this.InitBasicG64();
                 this.InitLists();
                 break;
         }
@@ -72,7 +73,7 @@ class G64Basic {
             ...options
         };
     }
-    InitV2() {
+    InitBasicV2() {
         this.m_Commands = [
             { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
             { name: "clr", abbrv: "cR", tkn: 156, type: CmdType.cmd },
@@ -144,42 +145,75 @@ class G64Basic {
             { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
         ];
     }
-    InitG64() {
-        this.InitV2();
+    InitBasicG64() {
+        this.InitBasicV2();
     }
     InitLists() {
-        this.m_lstCmd = [];
-        for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.cmd)
-                this.m_lstCmd.push(i);
-        }
-        this.m_lstFnNum = [];
-        for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.fnum)
-                this.m_lstFnNum.push(i);
-        }
+        const aCmd = [];
+        const aFnNum = [];
         this.m_lstFnStr = [];
-        for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.fstr)
-                this.m_lstFnStr.push(i);
-        }
         this.m_lstFnOut = [];
-        for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.fout)
-                this.m_lstFnOut.push(i);
-        }
         this.m_lstOps = [];
-        for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.ops)
-                this.m_lstOps.push(i);
-        }
+        this.m_lstComp = [];
+        this.m_lstCmd = [];
+        this.m_lstFnNum = [];
+        this.m_lstFnStr = [];
+        this.m_lstFnOut = [];
+        this.m_lstOps = [];
         this.m_lstComp = [];
         for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].type == CmdType.comp)
+            if (typeof this.m_Commands[i].reg === "undefined") {
+                this.m_Commands[i].reg = this.m_Commands[i].name;
+            }
+            if (this.m_Commands[i].type == CmdType.cmd) {
+                this.m_lstCmd.push(i);
+                aCmd.push(this.m_Commands[i].reg);
+            }
+            if (this.m_Commands[i].type == CmdType.fnum) {
+                this.m_lstFnNum.push(i);
+                aFnNum.push(this.m_Commands[i].reg);
+            }
+            if (this.m_Commands[i].type == CmdType.fstr) {
+                this.m_lstFnStr.push(i);
+            }
+            if (this.m_Commands[i].type == CmdType.fout) {
+                this.m_lstFnOut.push(i);
+            }
+            if (this.m_Commands[i].type == CmdType.ops) {
+                this.m_lstOps.push(i);
+            }
+            if (this.m_Commands[i].type == CmdType.comp) {
                 this.m_lstComp.push(i);
+            }
         }
+        this.regexCmd = new RegExp("\\s*(" + aCmd.join("|") + ")\\s*(.*)");
+    }
+    Temp(code) {
+        console.time("temp");
+        const lines = CodeHelper.CodeSplitter(code, "\n");
+        console.log(lines);
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim() !== "") {
+                let match = lines[i].match(this.regexLineNr);
+                let lineNr = -1;
+                const line = match[2];
+                console.log(match);
+                if (match[1] !== "") {
+                    lineNr = parseInt(match[1]);
+                }
+                if (line !== "") {
+                    const parts = CodeHelper.CodeSplitter(line, ":");
+                    console.log(lineNr, parts);
+                    for (let p = 0; p < parts.length; p++) {
+                        this.Tokenizer(parts[p]);
+                    }
+                }
+            }
+        }
+        console.timeEnd("temp");
     }
     Tokenizer(code) {
+        console.log("-p:", code.match(this.regexCmd));
     }
 }
 class G64Colors {
@@ -435,6 +469,12 @@ class Genesis64 {
         this.m_fsm.AddSingle("Done", () => {
             console.log("Genesis64 instance initialized.");
             this.m_fsm.StopTimer();
+            this.m_fsm.SetState("Test");
+        }, FsmActionType.onEnter);
+        this.m_fsm.AddSingle("Test", () => {
+            this.m_Basic.Temp("10 ?\"test\": rem test\n" +
+                "20 goto10:rem print \"nope\"\n" +
+                "30 end\nrun\n");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();
@@ -1282,4 +1322,90 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
+class CodeHelper {
+    static CodeSplitter(code, chars) {
+        let aResult = [];
+        let tuple = [];
+        let iPos = 0;
+        const len = chars.length;
+        const open = "([{\"'";
+        const close = ")]}\"'";
+        if (code.includes(chars)) {
+            while (iPos < code.length) {
+                if (open.includes(code.charAt(iPos))) {
+                    const item = open.indexOf(code.charAt(iPos));
+                    tuple = this.FindMatching(code, iPos, open.charAt(item), close.charAt(item));
+                    if (this.IsMatching(tuple)) {
+                        iPos = tuple[1];
+                    }
+                }
+                if (code.substring(iPos, iPos + len) == chars) {
+                    aResult.push(code.substring(0, iPos).trim());
+                    code = code.substring(iPos + len);
+                    iPos = 0;
+                }
+                else {
+                    iPos++;
+                }
+            }
+        }
+        aResult.push(code.trim());
+        return aResult;
+    }
+    static FindMatching(code, offset, start, end) {
+        if (typeof code == "undefined") {
+            console.log("You fucked up in FindMatching", code);
+            return [-1, -1];
+        }
+        if (typeof start === "undefined")
+            start = "(";
+        if (typeof end === "undefined")
+            end = ")";
+        const iStart = code.indexOf(start, (typeof offset === "undefined") ? 0 : offset);
+        let iEnd = -1;
+        let i;
+        let count = 0;
+        if (iStart != -1) {
+            for (i = iStart; i < code.length; i++) {
+                if (code.charAt(i) == start)
+                    count++;
+                if (code.charAt(i) == end)
+                    count--;
+                if (count == 0) {
+                    iEnd = i;
+                    break;
+                }
+            }
+        }
+        return [iStart, iEnd];
+    }
+    static IsMatching(tuple) {
+        return (tuple.length == 2 && tuple[0] != -1 && tuple[1] != -1);
+    }
+    static EncodeLiterals(line) {
+        let item = { Source: line, List: new Array() };
+        let iStart, iEnd, i, id;
+        if (line.indexOf("\"") != -1) {
+            while (line.indexOf("\"") != -1) {
+                iStart = line.indexOf("\"");
+                iEnd = -1;
+                for (i = iStart; i < line.length; i++) {
+                    if (i > iStart && line.charAt(i) === "\"") {
+                        iEnd = i;
+                        break;
+                    }
+                }
+                if (iEnd == -1) {
+                    iEnd = line.length;
+                    line += "\"";
+                }
+                id = item.List.length;
+                item.List.push(line.substring(iStart + 1, iEnd));
+                line = line.substring(0, iStart) + "{" + id.toString() + "}" + line.substring(iEnd + 1);
+            }
+        }
+        item.Source = line;
+        return item;
+    }
+}
 //# sourceMappingURL=genesis64.js.map

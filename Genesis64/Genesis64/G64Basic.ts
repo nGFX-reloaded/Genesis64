@@ -40,15 +40,31 @@ enum Tokentype {
 	eop		/* 18, token exec ok, end of part */,
 	run		/* 19, token exec ok, end of line */,
 	jmp		/* 20, jump (goto, gosub, etc) */,
-	end		/* 21, prg ends here */,
+	end		/* 21, prg ends here */
 }
 
-interface BasicCmd {
+type Token = {
+	Type: Tokentype;
+	Id: number;				// basic cmd/fn/error id
+	Data?: number;			// if sub token, the id of the cmd
+
+	Name?: string;			// if var, stores var's name
+
+	Order?: number;			// this will remove the need for the token order array
+
+	Num?: number;			// number data
+	Str?: string;			// string data
+	Values?: Array<Token>;	// ref to token array
+
+	Fn?: Function;			// pointer to exec method
+}
+
+type BasicCmd = {
 	name: string;
 	abbrv: string;
 	tkn: number;
 	type: CmdType;
-	reg?: string;
+	reg?: string | RegExp;
 }
 
 //#endregion
@@ -78,6 +94,13 @@ class G64Basic {
 
 	//#endregion
 
+	//#region " ----- Regex ----- "
+
+	private regexLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
+	private regexCmd: RegExp;
+
+	//#endregion
+
 	constructor() {
 
 		Genesis64.Instance.Log(" - Basic created\n");
@@ -97,13 +120,13 @@ class G64Basic {
 		switch (options.basicVersion) {
 			case BasicVersion.v2:
 				Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
-				this.InitV2();
+				this.InitBasicV2();
 				this.InitLists();
 				break;
 
 			case BasicVersion.g64:
 				Genesis64.Instance.Log("   ... setting up G64 BASIC ... ");
-				this.InitG64();
+				this.InitBasicG64();
 				this.InitLists();
 				break;
 		}
@@ -118,7 +141,7 @@ class G64Basic {
 	/**
 	 * sets up the c64 basic v2 commands / fns 
 	 **/
-	private InitV2(): void {
+	private InitBasicV2(): void {
 
 		this.m_Commands = [
 
@@ -220,8 +243,8 @@ class G64Basic {
 	/**
 	 * sets up the g64 basic commands / fns
 	 **/
-	private InitG64(): void {
-		this.InitV2();
+	private InitBasicG64(): void {
+		this.InitBasicV2();
 	}
 
 	/**
@@ -229,52 +252,110 @@ class G64Basic {
 	 **/
 	private InitLists(): void {
 
-		this.m_lstCmd = [];
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.cmd)
-				this.m_lstCmd.push(i);
-		}
-
-		this.m_lstFnNum = [];
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.fnum)
-				this.m_lstFnNum.push(i);
-		}
-
+		const aCmd:string[] = [];
+		const aFnNum:string[] = [];
 		this.m_lstFnStr = [];
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.fstr)
-				this.m_lstFnStr.push(i);
-		}
-
 		this.m_lstFnOut = [];
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.fout)
-				this.m_lstFnOut.push(i);
-		}
-
 		this.m_lstOps = [];
+		this.m_lstComp = [];
+
+		this.m_lstCmd = [];
+		this.m_lstFnNum = [];
+		this.m_lstFnStr = [];
+		this.m_lstFnOut = [];
+		this.m_lstOps = [];
+		this.m_lstComp = [];
+
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.ops)
+			// set regex
+			if (typeof this.m_Commands[i].reg === "undefined") {
+				this.m_Commands[i].reg = this.m_Commands[i].name;
+			}
+			//if (typeof this.m_Commands[i].reg === "string") {
+			//	this.m_Commands[i].reg = new RegExp(this.m_Commands[i].reg + "\\s*(.*)");
+			//	console.log(this.m_Commands[i].reg);
+			//}
+
+			if (this.m_Commands[i].type == CmdType.cmd) {
+				this.m_lstCmd.push(i);
+				aCmd.push(this.m_Commands[i].reg as string);
+			}
+
+			if (this.m_Commands[i].type == CmdType.fnum) {
+				this.m_lstFnNum.push(i);
+				aFnNum.push(this.m_Commands[i].reg as string);
+			}
+
+			if (this.m_Commands[i].type == CmdType.fstr) {
+				this.m_lstFnStr.push(i);
+
+			}
+
+			if (this.m_Commands[i].type == CmdType.fout) {
+				this.m_lstFnOut.push(i);
+
+			}
+
+			if (this.m_Commands[i].type == CmdType.ops) {
+
 				this.m_lstOps.push(i);
+			}
+
+			if (this.m_Commands[i].type == CmdType.comp) {
+				this.m_lstComp.push(i);
+
+			}
 		}
 
-		this.m_lstComp = [];
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].type == CmdType.comp)
-				this.m_lstComp.push(i);
-		}
+		this.regexCmd = new RegExp("\\s*(" + aCmd.join("|") + ")\\s*(.*)");
 
 	}
 
+
 	//#endregion
+
+	public Temp(code: string): void {
+
+		// get timeing
+		console.time("temp");
+
+		const lines: string[] = CodeHelper.CodeSplitter(code, "\n");
+
+		console.log(lines);
+
+		for (let i: number = 0; i < lines.length; i++) {
+			if (lines[i].trim() !== "") {
+				let match: string[] = lines[i].match(this.regexLineNr);
+				let lineNr: number = -1;
+				const line = match[2];
+
+				console.log(match);
+
+				if (match[1] !== "") {
+					lineNr = parseInt(match[1]);
+				}
+
+				if (line !== "") {
+					const parts: string[] = CodeHelper.CodeSplitter(line, ":");
+
+					console.log(lineNr, parts);
+
+					for (let p: number = 0; p < parts.length; p++) {
+						this.Tokenizer(parts[p]);
+					}
+
+				}
+
+			}
+
+		}
+
+		console.timeEnd("temp");
+	}
 
 	public Tokenizer(code: string): void {
 
-		// split code into lines
-		// line number?
-		// - split line into parts
-		// - parse each part
-		
+		console.log("-p:", code.match(this.regexCmd));
+
 	}
 }

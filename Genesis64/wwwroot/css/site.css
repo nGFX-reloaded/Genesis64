@@ -65,7 +65,7 @@ html, body {
 footer {
 	position: absolute;
 	display: block;
-	border: 2px solid var(--Darkgrey);
+	border-top: 2px solid var(--Darkgrey);
 	background-color: var(--Lightgrey);
 	bottom: 0px;
 	left: 0px;

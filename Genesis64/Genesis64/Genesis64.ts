@@ -114,6 +114,17 @@ class Genesis64 {
 			() => {
 				console.log("Genesis64 instance initialized.");
 				this.m_fsm.StopTimer();
+				this.m_fsm.SetState("Test");
+			},
+			FsmActionType.onEnter);
+
+		this.m_fsm.AddSingle("Test",
+			() => {
+				this.m_Basic.Temp(
+					"10 ?\"test\": rem test\n" +
+					"20 goto10:rem print \"nope\"\n" +
+					"30 end\nrun\n"
+				);
 			},
 			FsmActionType.onEnter);
 
