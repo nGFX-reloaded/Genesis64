@@ -201,12 +201,9 @@ class G64Basic {
                 this.regexCmd.lastIndex = -1;
                 this.regexFn.lastIndex = -1;
                 this.regexArrayStart.lastIndex = -1;
-                if (this.regexCmd.test(match[m])) {
+                if (this.regexCmd.test(match[m]))
                     isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
-                }
-                if (isArray && match[m].match(this.regexFn)) {
-                    isArray = false;
-                }
+                isArray = isArray && !this.regexFn.test(match[m]);
                 if (isArray) {
                     const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
                     if (CodeHelper.IsMatching(tuple)) {
@@ -509,7 +506,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("70printa,abs(-2),a(b(3)), sin(a(1)),def fn(a) = a*2\n" + "");
+            this.m_Basic.Temp("70printa,abs(-2),a(b(3)), sin(a(1)),def fn(a) = a*2:print a + 2(2)\n" + "");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();

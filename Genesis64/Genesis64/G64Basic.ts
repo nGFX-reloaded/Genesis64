@@ -328,7 +328,7 @@ class G64Basic {
 
 		let encoded: string = code;
 
-			this.regexArrayStart.lastIndex = -1;
+		this.regexArrayStart.lastIndex = -1;
 		if (encoded.includes("(") && encoded.includes(")")) {
 
 			const match: string[] = code.match(this.regexArrayStart);
@@ -341,15 +341,13 @@ class G64Basic {
 				this.regexArrayStart.lastIndex = -1;
 
 				// commands 
-				if (this.regexCmd.test(match[m])) {
-//					console.log(match[m].replace(this.regexCmd, ""));
+				if (this.regexCmd.test(match[m]))
 					isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
-				}
 
 				// check functions
-				if (isArray && match[m].match(this.regexFn)) {
-					isArray = false;
-				}
+				isArray = isArray && !this.regexFn.test(match[m]);
+
+				// 2(2) seems to work without extra filter
 
 				if (isArray) {
 					const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
