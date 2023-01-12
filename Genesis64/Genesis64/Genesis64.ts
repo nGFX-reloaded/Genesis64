@@ -121,13 +121,14 @@ class Genesis64 {
 		this.m_fsm.AddSingle("Test",
 			() => {
 				this.m_Basic.Temp(
-					"10 ?\"test\": rem test\n" +
-					"20 rem goto10: print \"nope\"\n" +
-					"30 printend\n" +
-					"40 leta=1:leta(2)=2:leta(b(3))=3\n" +
-					"50 a=4:a(2)=5:a(b(3))=6\n" + 
-					"60printa,a(2),a(b(3))"+
-					"70printa,abs(-2),a(b(3)), sin(a(1))"
+					//"10 ?\"test\": rem test\n" +
+					//"20 rem goto10: print \"nope\"\n" +
+					//"30 printend\n" +
+					//"40 leta=1:leta(2)=2:leta(b(3))=3\n" + 
+					//"50 a=4:a(2)=5:a(b(3))=6\n" + 
+					//"60printa,a(2),a(b(3))\n" +
+					"70printa,abs(-2),a(b(3)), sin(a(1)),def fn(a) = a*2\n"+""
+					//"70printa(-2),a(b(3)), sin(a(1))"
 				);
 			},
 			FsmActionType.onEnter);

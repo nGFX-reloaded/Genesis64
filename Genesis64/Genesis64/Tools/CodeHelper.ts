@@ -51,7 +51,7 @@ class CodeHelper {
 	/**
 	 * Finds matching brackets ( and ) for a given piece of code
 	 * @param	code		code to match ( and ) in
-	 * @param	offset	offset to start searching
+	 * @param	offset		offset to start searching
 	 */
 	public static FindMatching(code: string, offset?: number, start?: string, end?: string): [number, number] {
 
