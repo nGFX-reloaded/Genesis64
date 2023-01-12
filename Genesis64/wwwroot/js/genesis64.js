@@ -49,6 +49,7 @@ class G64Basic {
         this.m_lstOps = [];
         this.m_lstComp = [];
         this.regexLineNr = /^\s*(\d*)\s*(.*)\s*/;
+        this.regexArrayStart = /[_a-z]+[_a-z0-9]*[$%]?\s*\(/g;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -150,9 +151,7 @@ class G64Basic {
     }
     InitLists() {
         const aCmd = [];
-        const aFnNum = [];
-        this.m_lstFnStr = [];
-        this.m_lstFnOut = [];
+        const aFn = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
         this.m_lstCmd = [];
@@ -166,18 +165,21 @@ class G64Basic {
                 this.m_Commands[i].reg = this.m_Commands[i].name;
             }
             if (this.m_Commands[i].type == CmdType.cmd) {
-                this.m_lstCmd.push(i);
                 aCmd.push(this.m_Commands[i].reg);
+                this.m_lstCmd.push(i);
+                this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")(.*)");
             }
             if (this.m_Commands[i].type == CmdType.fnum) {
+                aFn.push(this.m_Commands[i].reg);
                 this.m_lstFnNum.push(i);
-                aFnNum.push(this.m_Commands[i].reg);
             }
             if (this.m_Commands[i].type == CmdType.fstr) {
                 this.m_lstFnStr.push(i);
+                aFn.push(this.m_Commands[i].reg);
             }
             if (this.m_Commands[i].type == CmdType.fout) {
                 this.m_lstFnOut.push(i);
+                aFn.push(this.m_Commands[i].reg);
             }
             if (this.m_Commands[i].type == CmdType.ops) {
                 this.m_lstOps.push(i);
@@ -186,7 +188,16 @@ class G64Basic {
                 this.m_lstComp.push(i);
             }
         }
-        this.regexCmd = new RegExp("\\s*(" + aCmd.join("|") + ")\\s*(.*)");
+        this.regexCmd = new RegExp("(" + aCmd.join("|") + ")");
+        this.regexFn = new RegExp("(" + aFn.join("|") + ")");
+    }
+    EncodeArray(code) {
+        let encoded = code;
+        if (code.includes("(") && code.includes(")")) {
+            const match = code.match(this.regexArrayStart);
+            console.log("-- ", code, match);
+        }
+        return encoded;
     }
     Temp(code) {
         console.time("temp");
@@ -195,19 +206,23 @@ class G64Basic {
             if (lines[i].trim() !== "") {
                 let match = lines[i].match(this.regexLineNr);
                 let lineNr = -1;
-                const line = match[2];
+                let line = match[2];
                 if (match[1] !== "") {
                     lineNr = parseInt(match[1]);
                 }
                 if (line !== "") {
-                    const parts = CodeHelper.CodeSplitter(line, ":");
-                    for (let p = 0; p < parts.length; p++) {
-                        this.Tokenizer(parts[p]);
-                    }
+                    line = this.EncodeArray(line);
+                    this.ParseLine(line);
                 }
             }
         }
         console.timeEnd("temp");
+    }
+    ParseLine(code) {
+        const parts = CodeHelper.CodeSplitter(code, ":");
+        for (let p = 0; p < parts.length; p++) {
+            this.Tokenizer(parts[p]);
+        }
     }
     Tokenizer(code) {
         for (let i = 0; i < this.m_lstCmd.length; i++) {
@@ -478,7 +493,8 @@ class Genesis64 {
                 "30 printend\n" +
                 "40 leta=1:leta(2)=2:leta(b(3))=3\n" +
                 "50 a=4:a(2)=5:a(b(3))=6\n" +
-                "60printa,a(2),a(b(3))");
+                "60printa,a(2),a(b(3))" +
+                "70printa,abs(-2),a(b(3)), sin(a(1))");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();

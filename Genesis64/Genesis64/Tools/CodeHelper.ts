@@ -50,8 +50,8 @@ class CodeHelper {
 
 	/**
 	 * Finds matching brackets ( and ) for a given piece of code
-	 * @param code		code to match ( and ) in
-	 * @param offset	offset to start searching
+	 * @param	code		code to match ( and ) in
+	 * @param	offset	offset to start searching
 	 */
 	public static FindMatching(code: string, offset?: number, start?: string, end?: string): [number, number] {
 
@@ -83,13 +83,14 @@ class CodeHelper {
 		return [iStart, iEnd]
 	}
 
+	/** Check if FindMatching result contains start and end */
 	public static IsMatching(tuple: number[]): boolean {
 		return (tuple.length == 2 && tuple[0] != -1 && tuple[1] != -1);
 	}
 
 	/**
 	 * Encodes litearls in strings, stores literals in a list and replaces it in string
-	 * @param line		line to encode literals in
+	 * @param	line		line to encode literals in
 	 */
 	public static EncodeLiterals(line: string): SplitItem {
 		let item: SplitItem = { Source: line, List: new Array<string>() };
@@ -125,5 +126,6 @@ class CodeHelper {
 
 		return item;
 	}
+
 
 }

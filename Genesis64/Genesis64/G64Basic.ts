@@ -97,7 +97,9 @@ class G64Basic {
 	//#region " ----- Regex ----- "
 
 	private regexLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
+	private regexArrayStart: RegExp = /[_a-z]+[_a-z0-9]*[$%]?\s*\(/g;
 	private regexCmd: RegExp;
+	private regexFn: RegExp;
 
 	//#endregion
 
@@ -253,9 +255,7 @@ class G64Basic {
 	private InitLists(): void {
 
 		const aCmd: string[] = [];
-		const aFnNum: string[] = [];
-		this.m_lstFnStr = [];
-		this.m_lstFnOut = [];
+		const aFn: string[] = [];
 		this.m_lstOps = [];
 		this.m_lstComp = [];
 
@@ -277,22 +277,26 @@ class G64Basic {
 			//}
 
 			if (this.m_Commands[i].type == CmdType.cmd) {
-				this.m_lstCmd.push(i);
 				aCmd.push(this.m_Commands[i].reg as string);
+				this.m_lstCmd.push(i);
+				this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")(.*)");
 			}
 
 			if (this.m_Commands[i].type == CmdType.fnum) {
+				aFn.push(this.m_Commands[i].reg as string);
 				this.m_lstFnNum.push(i);
-				aFnNum.push(this.m_Commands[i].reg as string);
+				//this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")\s*(?:\().*)");
 			}
 
 			if (this.m_Commands[i].type == CmdType.fstr) {
 				this.m_lstFnStr.push(i);
+				aFn.push(this.m_Commands[i].reg as string);
 
 			}
 
 			if (this.m_Commands[i].type == CmdType.fout) {
 				this.m_lstFnOut.push(i);
+				aFn.push(this.m_Commands[i].reg as string);
 
 			}
 
@@ -307,12 +311,33 @@ class G64Basic {
 			}
 		}
 
-		this.regexCmd = new RegExp("\\s*(" + aCmd.join("|") + ")\\s*(.*)");
+		this.regexCmd = new RegExp("(" + aCmd.join("|") + ")");
+		this.regexFn = new RegExp("(" + aFn.join("|") + ")");
 
 	}
 
 
 	//#endregion
+
+	/**
+	 * Encodes the c64 style array notation to c style () -> [] 
+	 * @param	code		code piece to encode
+	 * @return				string
+	 **/
+	private EncodeArray(code: string): string {
+
+		let encoded: string = code;
+
+		if (code.includes("(") && code.includes(")")) {
+			const match: string[] = code.match(this.regexArrayStart);
+
+			console.log("-- ", code, match);
+			
+
+		}
+
+		return encoded;
+	}
 
 	public Temp(code: string): void {
 
@@ -327,26 +352,20 @@ class G64Basic {
 			if (lines[i].trim() !== "") {
 				let match: string[] = lines[i].match(this.regexLineNr);
 				let lineNr: number = -1;
-				const line = match[2];
-
-				//console.log(match);
+				let line = match[2];
 
 				if (match[1] !== "") {
 					lineNr = parseInt(match[1]);
 				}
 
 				if (line !== "") {
-					const parts: string[] = CodeHelper.CodeSplitter(line, ":");
+					// convert array () to []
+					line = this.EncodeArray(line);
 
-					//console.log(lineNr, parts);
+					// convert = to ==
 
-					// do not split rem lines
-					// translate arrays () into []
-					// translate = into ==
-
-					for (let p: number = 0; p < parts.length; p++) {
-						this.Tokenizer(parts[p]);
-					}
+					// start parsing ..
+					this.ParseLine(line);
 
 				}
 
@@ -357,8 +376,23 @@ class G64Basic {
 		console.timeEnd("temp");
 	}
 
+	/**
+	 * Parses a line, without lineNr 
+	 * @param	code	line to parse
+	 **/
+	private ParseLine(code: string): void {
+
+		const parts: string[] = CodeHelper.CodeSplitter(code, ":");
+
+		for (let p: number = 0; p < parts.length; p++) {
+			this.Tokenizer(parts[p]);
+		}
+
+	}
+
 	public Tokenizer(code: string): void {
 
+		// code must start with with a command
 		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
 			const match: string[] = new RegExp("(" + this.m_Commands[this.m_lstCmd[i]].reg + ")(.*)").exec(code);
 
