@@ -333,32 +333,46 @@ class G64Basic {
 
 			const match: string[] = code.match(this.regexArrayStart);
 
-			for (let m: number = 0; m < match.length; m++) {
-				let isArray: boolean = true;
+			if (match !== null) {
+				for (let m: number = 0; m < match.length; m++) {
+					let isArray: boolean = true;
 
-				this.regexCmd.lastIndex = -1;
-				this.regexFn.lastIndex = -1;
-				this.regexArrayStart.lastIndex = -1;
+					this.regexCmd.lastIndex = -1;
+					this.regexFn.lastIndex = -1;
+					this.regexArrayStart.lastIndex = -1;
 
-				// commands 
-				if (this.regexCmd.test(match[m]))
-					isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
+					// skip commands 
+					if (this.regexCmd.test(match[m]))
+						isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
 
-				// check functions
-				isArray = isArray && !this.regexFn.test(match[m]);
+					// skip functions
+					isArray = isArray && !this.regexFn.test(match[m]);
 
-				// 2(2) seems to work without extra filter
-
-				if (isArray) {
-					const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
-					if (CodeHelper.IsMatching(tuple)) {
-						encoded = encoded.substring(0, tuple[0]) + "["
-							+ encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-							+ encoded.substring(tuple[1] + 1);
+					if (isArray) {
+						const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+						if (CodeHelper.IsMatching(tuple)) {
+							encoded = encoded.substring(0, tuple[0]) + "["
+								+ encoded.substring(tuple[0] + 1, tuple[1]) + "]"
+								+ encoded.substring(tuple[1] + 1);
+						}
 					}
 				}
 			}
 		}
+
+		return encoded;
+	}
+
+	/**
+	 * Encodes the c64 style compare = into c style ==
+	 * @param	code		code to encode
+	 * @return				string
+	 **/
+	private EncodeCompare(code: string): string {
+
+		let encoded: string = code.replace(/=/g, "==");
+
+		//^(let)?(?!if|for|def)\s*([a-zA-Z]+\n*[$%]?).*=
 
 		return encoded;
 	}
@@ -372,9 +386,9 @@ class G64Basic {
 
 		//console.log(lines);
 
-		for (let i: number = 0; i < lines.length; i++) {
-			if (lines[i].trim() !== "") {
-				let match: string[] = lines[i].match(this.regexLineNr);
+		for (let l: number = 0; l < lines.length; l++) {
+			if (lines[l].trim() !== "") {
+				let match: string[] = lines[l].match(this.regexLineNr);
 				let lineNr: number = -1;
 				let line = match[2];
 
@@ -383,12 +397,22 @@ class G64Basic {
 				}
 
 				if (line !== "") {
-					// convert array () to []
-					line = this.EncodeArray(line);
+					// split into parts and encode
+					const parts: string[] = CodeHelper.CodeSplitter(line, ":");
 
-					console.log(line);
+					for (let p: number = 0; p < parts.length; p++) {
+						// de-abbrv
 
-					// convert = to ==
+						// convert array () to []
+						parts[p] = this.EncodeArray(parts[p]);
+
+						// convert = to ==
+						parts[p] = this.EncodeCompare(parts[p]);
+
+						console.log(parts[p]);
+
+
+					}
 
 					// start parsing ..
 					this.ParseLine(line);

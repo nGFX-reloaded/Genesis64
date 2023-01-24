@@ -196,40 +196,50 @@ class G64Basic {
         this.regexArrayStart.lastIndex = -1;
         if (encoded.includes("(") && encoded.includes(")")) {
             const match = code.match(this.regexArrayStart);
-            for (let m = 0; m < match.length; m++) {
-                let isArray = true;
-                this.regexCmd.lastIndex = -1;
-                this.regexFn.lastIndex = -1;
-                this.regexArrayStart.lastIndex = -1;
-                if (this.regexCmd.test(match[m]))
-                    isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
-                isArray = isArray && !this.regexFn.test(match[m]);
-                if (isArray) {
-                    const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
-                    if (CodeHelper.IsMatching(tuple)) {
-                        encoded = encoded.substring(0, tuple[0]) + "["
-                            + encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-                            + encoded.substring(tuple[1] + 1);
+            if (match !== null) {
+                for (let m = 0; m < match.length; m++) {
+                    let isArray = true;
+                    this.regexCmd.lastIndex = -1;
+                    this.regexFn.lastIndex = -1;
+                    this.regexArrayStart.lastIndex = -1;
+                    if (this.regexCmd.test(match[m]))
+                        isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
+                    isArray = isArray && !this.regexFn.test(match[m]);
+                    if (isArray) {
+                        const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+                        if (CodeHelper.IsMatching(tuple)) {
+                            encoded = encoded.substring(0, tuple[0]) + "["
+                                + encoded.substring(tuple[0] + 1, tuple[1]) + "]"
+                                + encoded.substring(tuple[1] + 1);
+                        }
                     }
                 }
             }
         }
         return encoded;
     }
+    EncodeCompare(code) {
+        let encoded = code.replace(/=/g, "==");
+        return encoded;
+    }
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim() !== "") {
-                let match = lines[i].match(this.regexLineNr);
+        for (let l = 0; l < lines.length; l++) {
+            if (lines[l].trim() !== "") {
+                let match = lines[l].match(this.regexLineNr);
                 let lineNr = -1;
                 let line = match[2];
                 if (match[1] !== "") {
                     lineNr = parseInt(match[1]);
                 }
                 if (line !== "") {
-                    line = this.EncodeArray(line);
-                    console.log(line);
+                    const parts = CodeHelper.CodeSplitter(line, ":");
+                    for (let p = 0; p < parts.length; p++) {
+                        parts[p] = this.EncodeArray(parts[p]);
+                        parts[p] = this.EncodeCompare(parts[p]);
+                        console.log(parts[p]);
+                    }
                     this.ParseLine(line);
                 }
             }
@@ -506,7 +516,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("70printa,abs(-2),a(b(3)), sin(a(1)),def fn(a) = a*2:print a + 2(2)\n" + "");
+            this.m_Basic.Temp("a=2");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();
