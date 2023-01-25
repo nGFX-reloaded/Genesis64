@@ -49,7 +49,8 @@ class G64Basic {
         this.m_lstOps = [];
         this.m_lstComp = [];
         this.regexLineNr = /^\s*(\d*)\s*(.*)\s*/;
-        this.regexArrayStart = /[_a-z]+[_a-z0-9]*[$%]?\s*\(/g;
+        this.regexArrayStart = /[_a-z]+\d*[$%]?\s*\(/g;
+        this.regexVar = /[_a-z]+\d*[$%]?/;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -219,7 +220,14 @@ class G64Basic {
         return encoded;
     }
     EncodeCompare(code) {
-        let encoded = code.replace(/=/g, "==");
+        let encoded = code.replace(/^let\s*/, "");
+        const regVar = new RegExp("^(?!" + this.regexCmd.source + ")\s*([a-zA-Z]+\d*[$%]?)");
+        if (regVar.test(encoded)) {
+            console.log("--", encoded, encoded.substring(encoded.indexOf("=") + 1));
+        }
+        else {
+            console.log(">>", encoded);
+        }
         return encoded;
     }
     Temp(code) {
@@ -516,7 +524,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("a=2");
+            this.m_Basic.Temp("a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();

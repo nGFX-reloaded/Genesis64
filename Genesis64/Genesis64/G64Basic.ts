@@ -97,7 +97,8 @@ class G64Basic {
 	//#region " ----- Regex ----- "
 
 	private regexLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
-	private regexArrayStart: RegExp = /[_a-z]+[_a-z0-9]*[$%]?\s*\(/g;
+	private regexArrayStart: RegExp = /[_a-z]+\d*[$%]?\s*\(/g;
+	private regexVar: RegExp = /[_a-z]+\d*[$%]?/;
 	private regexCmd: RegExp;
 	private regexFn: RegExp;
 
@@ -370,9 +371,17 @@ class G64Basic {
 	 **/
 	private EncodeCompare(code: string): string {
 
-		let encoded: string = code.replace(/=/g, "==");
+		let encoded: string = code.replace(/^let\s*/, ""); // remove possible leading let to make the regex simpler
 
-		//^(let)?(?!if|for|def)\s*([a-zA-Z]+\n*[$%]?).*=
+		const regVar: RegExp = new RegExp("^(?!" + this.regexCmd.source + ")\s*([a-zA-Z]+\d*[$%]?)");
+
+		if (regVar.test(encoded)) { // assign
+			console.log("--", encoded, encoded.substring(encoded.indexOf("=") + 1));
+
+		} else {
+			console.log(">>", encoded);
+
+		}
 
 		return encoded;
 	}

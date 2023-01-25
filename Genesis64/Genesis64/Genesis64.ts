@@ -121,15 +121,7 @@ class Genesis64 {
 		this.m_fsm.AddSingle("Test",
 			() => {
 				this.m_Basic.Temp(
-"a=2"
-//leta=2
-//a$=""
-//a%=2
-//b=(a=2)
-//b(a=2+1)=(a=2)
-//ifa=bthenc=2
-//ifa(a=b+1)=bthenc=2
-//def fn ab1( a ) = a*b
+					"a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b"
 				);
 			},
 			FsmActionType.onEnter);
