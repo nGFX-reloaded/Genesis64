@@ -312,8 +312,8 @@ class G64Basic {
 			}
 		}
 
-		this.regexCmd = new RegExp("(" + aCmd.join("|") + ")");
-		this.regexFn = new RegExp("(" + aFn.join("|") + ")");
+		this.regexCmd = new RegExp("^(" + aCmd.join("|") + ")");
+		this.regexFn = new RegExp("^(" + aFn.join("|") + ")");
 
 	}
 
@@ -325,37 +325,34 @@ class G64Basic {
 	 * @param	code		code piece to encode
 	 * @return				string
 	 **/
+	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
 	private EncodeArray(code: string): string {
 
 		let encoded: string = code;
 
-		this.regexArrayStart.lastIndex = -1;
-		if (encoded.includes("(") && encoded.includes(")")) {
+		if (encoded.startsWith("dim"))
+			return encoded;
 
-			const match: string[] = code.match(this.regexArrayStart);
+		this.regEncodeArray.lastIndex = -1;
 
-			if (match !== null) {
-				for (let m: number = 0; m < match.length; m++) {
-					let isArray: boolean = true;
+		const match: string[] = encoded.match(this.regEncodeArray);
+		if (match !== null) {
+			for (let m: number = 0; m < match.length; m++) {
 
-					this.regexCmd.lastIndex = -1;
-					this.regexFn.lastIndex = -1;
-					this.regexArrayStart.lastIndex = -1;
+				// remove cmds
+				let subMatch: string[] = match[m].match(this.regexCmd);
+				if (subMatch !== null)
+					match[m] = match[m].replace(subMatch[0], "");
 
-					// skip commands 
-					if (this.regexCmd.test(match[m]))
-						isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
+				this.regexFn.lastIndex = -1;
+				if (!this.regexFn.test(match[m])) {
+					const tuple: number[] = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+					if (CodeHelper.IsMatching(tuple)) {
+						let target: string = match[m];
 
-					// skip functions
-					isArray = isArray && !this.regexFn.test(match[m]);
-
-					if (isArray) {
-						const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
-						if (CodeHelper.IsMatching(tuple)) {
-							encoded = encoded.substring(0, tuple[0]) + "["
-								+ encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-								+ encoded.substring(tuple[1] + 1);
-						}
+						encoded = encoded.substring(0, tuple[0]) + "["
+							+ encoded.substring(tuple[0] + 1, tuple[1]) + "]"
+							+ encoded.substring(tuple[1] + 1);
 					}
 				}
 			}
@@ -369,19 +366,47 @@ class G64Basic {
 	 * @param	code		code to encode
 	 * @return				string
 	 **/
-	private EncodeCompare(code: string): string {
+	private regEncCompCmd: RegExp[] = [
+		/^for(.*)to/,
+		/^.+then(.*)/,
+		/^let\s*(.*)/,
+		/^def\s*fn\s*(.*)/
+	];
+	private regEncCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+	private EncodeCompare(code: string, isCommand: boolean = false): string {
 
-		let encoded: string = code.replace(/^let\s*/, ""); // remove possible leading let to make the regex simpler
+		let encoded: string = code;
+		let match: RegExpMatchArray;
 
-		const regVar: RegExp = new RegExp("^(?!" + this.regexCmd.source + ")\s*([a-zA-Z]+\d*[$%]?)");
+		for (let i: number = 0; i < this.regEncCompCmd.length; i++) {
+			this.regEncCompCmd[i].lastIndex = -1;
+			match = this.regEncCompCmd[i].exec(encoded);
 
-		if (regVar.test(encoded)) { // assign
-			console.log("--", encoded, encoded.substring(encoded.indexOf("=") + 1));
-
-		} else {
-			console.log(">>", encoded);
-
+			if (match !== null)
+				encoded = encoded.replace(match[1], this.EncodeCompare(match[1], true));
 		}
+
+		// only consider non-command code
+		if (!this.regexCmd.test(encoded)) {
+			this.regEncCompArray.lastIndex = -1;
+
+			match = this.regEncCompArray.exec(encoded);
+			if (match !== null) {
+
+				// skip inside of arrays
+				if (match[2] !== "") {
+					const tuple: number[] = CodeHelper.FindMatching(encoded, 0, "[", "]");
+					if (CodeHelper.IsMatching(tuple)) {
+						encoded = encoded.substring(0, tuple[1]) + encoded.substring(tuple[1]).replace(/=+/, "~");
+					}
+				} else {
+					encoded = encoded.replace(/=/, "~");
+				}
+			}
+		}
+
+		if (!isCommand)
+			encoded = encoded.replace(/=/g, "==").replace(/~/, "=");
 
 		return encoded;
 	}
@@ -407,7 +432,9 @@ class G64Basic {
 
 				if (line !== "") {
 					// split into parts and encode
-					const parts: string[] = CodeHelper.CodeSplitter(line, ":");
+					const literals: SplitItem = CodeHelper.EncodeLiterals(line);
+					const parts: string[] = CodeHelper.CodeSplitter(literals.Source, ":");
+
 
 					for (let p: number = 0; p < parts.length; p++) {
 						// de-abbrv
@@ -418,10 +445,12 @@ class G64Basic {
 						// convert = to ==
 						parts[p] = this.EncodeCompare(parts[p]);
 
-						console.log(parts[p]);
+						//console.log(parts[p]);
 
 
 					}
+
+					console.log(parts);
 
 					// start parsing ..
 					this.ParseLine(line);

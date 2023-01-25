@@ -90,39 +90,39 @@ class CodeHelper {
 
 	/**
 	 * Encodes litearls in strings, stores literals in a list and replaces it in string
-	 * @param	line		line to encode literals in
+	 * @param	code		code to encode literals in
 	 */
-	public static EncodeLiterals(line: string): SplitItem {
-		let item: SplitItem = { Source: line, List: new Array<string>() };
+	public static EncodeLiterals(code: string): SplitItem {
+		let item: SplitItem = { Source: code, List: new Array<string>() };
 		let iStart: number, iEnd: number, i: number, id: number;
 
 
-		if (line.indexOf("\"") != -1) {
+		if (code.indexOf("\"") != -1) {
 
-			while (line.indexOf("\"") != -1) {
+			while (code.indexOf("\"") != -1) {
 
-				iStart = line.indexOf("\"");
+				iStart = code.indexOf("\"");
 				iEnd = -1;
 
-				for (i = iStart; i < line.length; i++) {
-					if (i > iStart && line.charAt(i) === "\"") {
+				for (i = iStart; i < code.length; i++) {
+					if (i > iStart && code.charAt(i) === "\"") {
 						iEnd = i;
 						break;
 					}
 				}
 
 				if (iEnd == -1) { // no closing "
-					iEnd = line.length;
-					line += "\"";
+					iEnd = code.length;
+					code += "\"";
 				}
 
 				id = item.List.length;
-				item.List.push(line.substring(iStart + 1, iEnd));
-				line = line.substring(0, iStart) + "{" + id.toString() + "}" + line.substring(iEnd + 1);
+				item.List.push(code.substring(iStart + 1, iEnd));
+				code = code.substring(0, iStart) + "{" + id.toString() + "}" + code.substring(iEnd + 1);
 			}
 		}
 
-		item.Source = line;
+		item.Source = code;
 
 		return item;
 	}

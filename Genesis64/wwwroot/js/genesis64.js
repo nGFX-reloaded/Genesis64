@@ -51,6 +51,14 @@ class G64Basic {
         this.regexLineNr = /^\s*(\d*)\s*(.*)\s*/;
         this.regexArrayStart = /[_a-z]+\d*[$%]?\s*\(/g;
         this.regexVar = /[_a-z]+\d*[$%]?/;
+        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
+        this.regEncCompCmd = [
+            /^for(.*)to/,
+            /^.+then(.*)/,
+            /^let\s*(.*)/,
+            /^def\s*fn\s*(.*)/
+        ];
+        this.regEncCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -189,45 +197,60 @@ class G64Basic {
                 this.m_lstComp.push(i);
             }
         }
-        this.regexCmd = new RegExp("(" + aCmd.join("|") + ")");
-        this.regexFn = new RegExp("(" + aFn.join("|") + ")");
+        this.regexCmd = new RegExp("^(" + aCmd.join("|") + ")");
+        this.regexFn = new RegExp("^(" + aFn.join("|") + ")");
     }
     EncodeArray(code) {
         let encoded = code;
-        this.regexArrayStart.lastIndex = -1;
-        if (encoded.includes("(") && encoded.includes(")")) {
-            const match = code.match(this.regexArrayStart);
-            if (match !== null) {
-                for (let m = 0; m < match.length; m++) {
-                    let isArray = true;
-                    this.regexCmd.lastIndex = -1;
-                    this.regexFn.lastIndex = -1;
-                    this.regexArrayStart.lastIndex = -1;
-                    if (this.regexCmd.test(match[m]))
-                        isArray = this.regexArrayStart.test(match[m].replace(this.regexCmd, ""));
-                    isArray = isArray && !this.regexFn.test(match[m]);
-                    if (isArray) {
-                        const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
-                        if (CodeHelper.IsMatching(tuple)) {
-                            encoded = encoded.substring(0, tuple[0]) + "["
-                                + encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-                                + encoded.substring(tuple[1] + 1);
-                        }
+        if (encoded.startsWith("dim"))
+            return encoded;
+        this.regEncodeArray.lastIndex = -1;
+        const match = encoded.match(this.regEncodeArray);
+        if (match !== null) {
+            for (let m = 0; m < match.length; m++) {
+                let subMatch = match[m].match(this.regexCmd);
+                if (subMatch !== null)
+                    match[m] = match[m].replace(subMatch[0], "");
+                this.regexFn.lastIndex = -1;
+                if (!this.regexFn.test(match[m])) {
+                    const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+                    if (CodeHelper.IsMatching(tuple)) {
+                        let target = match[m];
+                        encoded = encoded.substring(0, tuple[0]) + "["
+                            + encoded.substring(tuple[0] + 1, tuple[1]) + "]"
+                            + encoded.substring(tuple[1] + 1);
                     }
                 }
             }
         }
         return encoded;
     }
-    EncodeCompare(code) {
-        let encoded = code.replace(/^let\s*/, "");
-        const regVar = new RegExp("^(?!" + this.regexCmd.source + ")\s*([a-zA-Z]+\d*[$%]?)");
-        if (regVar.test(encoded)) {
-            console.log("--", encoded, encoded.substring(encoded.indexOf("=") + 1));
+    EncodeCompare(code, isCommand = false) {
+        let encoded = code;
+        let match;
+        for (let i = 0; i < this.regEncCompCmd.length; i++) {
+            this.regEncCompCmd[i].lastIndex = -1;
+            match = this.regEncCompCmd[i].exec(encoded);
+            if (match !== null)
+                encoded = encoded.replace(match[1], this.EncodeCompare(match[1], true));
         }
-        else {
-            console.log(">>", encoded);
+        if (!this.regexCmd.test(encoded)) {
+            this.regEncCompArray.lastIndex = -1;
+            match = this.regEncCompArray.exec(encoded);
+            if (match !== null) {
+                if (match[2] !== "") {
+                    const tuple = CodeHelper.FindMatching(encoded, 0, "[", "]");
+                    if (CodeHelper.IsMatching(tuple)) {
+                        encoded = encoded.substring(0, tuple[1]) + encoded.substring(tuple[1]).replace(/=+/, "~");
+                    }
+                }
+                else {
+                    encoded = encoded.replace(/=/, "~");
+                }
+            }
         }
+        if (!isCommand)
+            encoded = encoded.replace(/=/g, "==").replace(/~/, "=");
         return encoded;
     }
     Temp(code) {
@@ -242,12 +265,13 @@ class G64Basic {
                     lineNr = parseInt(match[1]);
                 }
                 if (line !== "") {
-                    const parts = CodeHelper.CodeSplitter(line, ":");
+                    const literals = CodeHelper.EncodeLiterals(line);
+                    const parts = CodeHelper.CodeSplitter(literals.Source, ":");
                     for (let p = 0; p < parts.length; p++) {
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
-                        console.log(parts[p]);
                     }
+                    console.log(parts);
                     this.ParseLine(line);
                 }
             }
@@ -524,7 +548,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b");
+            this.m_Basic.Temp("dimab(2):a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):b=sin(a):a(2)=sin(b(2)):a(2)=sin(b(2)):printa(2)=sin(b(2)):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b:fora=0to10:fora(b=2+1)=2to90");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();
@@ -1015,29 +1039,29 @@ class CodeHelper {
     static IsMatching(tuple) {
         return (tuple.length == 2 && tuple[0] != -1 && tuple[1] != -1);
     }
-    static EncodeLiterals(line) {
-        let item = { Source: line, List: new Array() };
+    static EncodeLiterals(code) {
+        let item = { Source: code, List: new Array() };
         let iStart, iEnd, i, id;
-        if (line.indexOf("\"") != -1) {
-            while (line.indexOf("\"") != -1) {
-                iStart = line.indexOf("\"");
+        if (code.indexOf("\"") != -1) {
+            while (code.indexOf("\"") != -1) {
+                iStart = code.indexOf("\"");
                 iEnd = -1;
-                for (i = iStart; i < line.length; i++) {
-                    if (i > iStart && line.charAt(i) === "\"") {
+                for (i = iStart; i < code.length; i++) {
+                    if (i > iStart && code.charAt(i) === "\"") {
                         iEnd = i;
                         break;
                     }
                 }
                 if (iEnd == -1) {
-                    iEnd = line.length;
-                    line += "\"";
+                    iEnd = code.length;
+                    code += "\"";
                 }
                 id = item.List.length;
-                item.List.push(line.substring(iStart + 1, iEnd));
-                line = line.substring(0, iStart) + "{" + id.toString() + "}" + line.substring(iEnd + 1);
+                item.List.push(code.substring(iStart + 1, iEnd));
+                code = code.substring(0, iStart) + "{" + id.toString() + "}" + code.substring(iEnd + 1);
             }
         }
-        item.Source = line;
+        item.Source = code;
         return item;
     }
 }
