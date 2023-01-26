@@ -330,15 +330,15 @@ class G64Basic {
 		this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
 		this.regFn = new RegExp("^(" + aFn.join("|") + ")");
 		this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
-		console.log(this.regAbbrv.source)
+
 	}
 
 	//#endregion
 
 	/**
 	 * Encodes the c64 style array notation to c style () -> [] 
-	 * @param	code		code piece to encode
-	 * @return				string
+	 * @param		code		code piece to encode
+	 * @returns					string
 	 **/
 	private EncodeArray(code: string): string {
 
@@ -375,8 +375,8 @@ class G64Basic {
 
 	/**
 	 * Encodes the c64 style compare = into c style ==
-	 * @param	code		code to encode
-	 * @return				string
+	 * @param		code		code to encode
+	 * @returns					string
 	 **/
 	private EncodeCompare(code: string, isCommand: boolean = false): string {
 
@@ -415,6 +415,11 @@ class G64Basic {
 		return code;
 	}
 
+	/**
+	 * Deabbreviates basic commands, turns pO into poke or ? into print
+	 * @param		code		code to deabbreviate
+	 * @returns					string
+	 */
 	private DeAbbreviate(code: string): string {
 
 		this.regAbbrv.lastIndex = -1;

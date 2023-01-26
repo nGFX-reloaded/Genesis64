@@ -206,7 +206,6 @@ class G64Basic {
         this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
         this.regFn = new RegExp("^(" + aFn.join("|") + ")");
         this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
-        console.log(this.regAbbrv.source);
     }
     EncodeArray(code) {
         if (code.startsWith("dim"))
@@ -565,7 +564,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("10?\"hello\":?pE(0)");
+            this.m_Basic.Temp(document.getElementById("code").textContent.trim());
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();

@@ -72,3 +72,49 @@ footer {
 	right: 0px;
 	padding: 3px 10px 3px 10px;
 }
+
+/*
+	basics ...
+*/
+.GenesisUI {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	bottom: 0px;
+	right: 0px;
+	padding-top: 32px;
+	padding-bottom: 32px;
+	padding-left: 10px;
+	color: var(--Darkgrey);
+}
+
+#code,
+#output {
+	width: 500px;
+	height: 300px;
+	color: var(--Blue);
+	font-family: 'Asap Condensed', 'Arial Narrow', Arial, sans-serif;
+	font-size: 16px;
+	line-height: 18px;
+	background-color: var(--Lightblue);
+	border: 5px solid var(--Blue);
+	padding: 5px;
+}
+
+#code {
+	margin-top: 10px;
+}
+
+#run {
+	margin-bottom: 10px;
+	font-size: 16px;
+	padding: 5px 10px;
+	color: var(--Blue);
+	background-color: var(--Lightblue);
+	border: 2px solid var(--Blue);
+}
+
+#output {
+	margin-top: 0px;
+	overflow-y: scroll;
+}

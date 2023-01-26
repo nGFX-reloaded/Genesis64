@@ -4,6 +4,14 @@
 
 <div class="GenesisUI">
     <div id="Genesis64"></div>
+	<div id="TestArea">
+		<textarea id="code">
+			10 ?"hello world"
+		</textarea>
+		<br /><button id="run">Run</button>
+		<div>Output:</div>
+		<pre id="output"></pre>
+	</div>
 </div>
 
 @section Scripts {
@@ -13,6 +21,9 @@
 		let m = {};
 
 		$(function () {
+			// temp clear whitespace from textbox
+			$("#code").text($("#code").text().trim());
+
 			m = Genesis64.Instance;
 		});
 	</script>
