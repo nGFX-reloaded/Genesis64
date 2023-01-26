@@ -48,17 +48,17 @@ class G64Basic {
         this.m_lstFnOut = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
-        this.regexLineNr = /^\s*(\d*)\s*(.*)\s*/;
-        this.regexArrayStart = /[_a-z]+\d*[$%]?\s*\(/g;
-        this.regexVar = /[_a-z]+\d*[$%]?/;
-        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
-        this.regEncCompCmd = [
+        this.m_mapDeAbbrev = new Map();
+        this.m_mapTokenId = new Map();
+        this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
+        this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
             /^let\s*(.*)/,
             /^def\s*fn\s*(.*)/
         ];
-        this.regEncCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+        this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -161,6 +161,7 @@ class G64Basic {
     InitLists() {
         const aCmd = [];
         const aFn = [];
+        const aAbbrv = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
         this.m_lstCmd = [];
@@ -170,95 +171,110 @@ class G64Basic {
         this.m_lstOps = [];
         this.m_lstComp = [];
         for (let i = 0; i < this.m_Commands.length; i++) {
-            if (typeof this.m_Commands[i].reg === "undefined") {
+            if (this.m_Commands[i].abbrv !== "") {
+                this.m_mapDeAbbrev.set(this.m_Commands[i].abbrv, this.m_Commands[i].name);
+                aAbbrv.push(this.m_Commands[i].abbrv);
+            }
+            this.m_mapTokenId.set(this.m_Commands[i].name, i);
+            if (typeof this.m_Commands[i].reg === "undefined")
                 this.m_Commands[i].reg = this.m_Commands[i].name;
-            }
-            if (this.m_Commands[i].type == CmdType.cmd) {
-                aCmd.push(this.m_Commands[i].reg);
-                this.m_lstCmd.push(i);
-                this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")(.*)");
-            }
-            if (this.m_Commands[i].type == CmdType.fnum) {
-                aFn.push(this.m_Commands[i].reg);
-                this.m_lstFnNum.push(i);
-            }
-            if (this.m_Commands[i].type == CmdType.fstr) {
-                this.m_lstFnStr.push(i);
-                aFn.push(this.m_Commands[i].reg);
-            }
-            if (this.m_Commands[i].type == CmdType.fout) {
-                this.m_lstFnOut.push(i);
-                aFn.push(this.m_Commands[i].reg);
-            }
-            if (this.m_Commands[i].type == CmdType.ops) {
-                this.m_lstOps.push(i);
-            }
-            if (this.m_Commands[i].type == CmdType.comp) {
-                this.m_lstComp.push(i);
+            switch (this.m_Commands[i].type) {
+                case CmdType.cmd:
+                    aCmd.push(this.m_Commands[i].reg);
+                    this.m_lstCmd.push(i);
+                    break;
+                case CmdType.fnum:
+                    aFn.push(this.m_Commands[i].reg);
+                    this.m_lstFnNum.push(i);
+                    break;
+                case CmdType.fstr:
+                    this.m_lstFnStr.push(i);
+                    aFn.push(this.m_Commands[i].reg);
+                    break;
+                case CmdType.fout:
+                    this.m_lstFnOut.push(i);
+                    aFn.push(this.m_Commands[i].reg);
+                    break;
+                case CmdType.ops:
+                    this.m_lstOps.push(i);
+                    break;
+                case CmdType.comp:
+                    this.m_lstComp.push(i);
+                    break;
             }
         }
-        this.regexCmd = new RegExp("^(" + aCmd.join("|") + ")");
-        this.regexFn = new RegExp("^(" + aFn.join("|") + ")");
+        this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
+        this.regFn = new RegExp("^(" + aFn.join("|") + ")");
+        this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+        console.log(this.regAbbrv.source);
     }
     EncodeArray(code) {
-        let encoded = code;
-        if (encoded.startsWith("dim"))
-            return encoded;
+        if (code.startsWith("dim"))
+            return code;
         this.regEncodeArray.lastIndex = -1;
-        const match = encoded.match(this.regEncodeArray);
+        const match = code.match(this.regEncodeArray);
         if (match !== null) {
             for (let m = 0; m < match.length; m++) {
-                let subMatch = match[m].match(this.regexCmd);
+                let subMatch = match[m].match(this.regCmd);
                 if (subMatch !== null)
                     match[m] = match[m].replace(subMatch[0], "");
-                this.regexFn.lastIndex = -1;
-                if (!this.regexFn.test(match[m])) {
-                    const tuple = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+                this.regFn.lastIndex = -1;
+                if (!this.regFn.test(match[m])) {
+                    const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
                     if (CodeHelper.IsMatching(tuple)) {
                         let target = match[m];
-                        encoded = encoded.substring(0, tuple[0]) + "["
-                            + encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-                            + encoded.substring(tuple[1] + 1);
+                        code = code.substring(0, tuple[0]) + "["
+                            + code.substring(tuple[0] + 1, tuple[1]) + "]"
+                            + code.substring(tuple[1] + 1);
                     }
                 }
             }
         }
-        return encoded;
+        return code;
     }
     EncodeCompare(code, isCommand = false) {
-        let encoded = code;
         let match;
-        for (let i = 0; i < this.regEncCompCmd.length; i++) {
-            this.regEncCompCmd[i].lastIndex = -1;
-            match = this.regEncCompCmd[i].exec(encoded);
+        for (let i = 0; i < this.regEncodeCompCmd.length; i++) {
+            this.regEncodeCompCmd[i].lastIndex = -1;
+            match = this.regEncodeCompCmd[i].exec(code);
             if (match !== null)
-                encoded = encoded.replace(match[1], this.EncodeCompare(match[1], true));
+                code = code.replace(match[1], this.EncodeCompare(match[1], true));
         }
-        if (!this.regexCmd.test(encoded)) {
-            this.regEncCompArray.lastIndex = -1;
-            match = this.regEncCompArray.exec(encoded);
+        if (!this.regCmd.test(code)) {
+            this.regEncodeCompArray.lastIndex = -1;
+            match = this.regEncodeCompArray.exec(code);
             if (match !== null) {
                 if (match[2] !== "") {
-                    const tuple = CodeHelper.FindMatching(encoded, 0, "[", "]");
+                    const tuple = CodeHelper.FindMatching(code, 0, "[", "]");
                     if (CodeHelper.IsMatching(tuple)) {
-                        encoded = encoded.substring(0, tuple[1]) + encoded.substring(tuple[1]).replace(/=+/, "~");
+                        code = code.substring(0, tuple[1]) + code.substring(tuple[1]).replace(/=+/, "~");
                     }
                 }
                 else {
-                    encoded = encoded.replace(/=/, "~");
+                    code = code.replace(/=/, "~");
                 }
             }
         }
         if (!isCommand)
-            encoded = encoded.replace(/=/g, "==").replace(/~/, "=");
-        return encoded;
+            code = code.replace(/=/g, "==").replace(/~/, "=");
+        return code;
+    }
+    DeAbbreviate(code) {
+        this.regAbbrv.lastIndex = -1;
+        const match = code.match(this.regAbbrv);
+        if (match !== null) {
+            for (let i = 0; i < match.length; i++) {
+                code = code.replace(match[i], this.m_mapDeAbbrev.get(match[i]));
+            }
+        }
+        return code;
     }
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
-                let match = lines[l].match(this.regexLineNr);
+                let match = lines[l].match(this.regLineNr);
                 let lineNr = -1;
                 let line = match[2];
                 if (match[1] !== "") {
@@ -268,6 +284,7 @@ class G64Basic {
                     const literals = CodeHelper.EncodeLiterals(line);
                     const parts = CodeHelper.CodeSplitter(literals.Source, ":");
                     for (let p = 0; p < parts.length; p++) {
+                        parts[p] = this.DeAbbreviate(parts[p]);
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
                     }
@@ -548,7 +565,7 @@ class Genesis64 {
             this.m_fsm.SetState("Test");
         }, FsmActionType.onEnter);
         this.m_fsm.AddSingle("Test", () => {
-            this.m_Basic.Temp("dimab(2):a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):b=sin(a):a(2)=sin(b(2)):a(2)=sin(b(2)):printa(2)=sin(b(2)):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b:fora=0to10:fora(b=2+1)=2to90");
+            this.m_Basic.Temp("10?\"hello\":?pE(0)");
         }, FsmActionType.onEnter);
         this.m_fsm.StartTimer(100);
         this.m_fsm.Unpause();

@@ -121,7 +121,8 @@ class Genesis64 {
 		this.m_fsm.AddSingle("Test",
 			() => {
 				this.m_Basic.Temp(
-					"dimab(2):a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):b=sin(a):a(2)=sin(b(2)):a(2)=sin(b(2)):printa(2)=sin(b(2)):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b:fora=0to10:fora(b=2+1)=2to90"
+					//"dimab(2):a=2:leta=2:a$=\"\":a%=2:b=(a=2):b(a=2+1)=(a=2):b=sin(a):a(2)=sin(b(2)):a(2)=sin(b(2)):printa(2)=sin(b(2)):ifa=bthenc=2:ifa(a=b+1)=bthenc=2:def fn ab1( a ) = a*b:fora=0to10:fora(b=2+1)=2to90"
+					"10?\"hello\":?pE(0)"
 				);
 			},
 			FsmActionType.onEnter);

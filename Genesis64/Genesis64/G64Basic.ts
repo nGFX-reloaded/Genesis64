@@ -76,12 +76,16 @@ class G64Basic {
 	private m_Mem: G64Memory;				// ref to memory
 
 	private m_Commands: BasicCmd[] = [];
+
 	private m_lstCmd: number[] = [];		// list of cmds
 	private m_lstFnNum: number[] = [];		// list of fn nums
 	private m_lstFnStr: number[] = [];		// list of fn strs
 	private m_lstFnOut: number[] = [];		// list of fn outs
 	private m_lstOps: number[] = [];		// list of ops
 	private m_lstComp: number[] = [];		// list of comparers
+
+	private m_mapDeAbbrev: Map<string, string> = new Map<string, string>();
+	private m_mapTokenId: Map<string, number> = new Map<string, number>();
 
 	private m_Options: G64BasicOptions;
 
@@ -96,11 +100,20 @@ class G64Basic {
 
 	//#region " ----- Regex ----- "
 
-	private regexLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
-	private regexArrayStart: RegExp = /[_a-z]+\d*[$%]?\s*\(/g;
-	private regexVar: RegExp = /[_a-z]+\d*[$%]?/;
-	private regexCmd: RegExp;
-	private regexFn: RegExp;
+	private regLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
+	private regCmd: RegExp;
+	private regFn: RegExp;
+	private regAbbrv: RegExp;
+
+	private regEncodeCompCmd: RegExp[] = [
+		/^for(.*)to/,
+		/^.+then(.*)/,
+		/^let\s*(.*)/,
+		/^def\s*fn\s*(.*)/
+	];
+	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
+
 
 	//#endregion
 
@@ -257,6 +270,7 @@ class G64Basic {
 
 		const aCmd: string[] = [];
 		const aFn: string[] = [];
+		const aAbbrv: string[] = [];
 		this.m_lstOps = [];
 		this.m_lstComp = [];
 
@@ -268,55 +282,56 @@ class G64Basic {
 		this.m_lstComp = [];
 
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
+
+			// create deabbrv map
+			if (this.m_Commands[i].abbrv !== "") {
+				this.m_mapDeAbbrev.set(this.m_Commands[i].abbrv, this.m_Commands[i].name);
+				aAbbrv.push(this.m_Commands[i].abbrv);
+			}
+
+			// create name / id map
+			this.m_mapTokenId.set(this.m_Commands[i].name, i);
+
 			// set regex
-			if (typeof this.m_Commands[i].reg === "undefined") {
+			if (typeof this.m_Commands[i].reg === "undefined")
 				this.m_Commands[i].reg = this.m_Commands[i].name;
-			}
-			//if (typeof this.m_Commands[i].reg === "string") {
-			//	this.m_Commands[i].reg = new RegExp(this.m_Commands[i].reg + "\\s*(.*)");
-			//	console.log(this.m_Commands[i].reg);
-			//}
 
-			if (this.m_Commands[i].type == CmdType.cmd) {
-				aCmd.push(this.m_Commands[i].reg as string);
-				this.m_lstCmd.push(i);
-				this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")(.*)");
-			}
+			switch (this.m_Commands[i].type) {
+				case CmdType.cmd:
+					aCmd.push(this.m_Commands[i].reg as string);
+					this.m_lstCmd.push(i);
+					break;
 
-			if (this.m_Commands[i].type == CmdType.fnum) {
-				aFn.push(this.m_Commands[i].reg as string);
-				this.m_lstFnNum.push(i);
-				//this.m_Commands[i].reg = new RegExp("(" + this.m_Commands[i].reg + ")\s*(?:\().*)");
-			}
+				case CmdType.fnum:
+					aFn.push(this.m_Commands[i].reg as string);
+					this.m_lstFnNum.push(i);
+					break;
 
-			if (this.m_Commands[i].type == CmdType.fstr) {
-				this.m_lstFnStr.push(i);
-				aFn.push(this.m_Commands[i].reg as string);
+				case CmdType.fstr:
+					this.m_lstFnStr.push(i);
+					aFn.push(this.m_Commands[i].reg as string);
+					break;
 
-			}
+				case CmdType.fout:
+					this.m_lstFnOut.push(i);
+					aFn.push(this.m_Commands[i].reg as string);
+					break;
 
-			if (this.m_Commands[i].type == CmdType.fout) {
-				this.m_lstFnOut.push(i);
-				aFn.push(this.m_Commands[i].reg as string);
+				case CmdType.ops:
+					this.m_lstOps.push(i);
+					break;
 
-			}
-
-			if (this.m_Commands[i].type == CmdType.ops) {
-
-				this.m_lstOps.push(i);
-			}
-
-			if (this.m_Commands[i].type == CmdType.comp) {
-				this.m_lstComp.push(i);
-
+				case CmdType.comp:
+					this.m_lstComp.push(i);
+					break;
 			}
 		}
 
-		this.regexCmd = new RegExp("^(" + aCmd.join("|") + ")");
-		this.regexFn = new RegExp("^(" + aFn.join("|") + ")");
-
+		this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
+		this.regFn = new RegExp("^(" + aFn.join("|") + ")");
+		this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+		console.log(this.regAbbrv.source)
 	}
-
 
 	//#endregion
 
@@ -325,40 +340,37 @@ class G64Basic {
 	 * @param	code		code piece to encode
 	 * @return				string
 	 **/
-	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
 	private EncodeArray(code: string): string {
 
-		let encoded: string = code;
-
-		if (encoded.startsWith("dim"))
-			return encoded;
+		if (code.startsWith("dim"))
+			return code;
 
 		this.regEncodeArray.lastIndex = -1;
 
-		const match: string[] = encoded.match(this.regEncodeArray);
+		const match: string[] = code.match(this.regEncodeArray);
 		if (match !== null) {
 			for (let m: number = 0; m < match.length; m++) {
 
 				// remove cmds
-				let subMatch: string[] = match[m].match(this.regexCmd);
+				let subMatch: string[] = match[m].match(this.regCmd);
 				if (subMatch !== null)
 					match[m] = match[m].replace(subMatch[0], "");
 
-				this.regexFn.lastIndex = -1;
-				if (!this.regexFn.test(match[m])) {
-					const tuple: number[] = CodeHelper.FindMatching(encoded, encoded.indexOf(match[m]));
+				this.regFn.lastIndex = -1;
+				if (!this.regFn.test(match[m])) {
+					const tuple: number[] = CodeHelper.FindMatching(code, code.indexOf(match[m]));
 					if (CodeHelper.IsMatching(tuple)) {
 						let target: string = match[m];
 
-						encoded = encoded.substring(0, tuple[0]) + "["
-							+ encoded.substring(tuple[0] + 1, tuple[1]) + "]"
-							+ encoded.substring(tuple[1] + 1);
+						code = code.substring(0, tuple[0]) + "["
+							+ code.substring(tuple[0] + 1, tuple[1]) + "]"
+							+ code.substring(tuple[1] + 1);
 					}
 				}
 			}
 		}
 
-		return encoded;
+		return code;
 	}
 
 	/**
@@ -366,50 +378,57 @@ class G64Basic {
 	 * @param	code		code to encode
 	 * @return				string
 	 **/
-	private regEncCompCmd: RegExp[] = [
-		/^for(.*)to/,
-		/^.+then(.*)/,
-		/^let\s*(.*)/,
-		/^def\s*fn\s*(.*)/
-	];
-	private regEncCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
 	private EncodeCompare(code: string, isCommand: boolean = false): string {
 
-		let encoded: string = code;
 		let match: RegExpMatchArray;
 
-		for (let i: number = 0; i < this.regEncCompCmd.length; i++) {
-			this.regEncCompCmd[i].lastIndex = -1;
-			match = this.regEncCompCmd[i].exec(encoded);
+		for (let i: number = 0; i < this.regEncodeCompCmd.length; i++) {
+			this.regEncodeCompCmd[i].lastIndex = -1;
+			match = this.regEncodeCompCmd[i].exec(code);
 
 			if (match !== null)
-				encoded = encoded.replace(match[1], this.EncodeCompare(match[1], true));
+				code = code.replace(match[1], this.EncodeCompare(match[1], true));
 		}
 
 		// only consider non-command code
-		if (!this.regexCmd.test(encoded)) {
-			this.regEncCompArray.lastIndex = -1;
+		if (!this.regCmd.test(code)) {
+			this.regEncodeCompArray.lastIndex = -1;
 
-			match = this.regEncCompArray.exec(encoded);
+			match = this.regEncodeCompArray.exec(code);
 			if (match !== null) {
 
 				// skip inside of arrays
 				if (match[2] !== "") {
-					const tuple: number[] = CodeHelper.FindMatching(encoded, 0, "[", "]");
+					const tuple: number[] = CodeHelper.FindMatching(code, 0, "[", "]");
 					if (CodeHelper.IsMatching(tuple)) {
-						encoded = encoded.substring(0, tuple[1]) + encoded.substring(tuple[1]).replace(/=+/, "~");
+						code = code.substring(0, tuple[1]) + code.substring(tuple[1]).replace(/=+/, "~");
 					}
 				} else {
-					encoded = encoded.replace(/=/, "~");
+					code = code.replace(/=/, "~");
 				}
 			}
 		}
 
 		if (!isCommand)
-			encoded = encoded.replace(/=/g, "==").replace(/~/, "=");
+			code = code.replace(/=/g, "==").replace(/~/, "=");
 
-		return encoded;
+		return code;
 	}
+
+	private DeAbbreviate(code: string): string {
+
+		this.regAbbrv.lastIndex = -1;
+		const match: string[] = code.match(this.regAbbrv);
+
+		if (match !== null) {
+			for (let i: number = 0; i < match.length; i++) {
+				code = code.replace(match[i], this.m_mapDeAbbrev.get(match[i]));
+			}
+		}
+
+		return code;
+	}
+
 
 	public Temp(code: string): void {
 
@@ -422,7 +441,7 @@ class G64Basic {
 
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
-				let match: string[] = lines[l].match(this.regexLineNr);
+				let match: string[] = lines[l].match(this.regLineNr);
 				let lineNr: number = -1;
 				let line = match[2];
 
@@ -438,6 +457,7 @@ class G64Basic {
 
 					for (let p: number = 0; p < parts.length; p++) {
 						// de-abbrv
+						parts[p] = this.DeAbbreviate(parts[p]);
 
 						// convert array () to []
 						parts[p] = this.EncodeArray(parts[p]);
