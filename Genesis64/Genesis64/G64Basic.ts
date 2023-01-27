@@ -105,15 +105,16 @@ class G64Basic {
 	private regFn: RegExp;
 	private regAbbrv: RegExp;
 
+	private regLet: RegExp = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
+
 	private regEncodeCompCmd: RegExp[] = [
 		/^for(.*)to/,
 		/^.+then(.*)/,
 		/^let\s*(.*)/,
 		/^def\s*fn\s*(.*)/
 	];
-	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+[a-zA-Z0-9]*[$%]?\s*(\[?))(.+)/;
-	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+[a-zA-Z0-9]*[$%]?))\s*\(/g;
-
+	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;
 
 	//#endregion
 
@@ -390,19 +391,14 @@ class G64Basic {
 				code = code.replace(match[1], this.EncodeCompare(match[1], true));
 		}
 
-		console.log("> ", code, code.match(this.regCmd));
 		// only consider non-command code
 		this.regCmd.lastIndex = -1;
-
-		// fix: -- is triggered by let in cmd list
 
 		if (!this.regCmd.test(code)) {
 			this.regEncodeCompArray.lastIndex = -1;
 
 			match = this.regEncodeCompArray.exec(code);
 			if (match !== null) {
-
-				console.log(">> ", match);
 
 				// skip inside of arrays
 				if (match[2] !== "") {
@@ -480,6 +476,7 @@ class G64Basic {
 						// tokenize
 						this.Tokenizer(parts[p]);
 
+						console.log(parts[p]);
 					}
 				}
 			}
@@ -493,6 +490,11 @@ class G64Basic {
 		let match: RegExpMatchArray;
 
 		// start with assign which is LET without let, if there's a let, remove it
+		match = this.regLet.exec(code);
+		if (match !== null) {
+			console.log("set", match[1], "=", match[3]);
+		}
+		console.log("let: ", match);
 
 		// code must start with with a command
 		match = this.regCmd.exec(code);

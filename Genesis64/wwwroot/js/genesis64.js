@@ -51,14 +51,15 @@ class G64Basic {
         this.m_mapDeAbbrev = new Map();
         this.m_mapTokenId = new Map();
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
+        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
             /^let\s*(.*)/,
             /^def\s*fn\s*(.*)/
         ];
-        this.regEncodeCompArray = /^\s*([a-zA-Z]+[a-zA-Z0-9]*[$%]?\s*(\[?))(.+)/;
-        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+[a-zA-Z0-9]*[$%]?))\s*\(/g;
+        this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -239,13 +240,11 @@ class G64Basic {
             if (match !== null)
                 code = code.replace(match[1], this.EncodeCompare(match[1], true));
         }
-        console.log("> ", code, code.match(this.regCmd));
         this.regCmd.lastIndex = -1;
         if (!this.regCmd.test(code)) {
             this.regEncodeCompArray.lastIndex = -1;
             match = this.regEncodeCompArray.exec(code);
             if (match !== null) {
-                console.log(">> ", match);
                 if (match[2] !== "") {
                     const tuple = CodeHelper.FindMatching(code, 0, "[", "]");
                     if (CodeHelper.IsMatching(tuple)) {
@@ -290,6 +289,7 @@ class G64Basic {
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
                         this.Tokenizer(parts[p]);
+                        console.log(parts[p]);
                     }
                 }
             }
@@ -298,6 +298,11 @@ class G64Basic {
     }
     Tokenizer(code) {
         let match;
+        match = this.regLet.exec(code);
+        if (match !== null) {
+            console.log("set", match[1], "=", match[3]);
+        }
+        console.log("let: ", match);
         match = this.regCmd.exec(code);
         console.log("--", match);
     }
