@@ -57,8 +57,8 @@ class G64Basic {
             /^let\s*(.*)/,
             /^def\s*fn\s*(.*)/
         ];
-        this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
-        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
+        this.regEncodeCompArray = /^\s*([a-zA-Z]+[a-zA-Z0-9]*[$%]?\s*(\[?))(.+)/;
+        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+[a-zA-Z0-9]*[$%]?))\s*\(/g;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -101,7 +101,7 @@ class G64Basic {
             { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
             { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
             { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
-            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "((?:let)?\\s*[a-zA-Z]+[a-zA-Z0-9]*[$%]?.*=)" },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
             { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
             { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -239,10 +239,13 @@ class G64Basic {
             if (match !== null)
                 code = code.replace(match[1], this.EncodeCompare(match[1], true));
         }
+        console.log("> ", code, code.match(this.regCmd));
+        this.regCmd.lastIndex = -1;
         if (!this.regCmd.test(code)) {
             this.regEncodeCompArray.lastIndex = -1;
             match = this.regEncodeCompArray.exec(code);
             if (match !== null) {
+                console.log(">> ", match);
                 if (match[2] !== "") {
                     const tuple = CodeHelper.FindMatching(code, 0, "[", "]");
                     if (CodeHelper.IsMatching(tuple)) {
@@ -286,26 +289,17 @@ class G64Basic {
                         parts[p] = this.DeAbbreviate(parts[p]);
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
+                        this.Tokenizer(parts[p]);
                     }
-                    console.log(parts);
-                    this.ParseLine(line);
                 }
             }
         }
         console.timeEnd("temp");
     }
-    ParseLine(code) {
-        const parts = CodeHelper.CodeSplitter(code, ":");
-        for (let p = 0; p < parts.length; p++) {
-            this.Tokenizer(parts[p]);
-        }
-    }
     Tokenizer(code) {
-        for (let i = 0; i < this.m_lstCmd.length; i++) {
-            const match = new RegExp("(" + this.m_Commands[this.m_lstCmd[i]].reg + ")(.*)").exec(code);
-            if (match !== null)
-                console.log(code, match);
-        }
+        let match;
+        match = this.regCmd.exec(code);
+        console.log("--", match);
     }
 }
 class G64Colors {

@@ -111,8 +111,8 @@ class G64Basic {
 		/^let\s*(.*)/,
 		/^def\s*fn\s*(.*)/
 	];
-	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
-	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[%$]?))\s*\(/g;
+	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+[a-zA-Z0-9]*[$%]?\s*(\[?))(.+)/;
+	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+[a-zA-Z0-9]*[$%]?))\s*\(/g;
 
 
 	//#endregion
@@ -179,7 +179,7 @@ class G64Basic {
 			{ name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
 			{ name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
 			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
-			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "((?:let)?\\s*[a-zA-Z]+[a-zA-Z0-9]*[$%]?.*=)" },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
 			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
 			{ name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -390,12 +390,19 @@ class G64Basic {
 				code = code.replace(match[1], this.EncodeCompare(match[1], true));
 		}
 
+		console.log("> ", code, code.match(this.regCmd));
 		// only consider non-command code
+		this.regCmd.lastIndex = -1;
+
+		// fix: -- is triggered by let in cmd list
+
 		if (!this.regCmd.test(code)) {
 			this.regEncodeCompArray.lastIndex = -1;
 
 			match = this.regEncodeCompArray.exec(code);
 			if (match !== null) {
+
+				console.log(">> ", match); 
 
 				// skip inside of arrays
 				if (match[2] !== "") {
@@ -470,48 +477,25 @@ class G64Basic {
 						// convert = to ==
 						parts[p] = this.EncodeCompare(parts[p]);
 
-						//console.log(parts[p]);
-
+						// tokenize
+						this.Tokenizer(parts[p]);
 
 					}
-
-					console.log(parts);
-
-					// start parsing ..
-					this.ParseLine(line);
-
 				}
-
 			}
-
 		}
 
 		console.timeEnd("temp");
 	}
 
-	/**
-	 * Parses a line, without lineNr 
-	 * @param	code	line to parse
-	 **/
-	private ParseLine(code: string): void {
-
-		const parts: string[] = CodeHelper.CodeSplitter(code, ":");
-
-		for (let p: number = 0; p < parts.length; p++) {
-			this.Tokenizer(parts[p]);
-		}
-
-	}
-
 	public Tokenizer(code: string): void {
 
-		// code must start with with a command
-		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
-			const match: string[] = new RegExp("(" + this.m_Commands[this.m_lstCmd[i]].reg + ")(.*)").exec(code);
+		let match: RegExpMatchArray;
 
-			if (match !== null)
-				console.log(code, match);
-		}
+		// code must start with with a command
+		match = this.regCmd.exec(code);
+
+		console.log("--", match);
 
 	}
 }
