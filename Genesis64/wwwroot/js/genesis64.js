@@ -101,7 +101,7 @@ class G64Basic {
             { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
             { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
             { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
-            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "((?:let)?\\s*[a-zA-Z]+[a-zA-Z0-9]*[$%]?.*=)" },
+            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
             { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
             { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },

@@ -179,7 +179,7 @@ class G64Basic {
 			{ name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
 			{ name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
 			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
-			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, reg: "((?:let)?\\s*[a-zA-Z]+[a-zA-Z0-9]*[$%]?.*=)" },
+			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
 			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
 			{ name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -402,7 +402,7 @@ class G64Basic {
 			match = this.regEncodeCompArray.exec(code);
 			if (match !== null) {
 
-				console.log(">> ", match); 
+				console.log(">> ", match);
 
 				// skip inside of arrays
 				if (match[2] !== "") {
@@ -491,6 +491,8 @@ class G64Basic {
 	public Tokenizer(code: string): void {
 
 		let match: RegExpMatchArray;
+
+		// start with assign which is LET without let, if there's a let, remove it
 
 		// code must start with with a command
 		match = this.regCmd.exec(code);
