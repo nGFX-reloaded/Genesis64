@@ -50,8 +50,16 @@ class G64Basic {
         this.m_lstComp = [];
         this.m_mapDeAbbrev = new Map();
         this.m_mapTokenId = new Map();
+        Genesis64.Instance.Log(" - Basic created\n");
+        this.m_Options = {
+            basicVersion: BasicVersion.v2
+        };
+        this.m_Mem = Genesis64.Instance.Memory;
+    }
+    Init(options) {
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
         this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
+        this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
@@ -60,13 +68,6 @@ class G64Basic {
         ];
         this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
         this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;
-        Genesis64.Instance.Log(" - Basic created\n");
-        this.m_Options = {
-            basicVersion: BasicVersion.v2
-        };
-        this.m_Mem = Genesis64.Instance.Memory;
-    }
-    Init(options) {
         switch (options.basicVersion) {
             case BasicVersion.v2:
                 Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");

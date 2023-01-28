@@ -100,21 +100,17 @@ class G64Basic {
 
 	//#region " ----- Regex ----- "
 
-	private regLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;
+	private regLineNr: RegExp;
 	private regCmd: RegExp;
 	private regFn: RegExp;
 	private regAbbrv: RegExp;
 
-	private regLet: RegExp = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
+	private regLet: RegExp;
+	private regVar: RegExp;
 
-	private regEncodeCompCmd: RegExp[] = [
-		/^for(.*)to/,
-		/^.+then(.*)/,
-		/^let\s*(.*)/,
-		/^def\s*fn\s*(.*)/
-	];
-	private regEncodeCompArray: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
-	private regEncodeArray: RegExp = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;
+	private regEncodeCompCmd: RegExp[];
+	private regEncodeCompArray: RegExp;
+	private regEncodeArray: RegExp;
 
 	//#endregion
 
@@ -133,6 +129,23 @@ class G64Basic {
 	//#region " ----- Init ----- "
 
 	public Init(options: G64BasicOptions) {
+
+		// global regexp
+		this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;	// finds a line number, groups into lnr and rest
+
+		this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/; // assignment (optional let)
+		this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;	// a single variable (or array, with g64 delimiters [])
+
+		// exclude = to == conversion for these
+		this.regEncodeCompCmd = [
+			/^for(.*)to/,
+			/^.+then(.*)/,
+			/^let\s*(.*)/,
+			/^def\s*fn\s*(.*)/
+		];
+		// ToDo: check if these are needed?
+		this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/; // finds the start of an array
+		this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;	// find array for the () to [] converter
 
 		switch (options.basicVersion) {
 			case BasicVersion.v2:
