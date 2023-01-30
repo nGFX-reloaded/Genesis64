@@ -6,10 +6,12 @@
 	<div id="Genesis64"></div>
 	<div id="TestArea">
 		<textarea id="code">
-10 a2=2
-15 b3(4)=a2*b3(1)
-20 ?a2 
-30 ?a2=2
+poke53280,0:poke53281,0
+?"abc"
+load"$",8,1
+lI
+a=2
+?a
 		</textarea>
 		<br /><button id="run">Run</button>
 		<div>Output:</div>

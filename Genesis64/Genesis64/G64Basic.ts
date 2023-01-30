@@ -9,64 +9,6 @@ type G64BasicOptions = {
 	basicVersion: BasicVersion;
 }
 
-enum CmdType {
-	cmd		/*  0, commands, PRINT */,
-	fnum	/*  1, numerical method, SIN */,
-	fstr	/*  2, string method, LEFT$ */,
-	fout	/*  3, output method, SPC */,
-	ops		/*  4, operators, +,- */,
-	comp	/*  5, compare =, <= ... */
-}
-
-enum Tokentype {
-	nop		/*  0, nop / rem */,
-	err		/*  1, if something couldn't be parsed, id == syntax error */,
-	cmd		/*  2, commands, PRINT */,
-	fnnum	/*  3, numercal methods, SIN(i) */,
-	fnstr	/*  4, string methods, LEFT$("", i) */,
-	fnout	/*  5, output methods, SPC(i) */,
-	ops		/*  6, operators, +, -, ... */,
-	comp	/*  7, compare: <, == ... */,
-	num		/*  8, a single number, 1.0 */,
-	int		/*  9, an interger, 1 */,
-	str		/* 10, string, either {1} or "abc" */,
-	vnum	/* 11, num var, A */,
-	vint	/* 12, int var, A% */,
-	vstr	/* 13, str var, A$ */,
-	anum	/* 14, num array, A[x] */,
-	aint	/* 15, int array, A%[x] */,
-	astr	/* 16, string array, A$[x] */,
-	link	/* 17, print links: spc, "," and ";" */,
-	eop		/* 18, token exec ok, end of part */,
-	run		/* 19, token exec ok, end of line */,
-	jmp		/* 20, jump (goto, gosub, etc) */,
-	end		/* 21, prg ends here */
-}
-
-type Token = {
-	Type: Tokentype;
-	Id: number;				// basic cmd/fn/error id
-	Data?: number;			// if sub token, the id of the cmd
-
-	Name?: string;			// if var, stores var's name
-
-	Order?: number;			// this will remove the need for the token order array
-
-	Num?: number;			// number data
-	Str?: string;			// string data
-	Values?: Array<Token>;	// ref to token array
-
-	Fn?: Function;			// pointer to exec method
-}
-
-type BasicCmd = {
-	name: string;
-	abbrv: string;
-	tkn: number;
-	type: CmdType;
-	reg?: string | RegExp;
-}
-
 //#endregion
 
 class G64Basic {
@@ -85,7 +27,7 @@ class G64Basic {
 	private m_lstComp: number[] = [];		// list of comparers
 
 	private m_mapDeAbbrev: Map<string, string> = new Map<string, string>();
-	private m_mapTokenId: Map<string, number> = new Map<string, number>();
+	private m_mapCmdId: Map<string, number> = new Map<string, number>();
 
 	private m_Options: G64BasicOptions;
 
@@ -107,6 +49,7 @@ class G64Basic {
 
 	private regLet: RegExp;
 	private regVar: RegExp;
+	private regNum: RegExp;
 
 	private regEncodeCompCmd: RegExp[];
 	private regEncodeCompArray: RegExp;
@@ -135,6 +78,7 @@ class G64Basic {
 
 		this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/; // assignment (optional let)
 		this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;	// a single variable (or array, with g64 delimiters [])
+		this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
 
 		// exclude = to == conversion for these
 		this.regEncodeCompCmd = [
@@ -187,12 +131,12 @@ class G64Basic {
 			{ name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
 			{ name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
 			{ name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-			{ name: "get#", abbrv: "", tkn: 161 /*161 35*/, type: CmdType.cmd, reg: "get\\#" },
+			{ name: "get#", abbrv: "", tkn: 161 /*161 35*/, type: CmdType.cmd },
 			{ name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
 			{ name: "goto", abbrv: "gO", tkn: 137 /*203 164*/, type: CmdType.cmd },
 			{ name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
 			{ name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
+			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
 			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
 			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
@@ -200,9 +144,9 @@ class G64Basic {
 			{ name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
-			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
-			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd, reg: "print\\#" },
+			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this), count: 2},
+			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd},
+			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
 			{ name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
@@ -241,16 +185,16 @@ class G64Basic {
 
 			//
 			// ----- fn str -----
-			{ name: "chr$", abbrv: "cH", tkn: 199, reg: "chr\\$", type: CmdType.fstr },
-			{ name: "left$", abbrv: "leF", tkn: 200, reg: "left\\$", type: CmdType.fstr },
-			{ name: "mid$", abbrv: "mI", tkn: 202, reg: "mid\\$", type: CmdType.fstr },
-			{ name: "right$", abbrv: "rI", tkn: 201, reg: "right\\$", type: CmdType.fstr },
-			{ name: "str$", abbrv: "stR", tkn: 196, reg: "str\\$", type: CmdType.fstr },
+			{ name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr },
+			{ name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr },
+			{ name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr },
+			{ name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr },
+			{ name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr },
 
 			//
 			// ----- fn out -----
-			{ name: "spc(", abbrv: "sP", tkn: 166, reg: "spc\\(", type: CmdType.fout },
-			{ name: "tab(", abbrv: "tA", tkn: 163, reg: "tab\\(", type: CmdType.fout },
+			{ name: "spc(", abbrv: "sP", tkn: 166, type: CmdType.fout },
+			{ name: "tab(", abbrv: "tA", tkn: 163, type: CmdType.fout },
 
 			//
 			// ----- ops -----
@@ -304,31 +248,34 @@ class G64Basic {
 			}
 
 			// create name / id map
-			this.m_mapTokenId.set(this.m_Commands[i].name, i);
+			this.m_mapCmdId.set(this.m_Commands[i].name, i);
 
 			// set regex
-			if (typeof this.m_Commands[i].reg === "undefined")
-				this.m_Commands[i].reg = this.m_Commands[i].name;
-
 			switch (this.m_Commands[i].type) {
 				case CmdType.cmd:
-					aCmd.push(this.m_Commands[i].reg as string);
+					if (typeof this.m_Commands[i].split !== "undefined" && typeof this.m_Commands[i].param === "undefined")
+						this.m_Commands[i].param = ",";
+
+					if (typeof this.m_Commands[i].split === "undefined")
+						this.m_Commands[i].split = this.SplitterPass.bind(this);
+
+					aCmd.push(this.m_Commands[i].name);
 					this.m_lstCmd.push(i);
 					break;
 
 				case CmdType.fnum:
-					aFn.push(this.m_Commands[i].reg as string);
+					aFn.push(this.m_Commands[i].name);
 					this.m_lstFnNum.push(i);
 					break;
 
 				case CmdType.fstr:
 					this.m_lstFnStr.push(i);
-					aFn.push(this.m_Commands[i].reg as string);
+					aFn.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.fout:
 					this.m_lstFnOut.push(i);
-					aFn.push(this.m_Commands[i].reg as string);
+					aFn.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.ops:
@@ -341,8 +288,8 @@ class G64Basic {
 			}
 		}
 
-		this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
-		this.regFn = new RegExp("^(" + aFn.join("|") + ")");
+		this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\s*(\.*)\s*");
+		this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")");
 		this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
 
 	}
@@ -487,9 +434,7 @@ class G64Basic {
 						parts[p] = this.EncodeCompare(parts[p]);
 
 						// tokenize
-						this.Tokenizer(parts[p]);
-
-						console.log(parts[p]);
+						console.log("tkn:", this.Tokenizer(parts[p]));
 					}
 				}
 			}
@@ -498,21 +443,80 @@ class G64Basic {
 		console.timeEnd("temp");
 	}
 
-	public Tokenizer(code: string): void {
+	public Tokenizer(code: string): Token {
 
-		let match: RegExpMatchArray;
+		let token: Token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "", };
+		let match: string[];
+		let subMatch: string[];
+		let id: number = 0;
 
 		// start with assign which is LET without let, if there's a let, remove it
-		match = this.regLet.exec(code);
-		if (match !== null) {
-			console.log("set", match[1], "=", match[3]);
-		}
-		console.log("let: ", match);
+		//match = this.regLet.exec(code);
+		//if (match !== null) {
+		//	id = this.m_mapTokenId.get("let");
+
+		//	if (typeof match[2] === "undefined") {
+
+		//	} else {
+
+		//	}
+
+		//	console.log("let ", match[1], "=", match[3]);
+		//}
 
 		// code must start with with a command
 		match = this.regCmd.exec(code);
+		if (match !== null) {
+						
+			match = match.splice(1); // remove whole match
 
-		console.log("--", match);
+			if (this.m_mapCmdId.has(match[0])) {
+				token.Id = this.m_mapCmdId.get(match[0]);
+				token.Type = Tokentype.cmd;
+				token.Order = 0;
+
+				const command: BasicCmd = this.m_Commands[token.Id]
+				if (match[1] !== "") {
+					subMatch = command.split(match[1], command.param);
+
+					console.log(this.m_Commands[token.Id].name, ":");
+
+					if (subMatch.length > 0) {
+						for (let i: number = 0; i < subMatch.length; i++) {
+							console.log(i, "--", this.Tokenizer(subMatch[i]));
+						}
+					}					
+				}
+
+				return token;
+			}
+		}
+
+		//
+		// ----- number -----
+		match = this.regNum.exec(code);
+		if (match !== null) {
+			token.Id = -1;
+			token.Type = Tokentype.num;
+			token.Order = 10;
+			token.Num = parseFloat(match[0]);	
+			console.log("num :", match);
+
+			return token;
+		}
 
 	}
+
+	private SplitterPass(code: string): string[] {
+		return [code];
+	}
+
+	private Splitter(code: string, split:string): string[] {
+		return CodeHelper.CodeSplitter(code, ",");
+	}
+
+	private SplitterPrint(code: string): string[] {
+		return [code];
+	}
+
 }

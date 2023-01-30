@@ -6,14 +6,16 @@ class G64Memory {
 
 	private m_isDirty: boolean = false;		// has anything changed?
 
+	private m_ctxFont: CanvasRenderingContext2D;
+
 	private m_ramBuffer: ArrayBuffer;		// internal array and used to create the ram texture
 	private m_ramView: Uint8Array;
 
-	private m_ctxFont: CanvasRenderingContext2D;
+	private m_Vars: Token[];
+	private m_mapVars: Map<string, number> = new Map<string, number>();
 
-	private m_isDone: boolean = false;
 	private m_initStep: number = 0;
-
+	private m_isDone: boolean = false;
 	//#endregion
 
 	//#region " ----- Address Constants----- "
@@ -243,6 +245,15 @@ class G64Memory {
 
 	public Peek(ptr: number): number {
 		return this.m_ramView[ptr];
+	}
+
+	public Var(name: string): Token {
+
+		if (this.m_mapVars.has(name))
+			return this.m_Vars[this.m_mapVars.get(name)];
+
+		return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX };
+
 	}
 
 	//#endregion

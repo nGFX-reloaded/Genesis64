@@ -3,40 +3,6 @@ var BasicVersion;
     BasicVersion[BasicVersion["v2"] = 0] = "v2";
     BasicVersion[BasicVersion["g64"] = 1] = "g64";
 })(BasicVersion || (BasicVersion = {}));
-var CmdType;
-(function (CmdType) {
-    CmdType[CmdType["cmd"] = 0] = "cmd";
-    CmdType[CmdType["fnum"] = 1] = "fnum";
-    CmdType[CmdType["fstr"] = 2] = "fstr";
-    CmdType[CmdType["fout"] = 3] = "fout";
-    CmdType[CmdType["ops"] = 4] = "ops";
-    CmdType[CmdType["comp"] = 5] = "comp";
-})(CmdType || (CmdType = {}));
-var Tokentype;
-(function (Tokentype) {
-    Tokentype[Tokentype["nop"] = 0] = "nop";
-    Tokentype[Tokentype["err"] = 1] = "err";
-    Tokentype[Tokentype["cmd"] = 2] = "cmd";
-    Tokentype[Tokentype["fnnum"] = 3] = "fnnum";
-    Tokentype[Tokentype["fnstr"] = 4] = "fnstr";
-    Tokentype[Tokentype["fnout"] = 5] = "fnout";
-    Tokentype[Tokentype["ops"] = 6] = "ops";
-    Tokentype[Tokentype["comp"] = 7] = "comp";
-    Tokentype[Tokentype["num"] = 8] = "num";
-    Tokentype[Tokentype["int"] = 9] = "int";
-    Tokentype[Tokentype["str"] = 10] = "str";
-    Tokentype[Tokentype["vnum"] = 11] = "vnum";
-    Tokentype[Tokentype["vint"] = 12] = "vint";
-    Tokentype[Tokentype["vstr"] = 13] = "vstr";
-    Tokentype[Tokentype["anum"] = 14] = "anum";
-    Tokentype[Tokentype["aint"] = 15] = "aint";
-    Tokentype[Tokentype["astr"] = 16] = "astr";
-    Tokentype[Tokentype["link"] = 17] = "link";
-    Tokentype[Tokentype["eop"] = 18] = "eop";
-    Tokentype[Tokentype["run"] = 19] = "run";
-    Tokentype[Tokentype["jmp"] = 20] = "jmp";
-    Tokentype[Tokentype["end"] = 21] = "end";
-})(Tokentype || (Tokentype = {}));
 class G64Basic {
     get Commands() { return this.m_Commands; }
     get Version() { return this.m_Options.basicVersion; }
@@ -49,7 +15,7 @@ class G64Basic {
         this.m_lstOps = [];
         this.m_lstComp = [];
         this.m_mapDeAbbrev = new Map();
-        this.m_mapTokenId = new Map();
+        this.m_mapCmdId = new Map();
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -60,6 +26,7 @@ class G64Basic {
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
         this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
         this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;
+        this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
@@ -97,12 +64,12 @@ class G64Basic {
             { name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
             { name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
             { name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-            { name: "get#", abbrv: "", tkn: 161, type: CmdType.cmd, reg: "get\\#" },
+            { name: "get#", abbrv: "", tkn: 161, type: CmdType.cmd },
             { name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
             { name: "goto", abbrv: "gO", tkn: 137, type: CmdType.cmd },
             { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
             { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-            { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd, reg: "input\\#" },
+            { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
             { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
             { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
@@ -110,9 +77,9 @@ class G64Basic {
             { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
             { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
             { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd },
+            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this), count: 2 },
             { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
-            { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd, reg: "print\\#" },
+            { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
             { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
             { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
             { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
@@ -145,13 +112,13 @@ class G64Basic {
             { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum },
             { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum },
             { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum },
-            { name: "chr$", abbrv: "cH", tkn: 199, reg: "chr\\$", type: CmdType.fstr },
-            { name: "left$", abbrv: "leF", tkn: 200, reg: "left\\$", type: CmdType.fstr },
-            { name: "mid$", abbrv: "mI", tkn: 202, reg: "mid\\$", type: CmdType.fstr },
-            { name: "right$", abbrv: "rI", tkn: 201, reg: "right\\$", type: CmdType.fstr },
-            { name: "str$", abbrv: "stR", tkn: 196, reg: "str\\$", type: CmdType.fstr },
-            { name: "spc(", abbrv: "sP", tkn: 166, reg: "spc\\(", type: CmdType.fout },
-            { name: "tab(", abbrv: "tA", tkn: 163, reg: "tab\\(", type: CmdType.fout },
+            { name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr },
+            { name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr },
+            { name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr },
+            { name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr },
+            { name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr },
+            { name: "spc(", abbrv: "sP", tkn: 166, type: CmdType.fout },
+            { name: "tab(", abbrv: "tA", tkn: 163, type: CmdType.fout },
             { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
             { name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
             { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
@@ -177,25 +144,27 @@ class G64Basic {
                 this.m_mapDeAbbrev.set(this.m_Commands[i].abbrv, this.m_Commands[i].name);
                 aAbbrv.push(this.m_Commands[i].abbrv);
             }
-            this.m_mapTokenId.set(this.m_Commands[i].name, i);
-            if (typeof this.m_Commands[i].reg === "undefined")
-                this.m_Commands[i].reg = this.m_Commands[i].name;
+            this.m_mapCmdId.set(this.m_Commands[i].name, i);
             switch (this.m_Commands[i].type) {
                 case CmdType.cmd:
-                    aCmd.push(this.m_Commands[i].reg);
+                    if (typeof this.m_Commands[i].split !== "undefined" && typeof this.m_Commands[i].param === "undefined")
+                        this.m_Commands[i].param = ",";
+                    if (typeof this.m_Commands[i].split === "undefined")
+                        this.m_Commands[i].split = this.SplitterPass.bind(this);
+                    aCmd.push(this.m_Commands[i].name);
                     this.m_lstCmd.push(i);
                     break;
                 case CmdType.fnum:
-                    aFn.push(this.m_Commands[i].reg);
+                    aFn.push(this.m_Commands[i].name);
                     this.m_lstFnNum.push(i);
                     break;
                 case CmdType.fstr:
                     this.m_lstFnStr.push(i);
-                    aFn.push(this.m_Commands[i].reg);
+                    aFn.push(this.m_Commands[i].name);
                     break;
                 case CmdType.fout:
                     this.m_lstFnOut.push(i);
-                    aFn.push(this.m_Commands[i].reg);
+                    aFn.push(this.m_Commands[i].name);
                     break;
                 case CmdType.ops:
                     this.m_lstOps.push(i);
@@ -205,8 +174,8 @@ class G64Basic {
                     break;
             }
         }
-        this.regCmd = new RegExp("^(" + aCmd.join("|") + ")");
-        this.regFn = new RegExp("^(" + aFn.join("|") + ")");
+        this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\s*(\.*)\s*");
+        this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")");
         this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
     }
     EncodeArray(code) {
@@ -289,8 +258,7 @@ class G64Basic {
                         parts[p] = this.DeAbbreviate(parts[p]);
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
-                        this.Tokenizer(parts[p]);
-                        console.log(parts[p]);
+                        console.log("tkn:", this.Tokenizer(parts[p]));
                     }
                 }
             }
@@ -298,14 +266,48 @@ class G64Basic {
         console.timeEnd("temp");
     }
     Tokenizer(code) {
+        let token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "", };
         let match;
-        match = this.regLet.exec(code);
-        if (match !== null) {
-            console.log("set", match[1], "=", match[3]);
-        }
-        console.log("let: ", match);
+        let subMatch;
+        let id = 0;
         match = this.regCmd.exec(code);
-        console.log("--", match);
+        if (match !== null) {
+            match = match.splice(1);
+            if (this.m_mapCmdId.has(match[0])) {
+                token.Id = this.m_mapCmdId.get(match[0]);
+                token.Type = Tokentype.cmd;
+                token.Order = 0;
+                const command = this.m_Commands[token.Id];
+                if (match[1] !== "") {
+                    subMatch = command.split(match[1], command.param);
+                    console.log(this.m_Commands[token.Id].name, ":");
+                    if (subMatch.length > 0) {
+                        for (let i = 0; i < subMatch.length; i++) {
+                            console.log(i, "--", this.Tokenizer(subMatch[i]));
+                        }
+                    }
+                }
+                return token;
+            }
+        }
+        match = this.regNum.exec(code);
+        if (match !== null) {
+            token.Id = -1;
+            token.Type = Tokentype.num;
+            token.Order = 10;
+            token.Num = parseFloat(match[0]);
+            console.log("num :", match);
+            return token;
+        }
+    }
+    SplitterPass(code) {
+        return [code];
+    }
+    Splitter(code, split) {
+        return CodeHelper.CodeSplitter(code, ",");
+    }
+    SplitterPrint(code) {
+        return [code];
     }
 }
 class G64Colors {
@@ -361,8 +363,9 @@ class G64Memory {
     get IsDone() { return this.m_isDone; }
     constructor() {
         this.m_isDirty = false;
-        this.m_isDone = false;
+        this.m_mapVars = new Map();
         this.m_initStep = 0;
+        this.m_isDone = false;
         this.ADR_CHARACTERROM = 0xE000;
         this.PTR_SCREENRAM = 0x0400;
         this.PTR_COLORRAM = 0xD800;
@@ -506,6 +509,11 @@ class G64Memory {
     }
     Peek(ptr) {
         return this.m_ramView[ptr];
+    }
+    Var(name) {
+        if (this.m_mapVars.has(name))
+            return this.m_Vars[this.m_mapVars.get(name)];
+        return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX };
     }
 }
 var KeyboardMode;
@@ -1498,4 +1506,72 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
+var ErrorCodes;
+(function (ErrorCodes) {
+    ErrorCodes[ErrorCodes["TOO_MANY_FILES"] = 0] = "TOO_MANY_FILES";
+    ErrorCodes[ErrorCodes["FILE_OPEN"] = 1] = "FILE_OPEN";
+    ErrorCodes[ErrorCodes["FILE_NOT_OPEN"] = 2] = "FILE_NOT_OPEN";
+    ErrorCodes[ErrorCodes["FILE_NOT_FOUND"] = 3] = "FILE_NOT_FOUND";
+    ErrorCodes[ErrorCodes["DEVICE_NOT_PRESENT"] = 4] = "DEVICE_NOT_PRESENT";
+    ErrorCodes[ErrorCodes["NOT_INPUT_FILE"] = 5] = "NOT_INPUT_FILE";
+    ErrorCodes[ErrorCodes["NOT_OUTPUT_FILE"] = 6] = "NOT_OUTPUT_FILE";
+    ErrorCodes[ErrorCodes["MISSING_FILENAME"] = 7] = "MISSING_FILENAME";
+    ErrorCodes[ErrorCodes["ILLEGAL_DEVICE_NUMBER"] = 8] = "ILLEGAL_DEVICE_NUMBER";
+    ErrorCodes[ErrorCodes["NEXT_WITHOUT_FOR"] = 9] = "NEXT_WITHOUT_FOR";
+    ErrorCodes[ErrorCodes["SYNTAX"] = 10] = "SYNTAX";
+    ErrorCodes[ErrorCodes["RETURN_WITHOUT_GOSUB"] = 11] = "RETURN_WITHOUT_GOSUB";
+    ErrorCodes[ErrorCodes["OUT_OF_DATA"] = 12] = "OUT_OF_DATA";
+    ErrorCodes[ErrorCodes["ILLEGAL_QUANTITY"] = 13] = "ILLEGAL_QUANTITY";
+    ErrorCodes[ErrorCodes["OVERFLOW"] = 14] = "OVERFLOW";
+    ErrorCodes[ErrorCodes["OUT_OF_MEMORY"] = 15] = "OUT_OF_MEMORY";
+    ErrorCodes[ErrorCodes["UNDEFD_STATEMENT"] = 16] = "UNDEFD_STATEMENT";
+    ErrorCodes[ErrorCodes["BAD_SUBSCRIPT"] = 17] = "BAD_SUBSCRIPT";
+    ErrorCodes[ErrorCodes["REDIMD_ARRAY"] = 18] = "REDIMD_ARRAY";
+    ErrorCodes[ErrorCodes["DIVISION_BY_ZERO"] = 19] = "DIVISION_BY_ZERO";
+    ErrorCodes[ErrorCodes["ILLEGAL_DIRECT"] = 20] = "ILLEGAL_DIRECT";
+    ErrorCodes[ErrorCodes["TYPE_MISMATCH"] = 21] = "TYPE_MISMATCH";
+    ErrorCodes[ErrorCodes["STRING_TOO_LONG"] = 22] = "STRING_TOO_LONG";
+    ErrorCodes[ErrorCodes["FILE_DATA"] = 23] = "FILE_DATA";
+    ErrorCodes[ErrorCodes["FORMULA_TOO_COMPLEX"] = 24] = "FORMULA_TOO_COMPLEX";
+    ErrorCodes[ErrorCodes["CANT_CONTINUE"] = 25] = "CANT_CONTINUE";
+    ErrorCodes[ErrorCodes["UNDEFD_FUNCTION"] = 26] = "UNDEFD_FUNCTION";
+    ErrorCodes[ErrorCodes["VERIFY"] = 27] = "VERIFY";
+    ErrorCodes[ErrorCodes["LOAD"] = 28] = "LOAD";
+    ErrorCodes[ErrorCodes["BREAK"] = 29] = "BREAK";
+    ErrorCodes[ErrorCodes["LINE_NOT_FOUND"] = 30] = "LINE_NOT_FOUND";
+})(ErrorCodes || (ErrorCodes = {}));
+var Tokentype;
+(function (Tokentype) {
+    Tokentype[Tokentype["nop"] = 0] = "nop";
+    Tokentype[Tokentype["err"] = 1] = "err";
+    Tokentype[Tokentype["cmd"] = 2] = "cmd";
+    Tokentype[Tokentype["fnnum"] = 3] = "fnnum";
+    Tokentype[Tokentype["fnstr"] = 4] = "fnstr";
+    Tokentype[Tokentype["fnout"] = 5] = "fnout";
+    Tokentype[Tokentype["ops"] = 6] = "ops";
+    Tokentype[Tokentype["comp"] = 7] = "comp";
+    Tokentype[Tokentype["num"] = 8] = "num";
+    Tokentype[Tokentype["int"] = 9] = "int";
+    Tokentype[Tokentype["str"] = 10] = "str";
+    Tokentype[Tokentype["vnum"] = 11] = "vnum";
+    Tokentype[Tokentype["vint"] = 12] = "vint";
+    Tokentype[Tokentype["vstr"] = 13] = "vstr";
+    Tokentype[Tokentype["anum"] = 14] = "anum";
+    Tokentype[Tokentype["aint"] = 15] = "aint";
+    Tokentype[Tokentype["astr"] = 16] = "astr";
+    Tokentype[Tokentype["link"] = 17] = "link";
+    Tokentype[Tokentype["eop"] = 18] = "eop";
+    Tokentype[Tokentype["run"] = 19] = "run";
+    Tokentype[Tokentype["jmp"] = 20] = "jmp";
+    Tokentype[Tokentype["end"] = 21] = "end";
+})(Tokentype || (Tokentype = {}));
+var CmdType;
+(function (CmdType) {
+    CmdType[CmdType["cmd"] = 0] = "cmd";
+    CmdType[CmdType["fnum"] = 1] = "fnum";
+    CmdType[CmdType["fstr"] = 2] = "fstr";
+    CmdType[CmdType["fout"] = 3] = "fout";
+    CmdType[CmdType["ops"] = 4] = "ops";
+    CmdType[CmdType["comp"] = 5] = "comp";
+})(CmdType || (CmdType = {}));
 //# sourceMappingURL=genesis64.js.map
