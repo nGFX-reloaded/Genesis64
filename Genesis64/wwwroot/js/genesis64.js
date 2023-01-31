@@ -304,7 +304,7 @@ class G64Basic {
         return [code];
     }
     Splitter(code, split) {
-        return CodeHelper.CodeSplitter(code, ",");
+        return CodeHelper.CodeSplitter(code, split);
     }
     SplitterPrint(code) {
         return [code];
@@ -1506,6 +1506,15 @@ class MiniFSM {
     }
 }
 MiniFSM.SKIP_ONEXIT = "@@@SKIPEXIT@@@";
+var CmdType;
+(function (CmdType) {
+    CmdType[CmdType["cmd"] = 0] = "cmd";
+    CmdType[CmdType["fnum"] = 1] = "fnum";
+    CmdType[CmdType["fstr"] = 2] = "fstr";
+    CmdType[CmdType["fout"] = 3] = "fout";
+    CmdType[CmdType["ops"] = 4] = "ops";
+    CmdType[CmdType["comp"] = 5] = "comp";
+})(CmdType || (CmdType = {}));
 var ErrorCodes;
 (function (ErrorCodes) {
     ErrorCodes[ErrorCodes["TOO_MANY_FILES"] = 0] = "TOO_MANY_FILES";
@@ -1565,13 +1574,4 @@ var Tokentype;
     Tokentype[Tokentype["jmp"] = 20] = "jmp";
     Tokentype[Tokentype["end"] = 21] = "end";
 })(Tokentype || (Tokentype = {}));
-var CmdType;
-(function (CmdType) {
-    CmdType[CmdType["cmd"] = 0] = "cmd";
-    CmdType[CmdType["fnum"] = 1] = "fnum";
-    CmdType[CmdType["fstr"] = 2] = "fstr";
-    CmdType[CmdType["fout"] = 3] = "fout";
-    CmdType[CmdType["ops"] = 4] = "ops";
-    CmdType[CmdType["comp"] = 5] = "comp";
-})(CmdType || (CmdType = {}));
 //# sourceMappingURL=genesis64.js.map

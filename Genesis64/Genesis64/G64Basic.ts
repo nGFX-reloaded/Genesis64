@@ -117,6 +117,20 @@ class G64Basic {
 	 **/
 	private InitBasicV2(): void {
 
+		const splEmpty: CmdSplitData = {
+			fn: (code: string): string[] => { return [code] },
+			chr: "",
+			len: 0,
+			type: [CmdSplitType.any]
+		};
+
+		const splLoadSave: CmdSplitData = {
+			fn: this.Splitter.bind(this),
+			chr: ",",
+			len: 3,
+			type: [CmdSplitType.str, CmdSplitType.optnum, CmdSplitType.optnum]
+		};
+
 		this.m_Commands = [
 
 			//
@@ -144,8 +158,8 @@ class G64Basic {
 			{ name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this), count: 2},
-			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd},
+			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this) },
+			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
 			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
@@ -239,6 +253,8 @@ class G64Basic {
 		this.m_lstOps = [];
 		this.m_lstComp = [];
 
+		
+
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
 
 			// create deabbrv map
@@ -253,11 +269,7 @@ class G64Basic {
 			// set regex
 			switch (this.m_Commands[i].type) {
 				case CmdType.cmd:
-					if (typeof this.m_Commands[i].split !== "undefined" && typeof this.m_Commands[i].param === "undefined")
-						this.m_Commands[i].param = ",";
-
-					if (typeof this.m_Commands[i].split === "undefined")
-						this.m_Commands[i].split = this.SplitterPass.bind(this);
+					//if (typeof this.m_Commands[i].split !== "undefined")
 
 					aCmd.push(this.m_Commands[i].name);
 					this.m_lstCmd.push(i);
@@ -467,7 +479,7 @@ class G64Basic {
 		// code must start with with a command
 		match = this.regCmd.exec(code);
 		if (match !== null) {
-						
+
 			match = match.splice(1); // remove whole match
 
 			if (this.m_mapCmdId.has(match[0])) {
@@ -485,7 +497,7 @@ class G64Basic {
 						for (let i: number = 0; i < subMatch.length; i++) {
 							console.log(i, "--", this.Tokenizer(subMatch[i]));
 						}
-					}					
+					}
 				}
 
 				return token;
@@ -499,7 +511,7 @@ class G64Basic {
 			token.Id = -1;
 			token.Type = Tokentype.num;
 			token.Order = 10;
-			token.Num = parseFloat(match[0]);	
+			token.Num = parseFloat(match[0]);
 			console.log("num :", match);
 
 			return token;
@@ -511,8 +523,8 @@ class G64Basic {
 		return [code];
 	}
 
-	private Splitter(code: string, split:string): string[] {
-		return CodeHelper.CodeSplitter(code, ",");
+	private Splitter(code: string, split: string): string[] {
+		return CodeHelper.CodeSplitter(code, split);
 	}
 
 	private SplitterPrint(code: string): string[] {
