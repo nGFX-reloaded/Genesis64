@@ -6,12 +6,10 @@
 	<div id="Genesis64"></div>
 	<div id="TestArea">
 		<textarea id="code">
-poke53280,0:poke53281,0
-?"abc"
-load"$",8,1
-lI
-a=2
-?a
+poke53280,0
+poke53281
+poke 53280,2,3
+poke "w",3
 		</textarea>
 		<br /><button id="run">Run</button>
 		<div>Output:</div>

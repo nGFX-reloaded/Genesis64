@@ -53,6 +53,18 @@ class G64Basic {
         };
     }
     InitBasicV2() {
+        const defLoadSave = {
+            fn: this.Splitter,
+            chr: ",",
+            len: 1,
+            type: ["str", "num", "num"]
+        };
+        const defPoke = {
+            fn: this.Splitter,
+            chr: ",",
+            len: 2,
+            type: ["adr", "byte"]
+        };
         this.m_Commands = [
             { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
             { name: "clr", abbrv: "cR", tkn: 156, type: CmdType.cmd },
@@ -77,7 +89,7 @@ class G64Basic {
             { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
             { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
             { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this), count: 2 },
+            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, def: defPoke },
             { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
             { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
             { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
@@ -139,18 +151,22 @@ class G64Basic {
         this.m_lstFnOut = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
+        const defEmpty = {
+            fn: (code) => { return [code]; },
+            chr: "",
+            len: 0,
+            type: ["any"]
+        };
         for (let i = 0; i < this.m_Commands.length; i++) {
             if (this.m_Commands[i].abbrv !== "") {
                 this.m_mapDeAbbrev.set(this.m_Commands[i].abbrv, this.m_Commands[i].name);
                 aAbbrv.push(this.m_Commands[i].abbrv);
             }
             this.m_mapCmdId.set(this.m_Commands[i].name, i);
+            if (typeof this.m_Commands[i].def === "undefined")
+                this.m_Commands[i].def = defEmpty;
             switch (this.m_Commands[i].type) {
                 case CmdType.cmd:
-                    if (typeof this.m_Commands[i].split !== "undefined" && typeof this.m_Commands[i].param === "undefined")
-                        this.m_Commands[i].param = ",";
-                    if (typeof this.m_Commands[i].split === "undefined")
-                        this.m_Commands[i].split = this.SplitterPass.bind(this);
                     aCmd.push(this.m_Commands[i].name);
                     this.m_lstCmd.push(i);
                     break;
@@ -258,7 +274,8 @@ class G64Basic {
                         parts[p] = this.DeAbbreviate(parts[p]);
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
-                        console.log("tkn:", this.Tokenizer(parts[p]));
+                        console.log(l, "---------");
+                        console.log("-- tkn:", this.Tokenizer(parts[p]));
                     }
                 }
             }
@@ -273,22 +290,8 @@ class G64Basic {
         match = this.regCmd.exec(code);
         if (match !== null) {
             match = match.splice(1);
-            if (this.m_mapCmdId.has(match[0])) {
-                token.Id = this.m_mapCmdId.get(match[0]);
-                token.Type = Tokentype.cmd;
-                token.Order = 0;
-                const command = this.m_Commands[token.Id];
-                if (match[1] !== "") {
-                    subMatch = command.split(match[1], command.param);
-                    console.log(this.m_Commands[token.Id].name, ":");
-                    if (subMatch.length > 0) {
-                        for (let i = 0; i < subMatch.length; i++) {
-                            console.log(i, "--", this.Tokenizer(subMatch[i]));
-                        }
-                    }
-                }
-                return token;
-            }
+            token = this.TokenizeCmd(token, match[0], match[1]);
+            return token;
         }
         match = this.regNum.exec(code);
         if (match !== null) {
@@ -296,9 +299,39 @@ class G64Basic {
             token.Type = Tokentype.num;
             token.Order = 10;
             token.Num = parseFloat(match[0]);
-            console.log("num :", match);
             return token;
         }
+        return token;
+    }
+    TokenizeCmd(token, cmd, code) {
+        if (this.m_mapCmdId.has(cmd)) {
+            token.Id = this.m_mapCmdId.get(cmd);
+            token.Type = Tokentype.cmd;
+            token.Order = 0;
+            const def = this.m_Commands[token.Id].def;
+            const split = def.fn(code, def.chr);
+            if (split.length < def.type.length) {
+                token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
+                return token;
+            }
+            if (def.len != -1 && split.length > def.len) {
+                token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
+                return token;
+            }
+            token.Values = [];
+            for (let i = 0; i < split.length; i++) {
+                let tkn = this.Tokenizer(split[i]);
+                switch (def.type[i]) {
+                    case "num":
+                    case "adr":
+                    case "byte":
+                        if (!this.IsNum(tkn))
+                            token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
+                }
+            }
+            console.log(cmd, ": ", split, token);
+        }
+        return token;
     }
     SplitterPass(code) {
         return [code];
@@ -308,6 +341,24 @@ class G64Basic {
     }
     SplitterPrint(code) {
         return [code];
+    }
+    CreateError(id, message) {
+        return {
+            Type: Tokentype.err,
+            Id: id,
+            Str: message,
+            Order: -999
+        };
+    }
+    IsNum(tkn) {
+        return (tkn.Type == Tokentype.num
+            || tkn.Type == Tokentype.int
+            || tkn.Type == Tokentype.fnnum
+            || tkn.Type == Tokentype.vnum
+            || tkn.Type == Tokentype.vint
+            || tkn.Type == Tokentype.anum
+            || tkn.Type == Tokentype.aint
+            || tkn.Type == Tokentype.ops);
     }
 }
 class G64Colors {

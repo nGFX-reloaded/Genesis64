@@ -117,19 +117,23 @@ class G64Basic {
 	 **/
 	private InitBasicV2(): void {
 
-		const splEmpty: CmdSplitData = {
-			fn: (code: string): string[] => { return [code] },
-			chr: "",
-			len: 0,
-			type: [CmdSplitType.any]
+
+
+		const defLoadSave: CmdDefData = {
+			fn: this.Splitter,				/* the splitter method */
+			chr: ",",						/* the splitter chr for non-custom methods */
+			len: 1,							/* min number of params, more are optional*/
+			type: ["str", "num", "num"]		/* types expected */
 		};
 
-		const splLoadSave: CmdSplitData = {
-			fn: this.Splitter.bind(this),
+		const defPoke: CmdDefData = {
+			fn: this.Splitter,
 			chr: ",",
-			len: 3,
-			type: [CmdSplitType.str, CmdSplitType.optnum, CmdSplitType.optnum]
-		};
+			len: 2,
+			type: ["adr", "byte"]			/* turn to num for now */
+		}
+
+		//const spl
 
 		this.m_Commands = [
 
@@ -158,7 +162,7 @@ class G64Basic {
 			{ name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, split: this.Splitter.bind(this) },
+			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, def: defPoke },
 			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
 			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
@@ -253,7 +257,12 @@ class G64Basic {
 		this.m_lstOps = [];
 		this.m_lstComp = [];
 
-		
+		const defEmpty: CmdDefData = {
+			fn: (code: string): string[] => { return [code] },
+			chr: "",
+			len: 0,
+			type: ["any"]
+		};
 
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
 
@@ -266,11 +275,13 @@ class G64Basic {
 			// create name / id map
 			this.m_mapCmdId.set(this.m_Commands[i].name, i);
 
+			// set parser definition
+			if (typeof this.m_Commands[i].def === "undefined")
+				this.m_Commands[i].def = defEmpty;
+
 			// set regex
 			switch (this.m_Commands[i].type) {
 				case CmdType.cmd:
-					//if (typeof this.m_Commands[i].split !== "undefined")
-
 					aCmd.push(this.m_Commands[i].name);
 					this.m_lstCmd.push(i);
 					break;
@@ -307,6 +318,8 @@ class G64Basic {
 	}
 
 	//#endregion
+
+	//#region " ----- Encoders ----- "
 
 	/**
 	 * Encodes the c64 style array notation to c style () -> [] 
@@ -409,6 +422,7 @@ class G64Basic {
 		return code;
 	}
 
+	//#endregion
 
 	public Temp(code: string): void {
 
@@ -446,7 +460,8 @@ class G64Basic {
 						parts[p] = this.EncodeCompare(parts[p]);
 
 						// tokenize
-						console.log("tkn:", this.Tokenizer(parts[p]));
+						console.log(l, "---------");
+						console.log("-- tkn:", this.Tokenizer(parts[p]));
 					}
 				}
 			}
@@ -482,26 +497,31 @@ class G64Basic {
 
 			match = match.splice(1); // remove whole match
 
-			if (this.m_mapCmdId.has(match[0])) {
-				token.Id = this.m_mapCmdId.get(match[0]);
-				token.Type = Tokentype.cmd;
-				token.Order = 0;
+			token = this.TokenizeCmd(token, match[0], match[1]);
 
-				const command: BasicCmd = this.m_Commands[token.Id]
-				if (match[1] !== "") {
-					subMatch = command.split(match[1], command.param);
+			//console.log("cmd:", match, token);
 
-					console.log(this.m_Commands[token.Id].name, ":");
+			//if (this.m_mapCmdId.has(match[0])) {
+			//	token.Id = this.m_mapCmdId.get(match[0]);
+			//	token.Type = Tokentype.cmd;
+			//	token.Order = 0;
 
-					if (subMatch.length > 0) {
-						for (let i: number = 0; i < subMatch.length; i++) {
-							console.log(i, "--", this.Tokenizer(subMatch[i]));
-						}
-					}
-				}
 
-				return token;
-			}
+			//const command: BasicCmd = this.m_Commands[token.Id]
+			//if (match[1] !== "") {
+			//	subMatch = command.split(match[1], command.param);
+
+			//	console.log(this.m_Commands[token.Id].name, ":");
+
+			//	if (subMatch.length > 0) {
+			//		for (let i: number = 0; i < subMatch.length; i++) {
+			//			console.log(i, "--", this.Tokenizer(subMatch[i]));
+			//		}
+			//	}
+			//}
+
+			return token;
+			//}
 		}
 
 		//
@@ -512,11 +532,61 @@ class G64Basic {
 			token.Type = Tokentype.num;
 			token.Order = 10;
 			token.Num = parseFloat(match[0]);
-			console.log("num :", match);
 
 			return token;
 		}
 
+		//
+		// ----- literal -----
+
+
+		return token;
+
+	}
+
+	private TokenizeCmd(token: Token, cmd: string, code: string): Token {
+
+		if (this.m_mapCmdId.has(cmd)) {
+			token.Id = this.m_mapCmdId.get(cmd);
+			token.Type = Tokentype.cmd;
+			token.Order = 0;
+
+			const def: CmdDefData = this.m_Commands[token.Id].def;
+			const split: string[] = def.fn(code, def.chr);
+
+			// check if we have enoug params
+			if (split.length < def.type.length) {
+				token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
+				return token;
+			}
+
+			if (def.len != -1 && split.length > def.len) {
+				token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
+				return token;
+			}
+
+			// tokenize params and check type
+			token.Values = [];
+			for (let i = 0; i < split.length; i++) {
+				let tkn: Token = this.Tokenizer(split[i]);
+
+				switch (def.type[i]) {
+					case "num":
+					case "adr":
+					case "byte":
+						if (!this.IsNum(tkn))
+							token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
+				}
+
+				//token.Values.push();
+			}
+
+
+			console.log(cmd, ": ", split, token);
+
+		}
+
+		return token;
 	}
 
 	private SplitterPass(code: string): string[] {
@@ -529,6 +599,29 @@ class G64Basic {
 
 	private SplitterPrint(code: string): string[] {
 		return [code];
+	}
+
+	//
+	//
+	// ----- Helper ----
+	private CreateError(id: number, message: string): Token {
+		return {
+			Type: Tokentype.err,
+			Id: id,
+			Str: message,
+			Order: -999
+		};
+	}
+
+	private IsNum(tkn: Token): boolean {
+		return (tkn.Type == Tokentype.num
+			|| tkn.Type == Tokentype.int
+			|| tkn.Type == Tokentype.fnnum
+			|| tkn.Type == Tokentype.vnum
+			|| tkn.Type == Tokentype.vint
+			|| tkn.Type == Tokentype.anum
+			|| tkn.Type == Tokentype.aint
+			|| tkn.Type == Tokentype.ops);
 	}
 
 }
