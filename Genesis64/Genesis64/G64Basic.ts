@@ -125,14 +125,14 @@ class G64Basic {
 			fn: this.Splitter,				/* the splitter method */
 			chr: ",",						/* the splitter chr for non-custom methods */
 			len: 1,							/* min number of params, more are optional*/
-			type: ["str", "num", "num"]		/* types expected */
+			type: [DefType.str, DefType.num, DefType.num]		/* types expected */
 		};
 
 		const defPoke: CmdDefData = {
 			fn: this.Splitter,
 			chr: ",",
 			len: 2,
-			type: ["adr", "byte"]			/* turn to num for now */
+			type: [DefType.adr, DefType.byte]			/* turn to num for now */
 		}
 
 		//const spl
@@ -263,7 +263,7 @@ class G64Basic {
 			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: 0,
-			type: ["any"]
+			type: [DefType.any]
 		};
 
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
@@ -567,28 +567,36 @@ class G64Basic {
 			const split: string[] = def.fn(code, def.chr);
 
 			// check if we have enoug params
-			if (split.length < def.type.length) {
-				token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
-				return token;
+			if (def.len != -1) {
+				if (split.length < def.len) {
+					token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
+					return token;
+				}
+
+				if (((split.length > def.len) && (def.len == def.type.length)) || ((def.len < def.type.length) && (split.length > def.type.length))) {
+					console.log("..", def, split);
+					token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
+					return token;
+				}
 			}
 
-			if (def.len != -1 && split.length > def.len) {
-				token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
-				return token;
-			}
 
 			// tokenize params and check type
 			token.Values = [];
 			for (let i = 0; i < split.length; i++) {
 				let tkn: Token = this.Tokenizer(split[i]);
 
-				switch (def.type[i]) {
-					case "num":
-					case "adr":
-					case "byte":
+				switch (this.SimpleType(def.type[i])) {
+					case DefType.num:
 						if (!this.IsNum(tkn))
 							token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
 						break;
+
+					case DefType.str:
+						if (!this.IsStr(tkn))
+							token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
+						break;
+
 				}
 
 				if (token.Type == Tokentype.err)
@@ -597,7 +605,7 @@ class G64Basic {
 			}
 
 			if (token.Type != Tokentype.err)
-			console.log("cmd:", cmd, ": ", split, token);
+				console.log("cmd:", cmd, ": ", split, token);
 
 		}
 
@@ -628,6 +636,20 @@ class G64Basic {
 		};
 	}
 
+	private SimpleType(value: DefType): DefType {
+		let type: DefType = value;
+
+		switch (value) {
+			case DefType.num:
+			case DefType.adr:
+			case DefType.byte:
+				type = DefType.num;
+				break;
+		}
+
+		return type;
+	}
+
 	private IsNum(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
 			|| tkn.Type == Tokentype.int
@@ -636,6 +658,14 @@ class G64Basic {
 			|| tkn.Type == Tokentype.vint
 			|| tkn.Type == Tokentype.anum
 			|| tkn.Type == Tokentype.aint
+			|| tkn.Type == Tokentype.ops);
+	}
+
+	private IsStr(tkn: Token): boolean {
+		return (tkn.Type == Tokentype.str
+			|| tkn.Type == Tokentype.fnstr
+			|| tkn.Type == Tokentype.vstr
+			|| tkn.Type == Tokentype.astr
 			|| tkn.Type == Tokentype.ops);
 	}
 

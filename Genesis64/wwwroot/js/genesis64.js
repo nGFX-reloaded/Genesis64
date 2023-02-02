@@ -58,13 +58,13 @@ class G64Basic {
             fn: this.Splitter,
             chr: ",",
             len: 1,
-            type: ["str", "num", "num"]
+            type: [DefType.str, DefType.num, DefType.num]
         };
         const defPoke = {
             fn: this.Splitter,
             chr: ",",
             len: 2,
-            type: ["adr", "byte"]
+            type: [DefType.adr, DefType.byte]
         };
         this.m_Commands = [
             { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
@@ -156,7 +156,7 @@ class G64Basic {
             fn: (code) => { return [code]; },
             chr: "",
             len: 0,
-            type: ["any"]
+            type: [DefType.any]
         };
         for (let i = 0; i < this.m_Commands.length; i++) {
             if (this.m_Commands[i].abbrv !== "") {
@@ -320,23 +320,28 @@ class G64Basic {
             token.Order = 0;
             const def = this.m_Commands[token.Id].def;
             const split = def.fn(code, def.chr);
-            if (split.length < def.type.length) {
-                token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
-                return token;
-            }
-            if (def.len != -1 && split.length > def.len) {
-                token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
-                return token;
+            if (def.len != -1) {
+                if (split.length < def.len) {
+                    token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
+                    return token;
+                }
+                if (((split.length > def.len) && (def.len == def.type.length)) || ((def.len < def.type.length) && (split.length > def.type.length))) {
+                    console.log("..", def, split);
+                    token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
+                    return token;
+                }
             }
             token.Values = [];
             for (let i = 0; i < split.length; i++) {
                 let tkn = this.Tokenizer(split[i]);
-                switch (def.type[i]) {
-                    case "num":
-                    case "adr":
-                    case "byte":
+                switch (this.SimpleType(def.type[i])) {
+                    case DefType.num:
                         if (!this.IsNum(tkn))
                             token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
+                        break;
+                    case DefType.str:
+                        if (!this.IsStr(tkn))
+                            token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
                         break;
                 }
                 if (token.Type == Tokentype.err)
@@ -364,6 +369,17 @@ class G64Basic {
             Order: -999
         };
     }
+    SimpleType(value) {
+        let type = value;
+        switch (value) {
+            case DefType.num:
+            case DefType.adr:
+            case DefType.byte:
+                type = DefType.num;
+                break;
+        }
+        return type;
+    }
     IsNum(tkn) {
         return (tkn.Type == Tokentype.num
             || tkn.Type == Tokentype.int
@@ -372,6 +388,13 @@ class G64Basic {
             || tkn.Type == Tokentype.vint
             || tkn.Type == Tokentype.anum
             || tkn.Type == Tokentype.aint
+            || tkn.Type == Tokentype.ops);
+    }
+    IsStr(tkn) {
+        return (tkn.Type == Tokentype.str
+            || tkn.Type == Tokentype.fnstr
+            || tkn.Type == Tokentype.vstr
+            || tkn.Type == Tokentype.astr
             || tkn.Type == Tokentype.ops);
     }
 }
@@ -1580,6 +1603,15 @@ var CmdType;
     CmdType[CmdType["ops"] = 4] = "ops";
     CmdType[CmdType["comp"] = 5] = "comp";
 })(CmdType || (CmdType = {}));
+var DefType;
+(function (DefType) {
+    DefType[DefType["any"] = 0] = "any";
+    DefType[DefType["num"] = 1] = "num";
+    DefType[DefType["adr"] = 2] = "adr";
+    DefType[DefType["byte"] = 3] = "byte";
+    DefType[DefType["str"] = 4] = "str";
+    DefType[DefType["cmd"] = 5] = "cmd";
+})(DefType || (DefType = {}));
 var ErrorCodes;
 (function (ErrorCodes) {
     ErrorCodes[ErrorCodes["TOO_MANY_FILES"] = 0] = "TOO_MANY_FILES";

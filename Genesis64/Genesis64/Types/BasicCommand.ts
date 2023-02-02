@@ -24,6 +24,10 @@ type CmdDefData = {
 	fn: Function;
 	len: number;		// max num of params, -1 no limit
 	chr: string;		// split char
-	type?: string[];	// type list, min number of params
+	type?: DefType[];	// type list, min number of params
 	reg?: RegExp;		// optional reg exp
+}
+
+enum DefType {
+	any, num, adr, byte, str, cmd
 }
