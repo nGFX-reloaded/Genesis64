@@ -27,6 +27,7 @@ class G64Basic {
         this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
         this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
+        this.regLiteral = /^{(\d+)}$/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
@@ -84,7 +85,7 @@ class G64Basic {
             { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
             { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
-            { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd },
+            { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, def: defLoadSave },
             { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
             { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
             { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
@@ -97,7 +98,7 @@ class G64Basic {
             { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
             { name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
             { name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
-            { name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd },
+            { name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, def: defLoadSave },
             { name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
             { name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
             { name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
@@ -287,6 +288,7 @@ class G64Basic {
         let match;
         let subMatch;
         let id = 0;
+        code = code.trim();
         match = this.regCmd.exec(code);
         if (match !== null) {
             match = match.splice(1);
@@ -299,6 +301,14 @@ class G64Basic {
             token.Type = Tokentype.num;
             token.Order = 10;
             token.Num = parseFloat(match[0]);
+            return token;
+        }
+        match = this.regLiteral.exec(code);
+        if (match !== null) {
+            token.Id = -1;
+            token.Type = Tokentype.str;
+            token.Order = 10;
+            token.Str = match[1];
             return token;
         }
         return token;
@@ -327,9 +337,13 @@ class G64Basic {
                     case "byte":
                         if (!this.IsNum(tkn))
                             token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
+                        break;
                 }
+                if (token.Type == Tokentype.err)
+                    break;
             }
-            console.log(cmd, ": ", split, token);
+            if (token.Type != Tokentype.err)
+                console.log("cmd:", cmd, ": ", split, token);
         }
         return token;
     }
