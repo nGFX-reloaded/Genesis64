@@ -57,7 +57,7 @@ class G64Basic {
         const defLoadSave = {
             fn: this.Splitter,
             chr: ",",
-            len: 1,
+            len: 0,
             type: [DefType.str, DefType.num, DefType.num]
         };
         const defPoke = {
@@ -65,6 +65,12 @@ class G64Basic {
             chr: ",",
             len: 2,
             type: [DefType.adr, DefType.byte]
+        };
+        const defPrint = {
+            fn: (code) => { return [code]; },
+            chr: "",
+            len: -1,
+            type: [DefType.any]
         };
         this.m_Commands = [
             { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
@@ -91,7 +97,7 @@ class G64Basic {
             { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
             { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
             { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, def: defPoke },
-            { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
+            { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, def: defPrint },
             { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
             { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
             { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
@@ -263,20 +269,23 @@ class G64Basic {
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
-                let lineNr = -1;
-                let line = match[2];
+                this.m_PrgLine = { Ln: -1, Code: match[2], Tokens: [] };
                 if (match[1] !== "") {
-                    lineNr = parseInt(match[1]);
+                    this.m_PrgLine.Ln = parseInt(match[1]);
                 }
-                if (line !== "") {
-                    const literals = CodeHelper.EncodeLiterals(line);
+                if (this.m_PrgLine.Code !== "") {
+                    const literals = CodeHelper.EncodeLiterals(this.DeAbbreviate(this.m_PrgLine.Code));
+                    this.m_PrgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
+                    this.m_Literals = literals.List;
+                    console.log("-----");
+                    console.log(this.m_PrgLine.Code);
                     const parts = CodeHelper.CodeSplitter(literals.Source, ":");
                     for (let p = 0; p < parts.length; p++) {
-                        parts[p] = this.DeAbbreviate(parts[p]);
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
-                        console.log(l, "---------");
-                        console.log("-- tkn:", this.Tokenizer(parts[p]));
+                        const token = this.Tokenizer(parts[p]);
+                        this.m_PrgLine.Tokens = [];
+                        console.log("-- tkn:", token, parts);
                     }
                 }
             }
@@ -284,14 +293,16 @@ class G64Basic {
         console.timeEnd("temp");
     }
     Tokenizer(code) {
-        let token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "", };
+        let token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "syntax error", };
         let match;
         let subMatch;
         let id = 0;
         code = code.trim();
+        this.regCmd.lastIndex = -1;
         match = this.regCmd.exec(code);
         if (match !== null) {
             match = match.splice(1);
+            console.log("- cmd:", match);
             token = this.TokenizeCmd(token, match[0], match[1]);
             return token;
         }
@@ -308,7 +319,7 @@ class G64Basic {
             token.Id = -1;
             token.Type = Tokentype.str;
             token.Order = 10;
-            token.Str = match[1];
+            token.Str = this.m_Literals[parseInt(match[1])];
             return token;
         }
         return token;
@@ -317,21 +328,24 @@ class G64Basic {
         if (this.m_mapCmdId.has(cmd)) {
             token.Id = this.m_mapCmdId.get(cmd);
             token.Type = Tokentype.cmd;
+            token.Str = "";
+            token.Num = 0;
+            token.Values = [];
             token.Order = 0;
             const def = this.m_Commands[token.Id].def;
             const split = def.fn(code, def.chr);
+            if (code.trim() == "")
+                split.pop();
             if (def.len != -1) {
                 if (split.length < def.len) {
                     token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
                     return token;
                 }
                 if (((split.length > def.len) && (def.len == def.type.length)) || ((def.len < def.type.length) && (split.length > def.type.length))) {
-                    console.log("..", def, split);
                     token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
                     return token;
                 }
             }
-            token.Values = [];
             for (let i = 0; i < split.length; i++) {
                 let tkn = this.Tokenizer(split[i]);
                 switch (this.SimpleType(def.type[i])) {
@@ -346,9 +360,14 @@ class G64Basic {
                 }
                 if (token.Type == Tokentype.err)
                     break;
+                token.Values.push(tkn);
+                if (tkn.Order < 0) {
+                    this.m_PrgLine.Tokens.unshift(tkn);
+                }
+                else {
+                    this.m_PrgLine.Tokens.push(tkn);
+                }
             }
-            if (token.Type != Tokentype.err)
-                console.log("cmd:", cmd, ": ", split, token);
         }
         return token;
     }
@@ -366,7 +385,7 @@ class G64Basic {
             Type: Tokentype.err,
             Id: id,
             Str: message,
-            Order: -999
+            Order: -99999
         };
     }
     SimpleType(value) {
@@ -622,6 +641,7 @@ class Genesis64 {
         return this.m_instance;
     }
     get Memory() { return this.m_Mem; }
+    get Basic() { return this.m_Basic; }
     get Options() { return this.m_Options; }
     Init() {
         this.m_Options = {
@@ -1175,6 +1195,12 @@ class CodeHelper {
         }
         item.Source = code;
         return item;
+    }
+    static RestoreLiterals(code, literals) {
+        for (let i = 0; i < literals.length; i++) {
+            code = code.replace("{" + i.toString() + "}", "\"" + literals[i] + "\"");
+        }
+        return code;
     }
 }
 class MersenneTwister {

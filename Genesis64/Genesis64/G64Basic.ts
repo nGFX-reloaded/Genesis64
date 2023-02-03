@@ -124,7 +124,7 @@ class G64Basic {
 		const defLoadSave: CmdDefData = {
 			fn: this.Splitter,				/* the splitter method */
 			chr: ",",						/* the splitter chr for non-custom methods */
-			len: 1,							/* min number of params, more are optional*/
+			len: 0,							/* min number of params, more are optional*/
 			type: [DefType.str, DefType.num, DefType.num]		/* types expected */
 		};
 
@@ -135,7 +135,12 @@ class G64Basic {
 			type: [DefType.adr, DefType.byte]			/* turn to num for now */
 		}
 
-		//const spl
+		const defPrint: CmdDefData = {
+			fn: (code: string): string[] => { return [code] },
+			chr: "",
+			len: -1,
+			type: [DefType.any]
+		}
 
 		this.m_Commands = [
 
@@ -165,7 +170,7 @@ class G64Basic {
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
 			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, def: defPoke },
-			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd },
+			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, def: defPrint },
 			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
@@ -426,6 +431,8 @@ class G64Basic {
 
 	//#endregion
 
+	private m_PrgLine: PrgLine;
+	private m_Literals: string[];
 	public Temp(code: string): void {
 
 		// get timeing
@@ -438,23 +445,26 @@ class G64Basic {
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
 				let match: string[] = lines[l].match(this.regLineNr);
-				let lineNr: number = -1;
-				let line = match[2];
+				this.m_PrgLine = { Ln: -1, Code: match[2], Tokens: [] };
 
 				if (match[1] !== "") {
-					lineNr = parseInt(match[1]);
+					this.m_PrgLine.Ln = parseInt(match[1]);
 				}
 
-				if (line !== "") {
-					// split into parts and encode
-					const literals: SplitItem = CodeHelper.EncodeLiterals(line);
+				if (this.m_PrgLine.Code !== "") {
+					// encode literals to make parsing easier
+					const literals: SplitItem = CodeHelper.EncodeLiterals(this.DeAbbreviate(this.m_PrgLine.Code));
+
+					// de-abbrv and store back in line
+					this.m_PrgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
+					this.m_Literals = literals.List;
+
+					console.log("-----");
+					console.log(this.m_PrgLine.Code);
+
+					// split line into parts and parse
 					const parts: string[] = CodeHelper.CodeSplitter(literals.Source, ":");
-
-
 					for (let p: number = 0; p < parts.length; p++) {
-						// de-abbrv
-						parts[p] = this.DeAbbreviate(parts[p]);
-
 						// convert array () to []
 						parts[p] = this.EncodeArray(parts[p]);
 
@@ -462,8 +472,9 @@ class G64Basic {
 						parts[p] = this.EncodeCompare(parts[p]);
 
 						// tokenize
-						console.log(l, "---------");
-						console.log("-- tkn:", this.Tokenizer(parts[p]));
+						const token = this.Tokenizer(parts[p])
+						this.m_PrgLine.Tokens = [];
+						console.log("-- tkn:", token, parts);
 					}
 				}
 			}
@@ -474,7 +485,7 @@ class G64Basic {
 
 	public Tokenizer(code: string): Token {
 
-		let token: Token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "", };
+		let token: Token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "syntax error", };
 		let match: string[];
 		let subMatch: string[];
 		let id: number = 0;
@@ -496,11 +507,13 @@ class G64Basic {
 		//}
 
 		// code must start with with a command
+		this.regCmd.lastIndex = -1;
 		match = this.regCmd.exec(code);
 		if (match !== null) {
 
 			match = match.splice(1); // remove whole match
 
+			console.log("- cmd:", match);
 			token = this.TokenizeCmd(token, match[0], match[1]);
 
 			//console.log("cmd:", match, token);
@@ -547,7 +560,7 @@ class G64Basic {
 			token.Id = -1;
 			token.Type = Tokentype.str;
 			token.Order = 10;
-			token.Str = match[1];
+			token.Str = this.m_Literals[parseInt(match[1])];
 
 			return token;
 		}
@@ -561,12 +574,19 @@ class G64Basic {
 		if (this.m_mapCmdId.has(cmd)) {
 			token.Id = this.m_mapCmdId.get(cmd);
 			token.Type = Tokentype.cmd;
+			token.Str = "";
+			token.Num = 0;
+			token.Values = [];
 			token.Order = 0;
-
+			
 			const def: CmdDefData = this.m_Commands[token.Id].def;
 			const split: string[] = def.fn(code, def.chr);
 
-			// check if we have enoug params
+			// if there are no params remove the empty split
+			if (code.trim() == "")
+				split.pop();
+
+			// check if we have enough or too many params
 			if (def.len != -1) {
 				if (split.length < def.len) {
 					token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
@@ -574,15 +594,12 @@ class G64Basic {
 				}
 
 				if (((split.length > def.len) && (def.len == def.type.length)) || ((def.len < def.type.length) && (split.length > def.type.length))) {
-					console.log("..", def, split);
 					token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
 					return token;
 				}
 			}
 
-
 			// tokenize params and check type
-			token.Values = [];
 			for (let i = 0; i < split.length; i++) {
 				let tkn: Token = this.Tokenizer(split[i]);
 
@@ -599,13 +616,18 @@ class G64Basic {
 
 				}
 
+				// do not add param tokens on error
 				if (token.Type == Tokentype.err)
 					break;
-				//token.Values.push();
-			}
 
-			if (token.Type != Tokentype.err)
-				console.log("cmd:", cmd, ": ", split, token);
+				// add to value list and to part's token list
+				token.Values.push(tkn);
+				if (tkn.Order < 0) {
+					this.m_PrgLine.Tokens.unshift(tkn);
+				} else {
+					this.m_PrgLine.Tokens.push(tkn);
+				}
+			}
 
 		}
 
@@ -632,7 +654,7 @@ class G64Basic {
 			Type: Tokentype.err,
 			Id: id,
 			Str: message,
-			Order: -999
+			Order: -99999
 		};
 	}
 

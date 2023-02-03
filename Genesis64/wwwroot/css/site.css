@@ -93,9 +93,9 @@ footer {
 	width: 500px;
 	height: 300px;
 	color: var(--Blue);
-	font-family: 'Asap Condensed', 'Arial Narrow', Arial, sans-serif;
-	font-size: 16px;
-	line-height: 18px;
+	font-family: 'Courier Prime','Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	font-size: 12px;
+	line-height: 14px;
 	background-color: var(--Lightblue);
 	border: 5px solid var(--Blue);
 	padding: 5px;

@@ -127,5 +127,18 @@ class CodeHelper {
 		return item;
 	}
 
+	/**
+	 * Restores encoded literals
+	 * @param	code		encoded piece of code
+	 * @param	literals	list of literals
+	 **/
+	public static RestoreLiterals(code: string, literals: string[]): string {
 
+		for (let i: number = 0; i < literals.length; i++) {
+			code = code.replace("{" + i.toString() + "}", "\"" + literals[i] + "\"");
+		}
+
+		return code;
+
+	}
 }

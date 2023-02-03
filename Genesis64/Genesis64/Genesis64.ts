@@ -50,6 +50,7 @@ class Genesis64 {
 	//#region " ----- Publics ----- "
 
 	public get Memory(): G64Memory { return this.m_Mem; }
+	public get Basic(): G64Basic { return this.m_Basic; }
 
 	public get Options(): Genesis64Options { return this.m_Options; }
 
