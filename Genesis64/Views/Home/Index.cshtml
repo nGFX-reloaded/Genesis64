@@ -6,24 +6,12 @@
 	<div id="Genesis64"></div>
 	<div id="TestArea">
 		<textarea id="code">
-lO
-load "1"
-Load "2",8,1
-load "2",8,1
-load "3",8,2,1
-load 1
-load "4","8"
+printabs(-1)
+printsin(abs(-1) + (cos(2)))
 		</textarea>
 		<br /><button id="run">Run</button>
 		<div>Output:</div>
-		<pre id="output">lO		> load - OK
-load "1"	- OK
-Load "2",8,1	- SYNTAX ERROR
-load "2",8,1	- OK
-load "3",8,2,1	- SYNTAX ERROR (to many parameters)
-load 1		- TYPE MISMATCH (parameter '1' is not a string)
-load "4","8"	- TYPE MISMATCH (parameter "8" is not a number)
-		</pre>
+		<pre id="output"></pre>
 	</div>
 </div>
 

@@ -50,6 +50,7 @@ class G64Basic {
 	private regLet: RegExp;
 	private regVar: RegExp;
 	private regNum: RegExp;
+	private regBracket: RegExp;
 	private regLiteral: RegExp;
 
 	private regEncodeCompCmd: RegExp[];
@@ -80,6 +81,7 @@ class G64Basic {
 		this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/; // assignment (optional let)
 		this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;	// a single variable (or array, with g64 delimiters [])
 		this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
+		this.regBracket = /^[\(\[](.*)[\)\]]$/;
 		this.regLiteral = /^{(\d+)}$/;
 
 		// exclude = to == conversion for these
@@ -141,6 +143,8 @@ class G64Basic {
 			len: -1,
 			type: [DefType.any]
 		}
+
+
 
 		this.m_Commands = [
 
@@ -271,6 +275,13 @@ class G64Basic {
 			type: [DefType.any]
 		};
 
+		const defFnNum: CmdDefData = {
+			fn: this.Splitter,
+			chr: ",",
+			len: 1,
+			type: [DefType.num]
+		};
+
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
 
 			// create deabbrv map
@@ -294,6 +305,7 @@ class G64Basic {
 					break;
 
 				case CmdType.fnum:
+					this.m_Commands[i].def = defFnNum;
 					aFn.push(this.m_Commands[i].name);
 					this.m_lstFnNum.push(i);
 					break;
@@ -318,8 +330,8 @@ class G64Basic {
 			}
 		}
 
-		this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\s*(\.*)\s*");
-		this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")");
+		this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
+		this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
 		this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
 
 	}
@@ -345,9 +357,9 @@ class G64Basic {
 			for (let m: number = 0; m < match.length; m++) {
 
 				// remove cmds
-				let subMatch: string[] = match[m].match(this.regCmd);
+				const subMatch: string[] = match[m].match(this.regCmd);
 				if (subMatch !== null)
-					match[m] = match[m].replace(subMatch[0], "");
+					match[m] = match[m].replace(subMatch[1], "");
 
 				this.regFn.lastIndex = -1;
 				if (!this.regFn.test(match[m])) {
@@ -485,12 +497,24 @@ class G64Basic {
 
 	public Tokenizer(code: string): Token {
 
-		let token: Token = { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, Num: 0, Str: "syntax error", };
+		let token: Token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
 		let match: string[];
-		let subMatch: string[];
 		let id: number = 0;
 
 		code = code.trim();
+
+		//
+		// if code starts and ends with () or [] and they are matching -> remove
+		this.regBracket.lastIndex = -1;
+		match = this.regBracket.exec(code);
+		if (match !== null) {
+			const tuple: [number, number] = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
+			if (tuple[0] == 0 && tuple[1] == (code.length - 1))
+				code = match[1];
+			console.log("- ():", match, tuple);
+		}
+
+
 
 		// start with assign which is LET without let, if there's a let, remove it
 		//match = this.regLet.exec(code);
@@ -506,62 +530,42 @@ class G64Basic {
 		//	console.log("let ", match[1], "=", match[3]);
 		//}
 
-		// code must start with with a command
+		//
+		// commands every line needs one
 		this.regCmd.lastIndex = -1;
 		match = this.regCmd.exec(code);
 		if (match !== null) {
-
-			match = match.splice(1); // remove whole match
-
 			console.log("- cmd:", match);
-			token = this.TokenizeCmd(token, match[0], match[1]);
-
-			//console.log("cmd:", match, token);
-
-			//if (this.m_mapCmdId.has(match[0])) {
-			//	token.Id = this.m_mapCmdId.get(match[0]);
-			//	token.Type = Tokentype.cmd;
-			//	token.Order = 0;
-
-
-			//const command: BasicCmd = this.m_Commands[token.Id]
-			//if (match[1] !== "") {
-			//	subMatch = command.split(match[1], command.param);
-
-			//	console.log(this.m_Commands[token.Id].name, ":");
-
-			//	if (subMatch.length > 0) {
-			//		for (let i: number = 0; i < subMatch.length; i++) {
-			//			console.log(i, "--", this.Tokenizer(subMatch[i]));
-			//		}
-			//	}
-			//}
+			token = this.TokenizeCmd(token, match[1], match[2]);
 
 			return token;
-			//}
 		}
+
+		// functions
+		this.regFn.lastIndex = -1;
+		match = this.regFn.exec(code);
+		if (match !== null) {
+			console.log("- fn:", match);
+			token = this.TokenizeCmd(token, match[1], match[2]);
+			return token;
+		}
+
 
 		//
 		// ----- number -----
+		this.regNum.lastIndex = -1;
 		match = this.regNum.exec(code);
 		if (match !== null) {
-			token.Id = -1;
-			token.Type = Tokentype.num;
-			token.Order = 10;
-			token.Num = parseFloat(match[0]);
-
+			token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
 			return token;
 		}
 
 		//
 		// ----- literal -----
+		this.regLiteral.lastIndex = -1;
 		match = this.regLiteral.exec(code);
 		if (match !== null) {
-			token.Id = -1;
-			token.Type = Tokentype.str;
-			token.Order = 10;
-			token.Str = this.m_Literals[parseInt(match[1])];
-
+			token = this.CreateToken(-1, Tokentype.str, 10, this.m_Literals[parseInt(match[1])]);
 			return token;
 		}
 
@@ -571,6 +575,8 @@ class G64Basic {
 
 	private TokenizeCmd(token: Token, cmd: string, code: string): Token {
 
+		// TODO: set tokentype based on type: cmd, fn ...
+
 		if (this.m_mapCmdId.has(cmd)) {
 			token.Id = this.m_mapCmdId.get(cmd);
 			token.Type = Tokentype.cmd;
@@ -578,7 +584,7 @@ class G64Basic {
 			token.Num = 0;
 			token.Values = [];
 			token.Order = 0;
-			
+
 			const def: CmdDefData = this.m_Commands[token.Id].def;
 			const split: string[] = def.fn(code, def.chr);
 
@@ -634,6 +640,11 @@ class G64Basic {
 		return token;
 	}
 
+	private TokenizeFn(token: Token, fn: string, code: string): Token {
+		return token;
+	}
+
+
 	private SplitterPass(code: string): string[] {
 		return [code];
 	}
@@ -649,6 +660,20 @@ class G64Basic {
 	//
 	//
 	// ----- Helper ----
+	private CreateToken(id: number, type: Tokentype, order: number, value?: number | string): Token {
+		const tkn: Token = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [] };
+
+		if (typeof value !== "undefined") {
+			if (typeof value === "number")
+				tkn.Num = value;
+
+			if (typeof value === "string")
+				tkn.Str = value;
+		}
+
+		return tkn;
+	}
+
 	private CreateError(id: number, message: string): Token {
 		return {
 			Type: Tokentype.err,
@@ -657,6 +682,110 @@ class G64Basic {
 			Order: -99999
 		};
 	}
+
+	public ErrorName(id: number): string {
+
+		let error: string = "syntax error";
+
+		switch (id) {
+			case ErrorCodes.TOO_MANY_FILES:
+				error = "too many files";
+				break;
+			case ErrorCodes.FILE_OPEN:
+				error = "file open";
+				break;
+			case ErrorCodes.FILE_NOT_OPEN:
+				error = "file not open";
+				break;
+			case ErrorCodes.FILE_NOT_FOUND:
+				error = "file not found";
+				break;
+			case ErrorCodes.DEVICE_NOT_PRESENT:
+				error = "device not present";
+				break;
+			case ErrorCodes.NOT_INPUT_FILE:
+				error = "not input file";
+				break;
+			case ErrorCodes.NOT_OUTPUT_FILE:
+				error = "not output file";
+				break;
+			case ErrorCodes.MISSING_FILENAME:
+				error = "missing filename";
+				break;
+			case ErrorCodes.ILLEGAL_DEVICE_NUMBER:
+				error = "illegal device number";
+				break;
+			case ErrorCodes.NEXT_WITHOUT_FOR:
+				error = "next without for";
+				break;
+			case ErrorCodes.SYNTAX:
+				error = "syntax";
+				break;
+			case ErrorCodes.RETURN_WITHOUT_GOSUB:
+				error = "return without gosub";
+				break;
+			case ErrorCodes.OUT_OF_DATA:
+				error = "out of data";
+				break;
+			case ErrorCodes.ILLEGAL_QUANTITY:
+				error = "illegal quantity";
+				break;
+			case ErrorCodes.OVERFLOW:
+				error = "overflow";
+				break;
+			case ErrorCodes.OUT_OF_MEMORY:
+				error = "out of memory";
+				break;
+			case ErrorCodes.UNDEFD_STATEMENT:
+				error = "undefd statement";
+				break;
+			case ErrorCodes.BAD_SUBSCRIPT:
+				error = "bad subscript";
+				break;
+			case ErrorCodes.REDIMD_ARRAY:
+				error = "redimd array";
+				break;
+			case ErrorCodes.DIVISION_BY_ZERO:
+				error = "division by zero";
+				break;
+			case ErrorCodes.ILLEGAL_DIRECT:
+				error = "illegal direct";
+				break;
+			case ErrorCodes.TYPE_MISMATCH:
+				error = "type mismatch";
+				break;
+			case ErrorCodes.STRING_TOO_LONG:
+				error = "string too long";
+				break;
+			case ErrorCodes.FILE_DATA:
+				error = "file data";
+				break;
+			case ErrorCodes.FORMULA_TOO_COMPLEX:
+				error = "formula too complex";
+				break;
+			case ErrorCodes.CANT_CONTINUE:
+				error = "cant continue";
+				break;
+			case ErrorCodes.UNDEFD_FUNCTION:
+				error = "undefd function";
+				break;
+			case ErrorCodes.VERIFY:
+				error = "verify";
+				break;
+			case ErrorCodes.LOAD:
+				error = "load";
+				break;
+			case ErrorCodes.BREAK:
+				error = "break";
+				break;
+			case ErrorCodes.LINE_NOT_FOUND:
+				error = "line not found";
+				break;
+		}
+
+		return error;
+	}
+
 
 	private SimpleType(value: DefType): DefType {
 		let type: DefType = value;
