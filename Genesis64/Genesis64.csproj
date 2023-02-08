@@ -21,7 +21,7 @@
   <ItemGroup>
     <PackageReference Include="BundlerMinifierPlus.Core" Version="5.3.0" />
     <PackageReference Include="BundlerMinifierPlus.TagHelpers" Version="5.3.0" />
-    <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="4.9.4">
+    <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="4.9.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
