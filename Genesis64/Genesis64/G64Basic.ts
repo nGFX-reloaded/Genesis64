@@ -123,28 +123,22 @@ class G64Basic {
 
 
 
-		const defLoadSave: CmdDefData = {
-			fn: this.Splitter,				/* the splitter method */
-			chr: ",",						/* the splitter chr for non-custom methods */
-			len: 0,							/* min number of params, more are optional*/
-			type: [DefType.str, DefType.num, DefType.num]		/* types expected */
-		};
+		const defIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
 
-		const defPoke: CmdDefData = {
-			fn: this.Splitter,
-			chr: ",",
-			len: 2,
-			type: [DefType.adr, DefType.byte]			/* turn to num for now */
-		}
+		const defPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
 
-		const defPrint: CmdDefData = {
+		const defPrint: CmdParameter = {
 			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: -1,
 			type: [DefType.any]
 		}
 
-
+		const def_Num: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.num] };
+		const def_Str: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.str] };
+		const def_Any: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.any] };
+		const defFnStr_LR: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num] };
+		const defFnStr_Mid: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num, DefType.num] };
 
 		this.m_Commands = [
 
@@ -168,20 +162,20 @@ class G64Basic {
 			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
 			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
-			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, def: defLoadSave },
+			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, param: defIO_File },
 			{ name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
 			{ name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, def: defPoke },
-			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, def: defPrint },
+			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, param: defPoke },
+			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, param: defPrint },
 			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
 			{ name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
 			{ name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
 			{ name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
-			{ name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, def: defLoadSave },
+			{ name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, param: defIO_File },
 			{ name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
 			{ name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
 			{ name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
@@ -192,33 +186,33 @@ class G64Basic {
 
 			//
 			// ----- fn num -----
-			{ name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum },
-			{ name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum },
-			{ name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum },
-			{ name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum },
-			{ name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum },
+			{ name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: def_Num },
+			{ name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: def_Num },
+			{ name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: def_Num },
+			{ name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: def_Num },
+			{ name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: def_Num },
 			{ name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
-			{ name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum },
-			{ name: "int", abbrv: "", tkn: 181, type: CmdType.fnum },
-			{ name: "len", abbrv: "", tkn: 195, type: CmdType.fnum },
-			{ name: "log", abbrv: "", tkn: 188, type: CmdType.fnum },
-			{ name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum },
-			{ name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum },
-			{ name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum },
-			{ name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum },
-			{ name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum },
-			{ name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum },
-			{ name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum },
-			{ name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum },
-			{ name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum },
+			{ name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: def_Num },
+			{ name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: def_Num },
+			{ name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: def_Str },
+			{ name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: def_Num },
+			{ name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: def_Num },
+			{ name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: def_Num },
+			{ name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: def_Num },
+			{ name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: def_Num },
+			{ name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: def_Num },
+			{ name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: def_Num },
+			{ name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: def_Num },
+			{ name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: def_Any }, /* fix: returns a num OR a string */
+			{ name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: def_Str },
 
 			//
 			// ----- fn str -----
-			{ name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr },
-			{ name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr },
-			{ name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr },
-			{ name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr },
-			{ name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr },
+			{ name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: def_Num },
+			{ name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr, param: defFnStr_LR },
+			{ name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr, param: defFnStr_Mid },
+			{ name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr, param: defFnStr_LR },
+			{ name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: def_Num },
 
 			//
 			// ----- fn out -----
@@ -268,18 +262,11 @@ class G64Basic {
 		this.m_lstOps = [];
 		this.m_lstComp = [];
 
-		const defEmpty: CmdDefData = {
+		const defEmpty: CmdParameter = {
 			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: 0,
 			type: [DefType.any]
-		};
-
-		const defFnNum: CmdDefData = {
-			fn: this.Splitter,
-			chr: ",",
-			len: 1,
-			type: [DefType.num]
 		};
 
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
@@ -294,37 +281,42 @@ class G64Basic {
 			this.m_mapCmdId.set(this.m_Commands[i].name, i);
 
 			// set parser definition
-			if (typeof this.m_Commands[i].def === "undefined")
-				this.m_Commands[i].def = defEmpty;
+			if (typeof this.m_Commands[i].param === "undefined")
+				this.m_Commands[i].param = defEmpty;
 
 			// set regex
 			switch (this.m_Commands[i].type) {
 				case CmdType.cmd:
+					this.m_Commands[i].ret = Tokentype.cmd;
 					aCmd.push(this.m_Commands[i].name);
 					this.m_lstCmd.push(i);
 					break;
 
 				case CmdType.fnum:
-					this.m_Commands[i].def = defFnNum;
+					this.m_Commands[i].ret = Tokentype.fnnum;
 					aFn.push(this.m_Commands[i].name);
 					this.m_lstFnNum.push(i);
 					break;
 
 				case CmdType.fstr:
+					this.m_Commands[i].ret = Tokentype.fnstr;
 					this.m_lstFnStr.push(i);
 					aFn.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.fout:
+					this.m_Commands[i].ret = Tokentype.fnout;
 					this.m_lstFnOut.push(i);
 					aFn.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.ops:
+					this.m_Commands[i].ret = Tokentype.ops
 					this.m_lstOps.push(i);
 					break;
 
 				case CmdType.comp:
+					this.m_Commands[i].ret = Tokentype.comp;
 					this.m_lstComp.push(i);
 					break;
 			}
@@ -484,9 +476,9 @@ class G64Basic {
 						parts[p] = this.EncodeCompare(parts[p]);
 
 						// tokenize
-						const token = this.Tokenizer(parts[p])
 						this.m_PrgLine.Tokens = [];
-						console.log("-- tkn:", token, parts);
+						const token = this.Tokenizer(parts[p])
+						console.log("-- tkn:", token, this.m_PrgLine);
 					}
 				}
 			}
@@ -511,7 +503,6 @@ class G64Basic {
 			const tuple: [number, number] = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
 			if (tuple[0] == 0 && tuple[1] == (code.length - 1))
 				code = match[1];
-			console.log("- ():", match, tuple);
 		}
 
 
@@ -536,7 +527,7 @@ class G64Basic {
 		match = this.regCmd.exec(code);
 		if (match !== null) {
 			console.log("- cmd:", match);
-			token = this.TokenizeCmd(token, match[1], match[2]);
+			token = this.TokenizeItem(token, match[1], match[2]);
 
 			return token;
 		}
@@ -546,7 +537,7 @@ class G64Basic {
 		match = this.regFn.exec(code);
 		if (match !== null) {
 			console.log("- fn:", match);
-			token = this.TokenizeCmd(token, match[1], match[2]);
+			token = this.TokenizeItem(token, match[1], match[2]);
 			return token;
 		}
 
@@ -573,19 +564,19 @@ class G64Basic {
 
 	}
 
-	private TokenizeCmd(token: Token, cmd: string, code: string): Token {
+	private TokenizeItem(token: Token, item: string, code: string): Token {
 
 		// TODO: set tokentype based on type: cmd, fn ...
 
-		if (this.m_mapCmdId.has(cmd)) {
-			token.Id = this.m_mapCmdId.get(cmd);
-			token.Type = Tokentype.cmd;
+		if (this.m_mapCmdId.has(item)) {
+			token.Id = this.m_mapCmdId.get(item);
+			token.Type = this.m_Commands[token.Id].ret;
 			token.Str = "";
 			token.Num = 0;
 			token.Values = [];
-			token.Order = 0;
+			token.Order = 0; // ToDo: get base order;
 
-			const def: CmdDefData = this.m_Commands[token.Id].def;
+			const def: CmdParameter = this.m_Commands[token.Id].param;
 			const split: string[] = def.fn(code, def.chr);
 
 			// if there are no params remove the empty split
@@ -640,9 +631,6 @@ class G64Basic {
 		return token;
 	}
 
-	private TokenizeFn(token: Token, fn: string, code: string): Token {
-		return token;
-	}
 
 
 	private SplitterPass(code: string): string[] {
@@ -681,109 +669,6 @@ class G64Basic {
 			Str: message,
 			Order: -99999
 		};
-	}
-
-	public ErrorName(id: number): string {
-
-		let error: string = "syntax error";
-
-		switch (id) {
-			case ErrorCodes.TOO_MANY_FILES:
-				error = "too many files";
-				break;
-			case ErrorCodes.FILE_OPEN:
-				error = "file open";
-				break;
-			case ErrorCodes.FILE_NOT_OPEN:
-				error = "file not open";
-				break;
-			case ErrorCodes.FILE_NOT_FOUND:
-				error = "file not found";
-				break;
-			case ErrorCodes.DEVICE_NOT_PRESENT:
-				error = "device not present";
-				break;
-			case ErrorCodes.NOT_INPUT_FILE:
-				error = "not input file";
-				break;
-			case ErrorCodes.NOT_OUTPUT_FILE:
-				error = "not output file";
-				break;
-			case ErrorCodes.MISSING_FILENAME:
-				error = "missing filename";
-				break;
-			case ErrorCodes.ILLEGAL_DEVICE_NUMBER:
-				error = "illegal device number";
-				break;
-			case ErrorCodes.NEXT_WITHOUT_FOR:
-				error = "next without for";
-				break;
-			case ErrorCodes.SYNTAX:
-				error = "syntax";
-				break;
-			case ErrorCodes.RETURN_WITHOUT_GOSUB:
-				error = "return without gosub";
-				break;
-			case ErrorCodes.OUT_OF_DATA:
-				error = "out of data";
-				break;
-			case ErrorCodes.ILLEGAL_QUANTITY:
-				error = "illegal quantity";
-				break;
-			case ErrorCodes.OVERFLOW:
-				error = "overflow";
-				break;
-			case ErrorCodes.OUT_OF_MEMORY:
-				error = "out of memory";
-				break;
-			case ErrorCodes.UNDEFD_STATEMENT:
-				error = "undefd statement";
-				break;
-			case ErrorCodes.BAD_SUBSCRIPT:
-				error = "bad subscript";
-				break;
-			case ErrorCodes.REDIMD_ARRAY:
-				error = "redimd array";
-				break;
-			case ErrorCodes.DIVISION_BY_ZERO:
-				error = "division by zero";
-				break;
-			case ErrorCodes.ILLEGAL_DIRECT:
-				error = "illegal direct";
-				break;
-			case ErrorCodes.TYPE_MISMATCH:
-				error = "type mismatch";
-				break;
-			case ErrorCodes.STRING_TOO_LONG:
-				error = "string too long";
-				break;
-			case ErrorCodes.FILE_DATA:
-				error = "file data";
-				break;
-			case ErrorCodes.FORMULA_TOO_COMPLEX:
-				error = "formula too complex";
-				break;
-			case ErrorCodes.CANT_CONTINUE:
-				error = "cant continue";
-				break;
-			case ErrorCodes.UNDEFD_FUNCTION:
-				error = "undefd function";
-				break;
-			case ErrorCodes.VERIFY:
-				error = "verify";
-				break;
-			case ErrorCodes.LOAD:
-				error = "load";
-				break;
-			case ErrorCodes.BREAK:
-				error = "break";
-				break;
-			case ErrorCodes.LINE_NOT_FOUND:
-				error = "line not found";
-				break;
-		}
-
-		return error;
 	}
 
 

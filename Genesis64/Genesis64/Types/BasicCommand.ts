@@ -8,7 +8,6 @@
 }
 
 
-
 type BasicCmd = {
 	name: string;
 	abbrv: string;
@@ -16,11 +15,12 @@ type BasicCmd = {
 	type: CmdType;
 	reg?: RegExp;
 
-	def?: CmdDefData;
+	param?: CmdParameter;
+	ret?: Tokentype;	// the return type
 }
 
 
-type CmdDefData = {
+type CmdParameter = {
 	fn: Function;
 	len: number;		// max num of params, -1 no limit
 	chr: string;		// split char
