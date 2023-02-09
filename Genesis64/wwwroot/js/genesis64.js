@@ -4,8 +4,6 @@ var BasicVersion;
     BasicVersion[BasicVersion["g64"] = 1] = "g64";
 })(BasicVersion || (BasicVersion = {}));
 class G64Basic {
-    get Commands() { return this.m_Commands; }
-    get Version() { return this.m_Options.basicVersion; }
     constructor() {
         this.m_Commands = [];
         this.m_lstCmd = [];
@@ -22,6 +20,8 @@ class G64Basic {
         };
         this.m_Mem = Genesis64.Instance.Memory;
     }
+    get Commands() { return this.m_Commands; }
+    get Version() { return this.m_Options.basicVersion; }
     Init(options) {
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
         this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
@@ -216,8 +216,11 @@ class G64Basic {
                 this.regFn.lastIndex = -1;
                 if (!this.regFn.test(match[m])) {
                     const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
+                    if (!CodeHelper.IsMatching(tuple)) {
+                        tuple[1] = code.length;
+                        code += ")";
+                    }
                     if (CodeHelper.IsMatching(tuple)) {
-                        let target = match[m];
                         code = code.substring(0, tuple[0]) + "["
                             + code.substring(tuple[0] + 1, tuple[1]) + "]"
                             + code.substring(tuple[1] + 1);
@@ -268,26 +271,29 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
+        this.m_TknData = { Tokens: [], Literals: [], Level: 0 };
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
-                this.m_PrgLine = { Ln: -1, Code: match[2], Tokens: [] };
+                const prgLine = { Ln: -1, Code: match[2], Tokens: [] };
                 if (match[1] !== "") {
-                    this.m_PrgLine.Ln = parseInt(match[1]);
+                    prgLine.Ln = parseInt(match[1]);
                 }
-                if (this.m_PrgLine.Code !== "") {
-                    const literals = CodeHelper.EncodeLiterals(this.DeAbbreviate(this.m_PrgLine.Code));
-                    this.m_PrgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
-                    this.m_Literals = literals.List;
+                if (prgLine.Code !== "") {
+                    const literals = CodeHelper.EncodeLiterals(this.DeAbbreviate(prgLine.Code));
+                    prgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
+                    this.m_TknData.Literals = literals.List;
                     console.log("-----");
-                    console.log(this.m_PrgLine.Code);
+                    console.log(prgLine.Code);
                     const parts = CodeHelper.CodeSplitter(literals.Source, ":");
                     for (let p = 0; p < parts.length; p++) {
                         parts[p] = this.EncodeArray(parts[p]);
                         parts[p] = this.EncodeCompare(parts[p]);
-                        this.m_PrgLine.Tokens = [];
+                        this.m_TknData.Tokens = [];
+                        this.m_TknData.Level = 0;
                         const token = this.Tokenizer(parts[p]);
-                        console.log("-- tkn:", token, this.m_PrgLine);
+                        this.m_TknData.Tokens = this.SortTokenArray(this.m_TknData.Tokens);
+                        console.log("-- tkn:", token, this.m_TknData);
                     }
                 }
             }
@@ -298,6 +304,7 @@ class G64Basic {
         let token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
         let match;
         let id = 0;
+        this.m_TknData.Level++;
         code = code.trim();
         this.regBracket.lastIndex = -1;
         match = this.regBracket.exec(code);
@@ -324,14 +331,19 @@ class G64Basic {
         match = this.regNum.exec(code);
         if (match !== null) {
             token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
+            token.hint = "number";
             return token;
         }
         this.regLiteral.lastIndex = -1;
         match = this.regLiteral.exec(code);
         if (match !== null) {
-            token = this.CreateToken(-1, Tokentype.str, 10, this.m_Literals[parseInt(match[1])]);
+            token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
+            token.hint = "literal";
             return token;
         }
+        console.log("-- no token or error");
+        token.Num = -1;
+        token.hint = "no token found";
         return token;
     }
     TokenizeItem(token, item, code) {
@@ -341,7 +353,8 @@ class G64Basic {
             token.Str = "";
             token.Num = 0;
             token.Values = [];
-            token.Order = 0;
+            token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
+            token.hint = item;
             const def = this.m_Commands[token.Id].param;
             const split = def.fn(code, def.chr);
             if (code.trim() == "")
@@ -356,27 +369,27 @@ class G64Basic {
                     return token;
                 }
             }
+            if (this.m_TknData.Tokens.length == 0)
+                this.m_TknData.Tokens.push(token);
             for (let i = 0; i < split.length; i++) {
                 let tkn = this.Tokenizer(split[i]);
-                switch (this.SimpleType(def.type[i])) {
-                    case DefType.num:
-                        if (!this.IsNum(tkn))
-                            token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
-                        break;
-                    case DefType.str:
-                        if (!this.IsStr(tkn))
-                            token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
-                        break;
+                if (tkn.Type != Tokentype.err) {
+                    switch (this.SimpleType(def.type[i])) {
+                        case DefType.num:
+                            if (!this.IsNum(tkn))
+                                token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number " + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
+                            break;
+                        case DefType.str:
+                            if (!this.IsStr(tkn))
+                                token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
+                            break;
+                    }
                 }
                 if (token.Type == Tokentype.err)
                     break;
                 token.Values.push(tkn);
-                if (tkn.Order < 0) {
-                    this.m_PrgLine.Tokens.unshift(tkn);
-                }
-                else {
-                    this.m_PrgLine.Tokens.push(tkn);
-                }
+                if (!this.IsNumOrStr(tkn))
+                    this.m_TknData.Tokens.push(tkn);
             }
         }
         return token;
@@ -391,7 +404,7 @@ class G64Basic {
         return [code];
     }
     CreateToken(id, type, order, value) {
-        const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [] };
+        const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
         if (typeof value !== "undefined") {
             if (typeof value === "number")
                 tkn.Num = value;
@@ -403,10 +416,23 @@ class G64Basic {
     CreateError(id, message) {
         return {
             Type: Tokentype.err,
+            Values: [],
             Id: id,
             Str: message,
-            Order: -99999
+            Num: 0,
+            Order: -99999,
+            hint: CodeHelper.ErrorName(id)
         };
+    }
+    SortTokenArray(aToken) {
+        aToken.sort(function (a, b) {
+            if (typeof a.Order === "undefined")
+                a.Order = 99999;
+            if (typeof b.Order === "undefined")
+                b.Order = 99999;
+            return a.Order - b.Order;
+        });
+        return aToken;
     }
     SimpleType(value) {
         let type = value;
@@ -418,6 +444,11 @@ class G64Basic {
                 break;
         }
         return type;
+    }
+    IsNumOrStr(tkn) {
+        return (tkn.Type == Tokentype.num
+            || tkn.Type == Tokentype.int
+            || tkn.Type == Tokentype.str);
     }
     IsNum(tkn) {
         return (tkn.Type == Tokentype.num
@@ -438,7 +469,6 @@ class G64Basic {
     }
 }
 class G64Colors {
-    get ColorView() { return this.m_colorView; }
     constructor() {
         this.m_isDirty = false;
         Genesis64.Instance.Log(" - G64 colors created\n");
@@ -447,6 +477,7 @@ class G64Colors {
         this.m_colorView.fill(0);
         this.Init();
     }
+    get ColorView() { return this.m_colorView; }
     Init() {
         this.m_Colors = new Array();
         this.m_Colors.push({ "r": 0x00, "g": 0x00, "b": 0x00, "name": "Black", "css": "#000000", "chr": 144 });
@@ -487,7 +518,6 @@ class G64Colors {
     }
 }
 class G64Memory {
-    get IsDone() { return this.m_isDone; }
     constructor() {
         this.m_isDirty = false;
         this.m_mapVars = new Map();
@@ -501,6 +531,7 @@ class G64Memory {
         this.PTR_BITMAP = 0x0000;
         Genesis64.Instance.Log(" - G64 memory created\n");
     }
+    get IsDone() { return this.m_isDone; }
     Init() {
         switch (this.m_initStep) {
             case 0:
@@ -640,7 +671,7 @@ class G64Memory {
     Var(name) {
         if (this.m_mapVars.has(name))
             return this.m_Vars[this.m_mapVars.get(name)];
-        return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX };
+        return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, hint: CodeHelper.ErrorName(ErrorCodes.SYNTAX) };
     }
 }
 var KeyboardMode;
@@ -1216,9 +1247,11 @@ class CodeHelper {
         item.Source = code;
         return item;
     }
-    static RestoreLiterals(code, literals) {
+    static RestoreLiterals(code, literals, getText = false) {
+        let text = "";
         for (let i = 0; i < literals.length; i++) {
-            code = code.replace("{" + i.toString() + "}", "\"" + literals[i] + "\"");
+            text = (getText) ? literals[i] : "\"" + literals[i] + "\"";
+            code = code.replace("{" + i.toString() + "}", text);
         }
         return code;
     }
@@ -1519,25 +1552,6 @@ var FsmActionType;
     FsmActionType[FsmActionType["onExit"] = 2] = "onExit";
 })(FsmActionType || (FsmActionType = {}));
 class MiniFSM {
-    get Name() { return this.m_Name; }
-    set Name(value) { this.m_Name = value; }
-    get State() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Name : ""); }
-    get Parameter() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Parameter : ""); }
-    set Parameter(value) {
-        if (this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) {
-            let state = this.m_lstStates[this.m_iCurrentState];
-            state.Parameter = value;
-            this.m_lstStates[this.m_iCurrentState] = state;
-        }
-    }
-    get StateID() { return this.m_iCurrentState; }
-    get NextState() { return this.m_NextState; }
-    set NextState(value) { this.m_NextState = value; }
-    get LastState() { return ((this.m_iLastState != -1) ? this.m_lstStates[this.m_iLastState].Name : ""); }
-    get IsRunning() { return this.m_isRunning; }
-    set IsRunning(value) { this.m_isRunning = value; }
-    get Debug() { return this.m_debug; }
-    set Debug(value) { this.m_debug = value; }
     constructor(name, isRunning) {
         this.m_Name = "";
         this.m_isRunning = true;
@@ -1563,6 +1577,25 @@ class MiniFSM {
             this.m_isRunning = false;
         }
     }
+    get Name() { return this.m_Name; }
+    set Name(value) { this.m_Name = value; }
+    get State() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Name : ""); }
+    get Parameter() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Parameter : ""); }
+    set Parameter(value) {
+        if (this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) {
+            let state = this.m_lstStates[this.m_iCurrentState];
+            state.Parameter = value;
+            this.m_lstStates[this.m_iCurrentState] = state;
+        }
+    }
+    get StateID() { return this.m_iCurrentState; }
+    get NextState() { return this.m_NextState; }
+    set NextState(value) { this.m_NextState = value; }
+    get LastState() { return ((this.m_iLastState != -1) ? this.m_lstStates[this.m_iLastState].Name : ""); }
+    get IsRunning() { return this.m_isRunning; }
+    set IsRunning(value) { this.m_isRunning = value; }
+    get Debug() { return this.m_debug; }
+    set Debug(value) { this.m_debug = value; }
     Update() {
         if (this.m_isRunning) {
             for (this.m_iWorker = 0; this.m_iWorker < this.m_lstWorker.length; this.m_iWorker++) {

@@ -252,7 +252,7 @@ class G64Memory {
 		if (this.m_mapVars.has(name))
 			return this.m_Vars[this.m_mapVars.get(name)];
 
-		return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX };
+		return { Type: Tokentype.err, Id: ErrorCodes.SYNTAX, hint: CodeHelper.ErrorName(ErrorCodes.SYNTAX) };
 
 	}
 

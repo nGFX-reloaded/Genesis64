@@ -132,10 +132,12 @@ class CodeHelper {
 	 * @param	code		encoded piece of code
 	 * @param	literals	list of literals
 	 **/
-	public static RestoreLiterals(code: string, literals: string[]): string {
+	public static RestoreLiterals(code: string, literals: string[], getText:boolean = false): string {
 
+		let text:string = "";
 		for (let i: number = 0; i < literals.length; i++) {
-			code = code.replace("{" + i.toString() + "}", "\"" + literals[i] + "\"");
+			text = (getText) ? literals[i] : "\"" + literals[i] + "\"";
+			code = code.replace("{" + i.toString() + "}", text);
 		}
 
 		return code;

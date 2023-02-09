@@ -356,9 +356,14 @@ class G64Basic {
 				this.regFn.lastIndex = -1;
 				if (!this.regFn.test(match[m])) {
 					const tuple: number[] = CodeHelper.FindMatching(code, code.indexOf(match[m]));
-					if (CodeHelper.IsMatching(tuple)) {
-						let target: string = match[m];
 
+					// fix unclosed arrays
+					if (!CodeHelper.IsMatching(tuple)) {
+						tuple[1] = code.length;
+						code += ")";
+					}
+
+					if (CodeHelper.IsMatching(tuple)) {
 						code = code.substring(0, tuple[0]) + "["
 							+ code.substring(tuple[0] + 1, tuple[1]) + "]"
 							+ code.substring(tuple[1] + 1);
@@ -435,8 +440,7 @@ class G64Basic {
 
 	//#endregion
 
-	private m_PrgLine: PrgLine;
-	private m_Literals: string[];
+	private m_TknData: TokenizeData;
 	public Temp(code: string): void {
 
 		// get timeing
@@ -446,25 +450,27 @@ class G64Basic {
 
 		//console.log(lines);
 
+		this.m_TknData = { Tokens: [], Literals: [], Level: 0 };
+
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
 				let match: string[] = lines[l].match(this.regLineNr);
-				this.m_PrgLine = { Ln: -1, Code: match[2], Tokens: [] };
+				const prgLine: PrgLine = { Ln: -1, Code: match[2], Tokens: [] };
 
 				if (match[1] !== "") {
-					this.m_PrgLine.Ln = parseInt(match[1]);
+					prgLine.Ln = parseInt(match[1]);
 				}
 
-				if (this.m_PrgLine.Code !== "") {
+				if (prgLine.Code !== "") {
 					// encode literals to make parsing easier
-					const literals: SplitItem = CodeHelper.EncodeLiterals(this.DeAbbreviate(this.m_PrgLine.Code));
+					const literals: SplitItem = CodeHelper.EncodeLiterals(this.DeAbbreviate(prgLine.Code));
 
 					// de-abbrv and store back in line
-					this.m_PrgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
-					this.m_Literals = literals.List;
+					prgLine.Code = CodeHelper.RestoreLiterals(literals.Source, literals.List);
+					this.m_TknData.Literals = literals.List;
 
 					console.log("-----");
-					console.log(this.m_PrgLine.Code);
+					console.log(prgLine.Code);
 
 					// split line into parts and parse
 					const parts: string[] = CodeHelper.CodeSplitter(literals.Source, ":");
@@ -476,9 +482,14 @@ class G64Basic {
 						parts[p] = this.EncodeCompare(parts[p]);
 
 						// tokenize
-						this.m_PrgLine.Tokens = [];
-						const token = this.Tokenizer(parts[p])
-						console.log("-- tkn:", token, this.m_PrgLine);
+						this.m_TknData.Tokens = [];
+						this.m_TknData.Level = 0;
+						const token = this.Tokenizer(parts[p]);
+
+						this.m_TknData.Tokens = this.SortTokenArray(this.m_TknData.Tokens);
+
+						// sort and store in line
+						console.log("-- tkn:", token, this.m_TknData);
 					}
 				}
 			}
@@ -492,6 +503,9 @@ class G64Basic {
 		let token: Token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
 		let match: string[];
 		let id: number = 0;
+
+		// set nesting level
+		this.m_TknData.Level++;
 
 		code = code.trim();
 
@@ -548,6 +562,7 @@ class G64Basic {
 		match = this.regNum.exec(code);
 		if (match !== null) {
 			token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
+			token.hint = "number";
 			return token;
 		}
 
@@ -556,9 +571,14 @@ class G64Basic {
 		this.regLiteral.lastIndex = -1;
 		match = this.regLiteral.exec(code);
 		if (match !== null) {
-			token = this.CreateToken(-1, Tokentype.str, 10, this.m_Literals[parseInt(match[1])]);
+			token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
+			token.hint = "literal";
 			return token;
 		}
+
+		console.log("-- no token or error");
+		token.Num = -1;
+		token.hint = "no token found";
 
 		return token;
 
@@ -574,7 +594,8 @@ class G64Basic {
 			token.Str = "";
 			token.Num = 0;
 			token.Values = [];
-			token.Order = 0; // ToDo: get base order;
+			token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
+			token.hint = item;
 
 			const def: CmdParameter = this.m_Commands[token.Id].param;
 			const split: string[] = def.fn(code, def.chr);
@@ -596,21 +617,27 @@ class G64Basic {
 				}
 			}
 
+			// add token to list if it is the first token for this part
+			if (this.m_TknData.Tokens.length == 0)
+				this.m_TknData.Tokens.push(token);
+
 			// tokenize params and check type
 			for (let i = 0; i < split.length; i++) {
 				let tkn: Token = this.Tokenizer(split[i]);
 
-				switch (this.SimpleType(def.type[i])) {
-					case DefType.num:
-						if (!this.IsNum(tkn))
-							token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number");
-						break;
+				// no typecheck on error
+				if (tkn.Type != Tokentype.err) {
+					switch (this.SimpleType(def.type[i])) {
+						case DefType.num:
+							if (!this.IsNum(tkn))
+								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number " + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
+							break;
 
-					case DefType.str:
-						if (!this.IsStr(tkn))
-							token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
-						break;
-
+						case DefType.str:
+							if (!this.IsStr(tkn))
+								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
+							break;
+					}
 				}
 
 				// do not add param tokens on error
@@ -619,11 +646,9 @@ class G64Basic {
 
 				// add to value list and to part's token list
 				token.Values.push(tkn);
-				if (tkn.Order < 0) {
-					this.m_PrgLine.Tokens.unshift(tkn);
-				} else {
-					this.m_PrgLine.Tokens.push(tkn);
-				}
+
+				if (!this.IsNumOrStr(tkn))
+					this.m_TknData.Tokens.push(tkn);
 			}
 
 		}
@@ -649,7 +674,7 @@ class G64Basic {
 	//
 	// ----- Helper ----
 	private CreateToken(id: number, type: Tokentype, order: number, value?: number | string): Token {
-		const tkn: Token = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [] };
+		const tkn: Token = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
 
 		if (typeof value !== "undefined") {
 			if (typeof value === "number")
@@ -665,12 +690,24 @@ class G64Basic {
 	private CreateError(id: number, message: string): Token {
 		return {
 			Type: Tokentype.err,
+			Values: [],
 			Id: id,
 			Str: message,
-			Order: -99999
+			Num: 0,
+			Order: -99999,
+			hint: CodeHelper.ErrorName(id)
 		};
 	}
 
+	private SortTokenArray(aToken: Token[]): Token[] {
+		aToken.sort(function (a, b) {
+			if (typeof a.Order === "undefined") a.Order = 99999;
+			if (typeof b.Order === "undefined") b.Order = 99999;
+			return a.Order - b.Order;
+		});
+
+		return aToken;
+	}
 
 	private SimpleType(value: DefType): DefType {
 		let type: DefType = value;
@@ -684,6 +721,12 @@ class G64Basic {
 		}
 
 		return type;
+	}
+
+	private IsNumOrStr(tkn: Token): boolean {
+		return (tkn.Type == Tokentype.num
+			|| tkn.Type == Tokentype.int
+			|| tkn.Type == Tokentype.str);
 	}
 
 	private IsNum(tkn: Token): boolean {
