@@ -29,5 +29,5 @@ type CmdParameter = {
 }
 
 enum DefType {
-	any, num, adr, byte, str, cmd
+	any, num, adr, byte, str, cmd, var
 }

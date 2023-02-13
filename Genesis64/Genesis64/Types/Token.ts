@@ -41,7 +41,10 @@ type Token = {
 }
 
 type TokenizeData = {
-	Tokens: Token[];        // temp list tokens for the current part
-	Literals: string[];     // list of literals
-	Level: number;			// parser nesting level
+	Tokens: Token[];				// temp list tokens for the current part
+	Literals: string[];				// list of literals
+	Level: number;					// parser nesting level
+	Vars: Token[];					// vars so far
+	VarMap: Map<string, number>;	// helper map to match var name <-> token
+	DimMap: Map<string, boolean>;	// helper map that stores if an array is created by dim or access
 }

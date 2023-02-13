@@ -4,6 +4,8 @@ var BasicVersion;
     BasicVersion[BasicVersion["g64"] = 1] = "g64";
 })(BasicVersion || (BasicVersion = {}));
 class G64Basic {
+    get Commands() { return this.m_Commands; }
+    get Version() { return this.m_Options.basicVersion; }
     constructor() {
         this.m_Commands = [];
         this.m_lstCmd = [];
@@ -20,8 +22,6 @@ class G64Basic {
         };
         this.m_Mem = Genesis64.Instance.Memory;
     }
-    get Commands() { return this.m_Commands; }
-    get Version() { return this.m_Options.basicVersion; }
     Init(options) {
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
         this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
@@ -271,7 +271,7 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        this.m_TknData = { Tokens: [], Literals: [], Level: 0 };
+        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map() };
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
@@ -293,7 +293,7 @@ class G64Basic {
                         this.m_TknData.Level = 0;
                         const token = this.Tokenizer(parts[p]);
                         this.m_TknData.Tokens = this.SortTokenArray(this.m_TknData.Tokens);
-                        console.log("-- tkn:", token, this.m_TknData);
+                        console.log("-- tkn:", parts[p], token, this.m_TknData);
                     }
                 }
             }
@@ -313,19 +313,28 @@ class G64Basic {
             if (tuple[0] == 0 && tuple[1] == (code.length - 1))
                 code = match[1];
         }
+        match = this.regLet.exec(code);
+        if (match !== null) {
+            console.log("- let:", match);
+            return this.TokenizeLet(token, match[1], match[2], match[3]);
+        }
         this.regCmd.lastIndex = -1;
         match = this.regCmd.exec(code);
         if (match !== null) {
             console.log("- cmd:", match);
-            token = this.TokenizeItem(token, match[1], match[2]);
-            return token;
+            return this.TokenizeItem(token, match[1], match[2]);
         }
         this.regFn.lastIndex = -1;
         match = this.regFn.exec(code);
         if (match !== null) {
             console.log("- fn:", match);
-            token = this.TokenizeItem(token, match[1], match[2]);
-            return token;
+            return this.TokenizeItem(token, match[1], match[2]);
+        }
+        this.regVar.lastIndex = -1;
+        match = this.regVar.exec(code);
+        if (match !== null) {
+            console.log("- var:", match);
+            return this.TokenizeVar(token, match[0]);
         }
         this.regNum.lastIndex = -1;
         match = this.regNum.exec(code);
@@ -394,14 +403,19 @@ class G64Basic {
         }
         return token;
     }
-    SplitterPass(code) {
-        return [code];
+    TokenizeLet(token, item, index, code) {
+        console.log("--> let:", item, index, code);
+        let tknVar;
+        if (typeof index === "undefined") {
+            tknVar = this.Tokenizer(item);
+        }
+        return token;
+    }
+    TokenizeVar(token, item) {
+        return token;
     }
     Splitter(code, split) {
         return CodeHelper.CodeSplitter(code, split);
-    }
-    SplitterPrint(code) {
-        return [code];
     }
     CreateToken(id, type, order, value) {
         const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
@@ -469,6 +483,7 @@ class G64Basic {
     }
 }
 class G64Colors {
+    get ColorView() { return this.m_colorView; }
     constructor() {
         this.m_isDirty = false;
         Genesis64.Instance.Log(" - G64 colors created\n");
@@ -477,7 +492,6 @@ class G64Colors {
         this.m_colorView.fill(0);
         this.Init();
     }
-    get ColorView() { return this.m_colorView; }
     Init() {
         this.m_Colors = new Array();
         this.m_Colors.push({ "r": 0x00, "g": 0x00, "b": 0x00, "name": "Black", "css": "#000000", "chr": 144 });
@@ -518,6 +532,7 @@ class G64Colors {
     }
 }
 class G64Memory {
+    get IsDone() { return this.m_isDone; }
     constructor() {
         this.m_isDirty = false;
         this.m_mapVars = new Map();
@@ -531,7 +546,6 @@ class G64Memory {
         this.PTR_BITMAP = 0x0000;
         Genesis64.Instance.Log(" - G64 memory created\n");
     }
-    get IsDone() { return this.m_isDone; }
     Init() {
         switch (this.m_initStep) {
             case 0:
@@ -1552,6 +1566,25 @@ var FsmActionType;
     FsmActionType[FsmActionType["onExit"] = 2] = "onExit";
 })(FsmActionType || (FsmActionType = {}));
 class MiniFSM {
+    get Name() { return this.m_Name; }
+    set Name(value) { this.m_Name = value; }
+    get State() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Name : ""); }
+    get Parameter() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Parameter : ""); }
+    set Parameter(value) {
+        if (this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) {
+            let state = this.m_lstStates[this.m_iCurrentState];
+            state.Parameter = value;
+            this.m_lstStates[this.m_iCurrentState] = state;
+        }
+    }
+    get StateID() { return this.m_iCurrentState; }
+    get NextState() { return this.m_NextState; }
+    set NextState(value) { this.m_NextState = value; }
+    get LastState() { return ((this.m_iLastState != -1) ? this.m_lstStates[this.m_iLastState].Name : ""); }
+    get IsRunning() { return this.m_isRunning; }
+    set IsRunning(value) { this.m_isRunning = value; }
+    get Debug() { return this.m_debug; }
+    set Debug(value) { this.m_debug = value; }
     constructor(name, isRunning) {
         this.m_Name = "";
         this.m_isRunning = true;
@@ -1577,25 +1610,6 @@ class MiniFSM {
             this.m_isRunning = false;
         }
     }
-    get Name() { return this.m_Name; }
-    set Name(value) { this.m_Name = value; }
-    get State() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Name : ""); }
-    get Parameter() { return ((this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) ? this.m_lstStates[this.m_iCurrentState].Parameter : ""); }
-    set Parameter(value) {
-        if (this.m_iCurrentState >= 0 && this.m_iCurrentState < this.m_lstStates.length) {
-            let state = this.m_lstStates[this.m_iCurrentState];
-            state.Parameter = value;
-            this.m_lstStates[this.m_iCurrentState] = state;
-        }
-    }
-    get StateID() { return this.m_iCurrentState; }
-    get NextState() { return this.m_NextState; }
-    set NextState(value) { this.m_NextState = value; }
-    get LastState() { return ((this.m_iLastState != -1) ? this.m_lstStates[this.m_iLastState].Name : ""); }
-    get IsRunning() { return this.m_isRunning; }
-    set IsRunning(value) { this.m_isRunning = value; }
-    get Debug() { return this.m_debug; }
-    set Debug(value) { this.m_debug = value; }
     Update() {
         if (this.m_isRunning) {
             for (this.m_iWorker = 0; this.m_iWorker < this.m_lstWorker.length; this.m_iWorker++) {
@@ -1789,6 +1803,7 @@ var DefType;
     DefType[DefType["byte"] = 3] = "byte";
     DefType[DefType["str"] = 4] = "str";
     DefType[DefType["cmd"] = 5] = "cmd";
+    DefType[DefType["var"] = 6] = "var";
 })(DefType || (DefType = {}));
 var ErrorCodes;
 (function (ErrorCodes) {

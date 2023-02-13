@@ -450,7 +450,7 @@ class G64Basic {
 
 		//console.log(lines);
 
-		this.m_TknData = { Tokens: [], Literals: [], Level: 0 };
+		this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map<string, number>(), DimMap: new Map<string, boolean>() };
 
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
@@ -489,7 +489,7 @@ class G64Basic {
 						this.m_TknData.Tokens = this.SortTokenArray(this.m_TknData.Tokens);
 
 						// sort and store in line
-						console.log("-- tkn:", token, this.m_TknData);
+						console.log("-- tkn:", parts[p], token, this.m_TknData);
 					}
 				}
 			}
@@ -522,39 +522,38 @@ class G64Basic {
 
 
 		// start with assign which is LET without let, if there's a let, remove it
-		//match = this.regLet.exec(code);
-		//if (match !== null) {
-		//	id = this.m_mapTokenId.get("let");
-
-		//	if (typeof match[2] === "undefined") {
-
-		//	} else {
-
-		//	}
-
-		//	console.log("let ", match[1], "=", match[3]);
-		//}
+		match = this.regLet.exec(code);
+		if (match !== null) {
+			console.log("- let:", match);
+			return this.TokenizeLet(token, match[1], match[2],match[3]);
+		}
 
 		//
-		// commands every line needs one
+		// commands, every line needs one
 		this.regCmd.lastIndex = -1;
 		match = this.regCmd.exec(code);
 		if (match !== null) {
 			console.log("- cmd:", match);
-			token = this.TokenizeItem(token, match[1], match[2]);
-
-			return token;
+			return this.TokenizeItem(token, match[1], match[2]);
 		}
 
+		//
 		// functions
 		this.regFn.lastIndex = -1;
 		match = this.regFn.exec(code);
 		if (match !== null) {
 			console.log("- fn:", match);
-			token = this.TokenizeItem(token, match[1], match[2]);
-			return token;
+			return this.TokenizeItem(token, match[1], match[2]);
 		}
 
+		//
+		// ----- variables -----
+		this.regVar.lastIndex = -1;
+		match = this.regVar.exec(code);
+		if (match !== null) {
+			console.log("- var:", match);
+			return this.TokenizeVar(token, match[0]);
+		}
 
 		//
 		// ----- number -----
@@ -656,18 +655,31 @@ class G64Basic {
 		return token;
 	}
 
+	private TokenizeLet(token: Token, item: string, index:string, code: string): Token {
+
+		console.log("--> let:", item, index, code);
+		let tknVar: Token;
 
 
-	private SplitterPass(code: string): string[] {
-		return [code];
+		// normal vars first
+		if (typeof index === "undefined") {
+			tknVar = this.Tokenizer(item);
+		}
+
+		
+
+
+
+		return token;
+	}
+
+	private TokenizeVar(token: Token, item: string): Token {
+
+		return token;
 	}
 
 	private Splitter(code: string, split: string): string[] {
 		return CodeHelper.CodeSplitter(code, split);
-	}
-
-	private SplitterPrint(code: string): string[] {
-		return [code];
 	}
 
 	//
