@@ -24,8 +24,8 @@ class G64Basic {
     }
     Init(options) {
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
-        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)\s*=([^=]*)$/;
-        this.regVar = /^[a-zA-Z]+\d*[$%]?(?:\s*\[.*\])?$/;
+        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=]*)$/;
+        this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regLiteral = /^{(\d+)}$/;
@@ -57,6 +57,7 @@ class G64Basic {
     InitBasicV2() {
         const defIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
         const defPoke = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
+        const defLet = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.any] };
         const defPrint = {
             fn: (code) => { return [code]; },
             chr: "",
@@ -85,7 +86,7 @@ class G64Basic {
             { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
             { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
             { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
-            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd },
+            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, param: defLet },
             { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
             { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, param: defIO_File },
             { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
@@ -316,7 +317,7 @@ class G64Basic {
         match = this.regLet.exec(code);
         if (match !== null) {
             console.log("- let:", match);
-            return this.TokenizeLet(token, match[1], match[2], match[3]);
+            return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
         }
         this.regCmd.lastIndex = -1;
         match = this.regCmd.exec(code);
@@ -334,7 +335,9 @@ class G64Basic {
         match = this.regVar.exec(code);
         if (match !== null) {
             console.log("- var:", match);
-            return this.TokenizeVar(token, match[0]);
+            if (typeof match[2] === "undefined")
+                match[2] = "";
+            return this.TokenizeVar(token, match[1], match[2]);
         }
         this.regNum.lastIndex = -1;
         match = this.regNum.exec(code);
@@ -403,15 +406,31 @@ class G64Basic {
         }
         return token;
     }
-    TokenizeLet(token, item, index, code) {
-        console.log("--> let:", item, index, code);
-        let tknVar;
-        if (typeof index === "undefined") {
-            tknVar = this.Tokenizer(item);
+    TokenizeVar(token, item, index) {
+        if (index === "") {
+            let varType = Tokentype.vnum;
+            if (item.endsWith("$")) {
+                varType = Tokentype.vstr;
+            }
+            else if (item.endsWith("%")) {
+                varType = Tokentype.vint;
+            }
+            token.Id = -1;
+            token.Type = varType;
+            token.Name = item;
+            token.Str = "";
+            token.Num = 0;
+            token.Values = [];
+            token.Order = (-this.m_TknData.Level * 10);
+            token.hint = item;
+            if (this.m_TknData.VarMap.has(item)) {
+                token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
+            }
+            else {
+                this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
+                this.m_TknData.Vars.push(token);
+            }
         }
-        return token;
-    }
-    TokenizeVar(token, item) {
         return token;
     }
     Splitter(code, split) {
