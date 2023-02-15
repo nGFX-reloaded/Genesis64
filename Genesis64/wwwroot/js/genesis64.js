@@ -59,15 +59,16 @@ class G64Basic {
         const defIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
         const defPoke = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
         const defLet = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.same] };
+        const defOpsNum = { fn: this.Splitter, chr: "|", len: -1, type: [DefType.num, DefType.num] };
         const defPrint = {
             fn: (code) => { return [code]; },
             chr: "",
             len: -1,
             type: [DefType.any]
         };
-        const def_Num = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.num] };
-        const def_Str = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.str] };
-        const def_Any = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.any] };
+        const defFnNum = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.num] };
+        const defFnStr = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.str] };
+        const defFnAny = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.any] };
         const defFnStr_LR = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num] };
         const defFnStr_Mid = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num, DefType.num] };
         this.m_Commands = [
@@ -110,40 +111,40 @@ class G64Basic {
             { name: "to", abbrv: "", tkn: 164, type: CmdType.cmd },
             { name: "verify", abbrv: "vE", tkn: 149, type: CmdType.cmd },
             { name: "wait", abbrv: "wA", tkn: 146, type: CmdType.cmd },
-            { name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: def_Num },
-            { name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: def_Num },
-            { name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: def_Num },
-            { name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: def_Num },
-            { name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: def_Num },
+            { name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: defFnNum },
+            { name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: defFnNum },
+            { name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: defFnNum },
+            { name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: defFnNum },
+            { name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: defFnNum },
             { name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
-            { name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: def_Num },
-            { name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: def_Num },
-            { name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: def_Str },
-            { name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: def_Num },
-            { name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: def_Num },
-            { name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: def_Num },
-            { name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: def_Num },
-            { name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: def_Num },
-            { name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: def_Num },
-            { name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: def_Num },
-            { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: def_Num },
-            { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: def_Any },
-            { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: def_Str },
-            { name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: def_Num },
+            { name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: defFnNum },
+            { name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: defFnNum },
+            { name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: defFnStr },
+            { name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: defFnNum },
+            { name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: defFnNum },
+            { name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: defFnNum },
+            { name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: defFnNum },
+            { name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: defFnNum },
+            { name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: defFnNum },
+            { name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: defFnNum },
+            { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: defFnNum },
+            { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: defFnAny },
+            { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: defFnStr },
+            { name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: defFnNum },
             { name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr, param: defFnStr_LR },
             { name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr, param: defFnStr_Mid },
             { name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr, param: defFnStr_LR },
-            { name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: def_Num },
+            { name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: defFnNum },
             { name: "spc(", abbrv: "sP", tkn: 166, type: CmdType.fout },
             { name: "tab(", abbrv: "tA", tkn: 163, type: CmdType.fout },
-            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
-            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
-            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
-            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops },
-            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops },
-            { name: "*", abbrv: "", tkn: 42, type: CmdType.ops },
-            { name: "/", abbrv: "", tkn: 47, type: CmdType.ops },
-            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops },
+            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum },
+            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
+            { name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: defOpsNum },
+            { name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: defOpsNum },
+            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
+            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: defOpsNum },
+            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
+            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
         ];
     }
     InitBasicG64() {
@@ -341,6 +342,7 @@ class G64Basic {
         match = this.regIsOps.exec(code);
         if (match !== null) {
             console.log("- ops:", match);
+            return this.TokenizeOps(token, code);
         }
         this.regVar.lastIndex = -1;
         match = this.regVar.exec(code);
@@ -457,6 +459,29 @@ class G64Basic {
         return token;
     }
     TokenizeOps(token, code) {
+        for (let i = 0; i < this.m_lstOps.length; i++) {
+            const cmd = this.m_Commands[this.m_lstOps[i]];
+            const split = this.Splitter(code, cmd.name);
+            if (split.length > 1) {
+                token.Id = this.m_mapCmdId.get(cmd.name);
+                token.Type = this.m_Commands[token.Id].ret;
+                token.Str = "";
+                token.Num = 0;
+                token.Values = [];
+                token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
+                token.hint = cmd.name;
+                for (let j = 0; j < split.length; j++) {
+                    let tkn = this.Tokenizer(split[j]);
+                    if (token.Type == Tokentype.err)
+                        break;
+                    token.Values.push(tkn);
+                    if (!this.IsPlainType(tkn))
+                        this.m_TknData.Tokens.push(tkn);
+                }
+                console.log("----->", cmd.name, ":", split);
+                break;
+            }
+        }
         return token;
     }
     Splitter(code, split) {
