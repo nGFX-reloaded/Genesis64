@@ -137,14 +137,14 @@ class G64Basic {
             { name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: defFnNum },
             { name: "spc(", abbrv: "sP", tkn: 166, type: CmdType.fout },
             { name: "tab(", abbrv: "tA", tkn: 163, type: CmdType.fout },
-            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum },
-            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
+            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
+            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
+            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: defOpsNum },
+            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
             { name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: defOpsNum },
             { name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: defOpsNum },
-            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
-            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: defOpsNum },
-            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
-            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
+            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum },
+            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
         ];
     }
     InitBasicG64() {
@@ -338,12 +338,6 @@ class G64Basic {
             console.log("- fn:", match);
             return this.TokenizeItem(token, match[1], match[2]);
         }
-        this.regIsOps.lastIndex = -1;
-        match = this.regIsOps.exec(code);
-        if (match !== null) {
-            console.log("- ops:", match);
-            return this.TokenizeOps(token, code);
-        }
         this.regVar.lastIndex = -1;
         match = this.regVar.exec(code);
         if (match !== null) {
@@ -365,6 +359,12 @@ class G64Basic {
             token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
             token.hint = "literal";
             return token;
+        }
+        this.regIsOps.lastIndex = -1;
+        match = this.regIsOps.exec(code);
+        if (match !== null) {
+            console.log("- ops:", match);
+            return this.TokenizeOps(token, code);
         }
         console.log("-- no token or error");
         token.Num = -1;
@@ -462,13 +462,13 @@ class G64Basic {
         for (let i = 0; i < this.m_lstOps.length; i++) {
             const cmd = this.m_Commands[this.m_lstOps[i]];
             const split = this.Splitter(code, cmd.name);
-            if (split.length > 1) {
+            if (code.includes(cmd.name)) {
                 token.Id = this.m_mapCmdId.get(cmd.name);
                 token.Type = this.m_Commands[token.Id].ret;
                 token.Str = "";
                 token.Num = 0;
                 token.Values = [];
-                token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
+                token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 - i));
                 token.hint = cmd.name;
                 for (let j = 0; j < split.length; j++) {
                     let tkn = this.Tokenizer(split[j]);

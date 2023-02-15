@@ -226,14 +226,14 @@ class G64Basic {
 
 			//
 			// ----- ops -----
-			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum }, /* this is any */
-			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
+			{ name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
+			{ name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
+			{ name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: defOpsNum },
+			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
 			{ name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: defOpsNum },
 			{ name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: defOpsNum },
-			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
-			{ name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param:  defOpsNum},
-			{ name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
-			{ name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
+			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum }, /* this is any */
+			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
 
 			//
 			// ----- compare -----
@@ -565,15 +565,6 @@ class G64Basic {
 		}
 
 		//
-		// ops
-		this.regIsOps.lastIndex = -1;
-		match = this.regIsOps.exec(code);
-		if (match !== null) {
-			console.log("- ops:", match);
-			return this.TokenizeOps(token, code);
-		}
-
-		//
 		// ----- variables -----
 		this.regVar.lastIndex = -1;
 		match = this.regVar.exec(code);
@@ -602,6 +593,15 @@ class G64Basic {
 			token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
 			token.hint = "literal";
 			return token;
+		}
+
+		//
+		// ops
+		this.regIsOps.lastIndex = -1;
+		match = this.regIsOps.exec(code);
+		if (match !== null) {
+			console.log("- ops:", match);
+			return this.TokenizeOps(token, code);
 		}
 
 		console.log("-- no token or error");
@@ -752,20 +752,40 @@ class G64Basic {
 	 **/
 	private TokenizeOps(token: Token, code: string): Token {
 
+		//		const regMM: RegExp = /\-\s*\-/g;
+		//		const regPP: RegExp = /\+\s*\+/g;
+		//		const regPM: RegExp = /\+\s*\-/g;
+
+		//		// because -- is plus and +- or -+ are minus, fix them before tokenizing
+		//		console.log("::", code);
+		//		while (regMM.test(code)||regPP.test(code) || regPM.test(code)) {
+		//			code = code.replace(regMM, "+");
+		//				code = code.replace(regPP, "+");
+		//				code = code.replace(regPM, "-");
+		//			console.log(":::", code);
+		//		}
+		//console.log(":::>", code);
+
+
+
+
 		// go over ops in reverse order of importance
 		for (let i = 0; i < this.m_lstOps.length; i++) {
 
-			const cmd: BasicCmd = this.m_Commands[ this.m_lstOps[i]];
+			const cmd: BasicCmd = this.m_Commands[this.m_lstOps[i]];
 			const split: string[] = this.Splitter(code, cmd.name);
+			//console.log("-->", code, cmd.name, split);
 
 			// found at least one pair
-			if (split.length > 1) {
+			if (code.includes(cmd.name)) {
+
+
 				token.Id = this.m_mapCmdId.get(cmd.name);
 				token.Type = this.m_Commands[token.Id].ret;
 				token.Str = "";
 				token.Num = 0;
 				token.Values = [];
-				token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
+				token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 - i));
 				token.hint = cmd.name;
 
 				for (let j = 0; j < split.length; j++) {
