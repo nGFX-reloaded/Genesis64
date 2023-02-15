@@ -29,5 +29,12 @@ type CmdParameter = {
 }
 
 enum DefType {
-	any, num, adr, byte, str, cmd, var
+	any,	/* anything */
+	num,	/* a number */
+	adr,	/* a memory adr., 0-65535 */
+	byte,	/* a byte, 0-255 */
+	str,	/* a string literal */
+	cmd,	/* a command */
+	var,	/* a variable */
+	same	/* same type as prev token -> a$ = string */
 }

@@ -43,9 +43,10 @@ class G64Basic {
 	//#region " ----- Regex ----- "
 
 	private regLineNr: RegExp;
-	private regCmd: RegExp;
-	private regFn: RegExp;
-	private regAbbrv: RegExp;
+	private regIsCmd: RegExp;
+	private regIsFn: RegExp;
+	private regIsAbbrv: RegExp;
+	private regIsOps: RegExp;
 
 	private regLet: RegExp;
 	private regVar: RegExp;
@@ -83,6 +84,8 @@ class G64Basic {
 		this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
 		this.regBracket = /^[\(\[](.*)[\)\]]$/;
 		this.regLiteral = /^{(\d+)}$/;
+
+		this.regIsOps = /\+|\-|\*|\/|\^|and|or/; // ToDo: create by list
 
 		// exclude = to == conversion for these
 		this.regEncodeCompCmd = [
@@ -126,7 +129,7 @@ class G64Basic {
 		const defIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
 
 		const defPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
-		const defLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.any] };
+		const defLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.same] };
 
 		const defPrint: CmdParameter = {
 			fn: (code: string): string[] => { return [code] },
@@ -225,7 +228,11 @@ class G64Basic {
 			{ name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
 			{ name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
 			{ name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
-			// +,-,*,/,^
+			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops },
+			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops },
+			{ name: "*", abbrv: "", tkn: 42, type: CmdType.ops },
+			{ name: "/", abbrv: "", tkn: 47, type: CmdType.ops },
+			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops },
 
 			//
 			// ----- compare -----
@@ -323,9 +330,9 @@ class G64Basic {
 			}
 		}
 
-		this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
-		this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
-		this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+		this.regIsCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+		this.regIsFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+		this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
 
 	}
 
@@ -350,12 +357,12 @@ class G64Basic {
 			for (let m: number = 0; m < match.length; m++) {
 
 				// remove cmds
-				const subMatch: string[] = match[m].match(this.regCmd);
+				const subMatch: string[] = match[m].match(this.regIsCmd);
 				if (subMatch !== null)
 					match[m] = match[m].replace(subMatch[1], "");
 
-				this.regFn.lastIndex = -1;
-				if (!this.regFn.test(match[m])) {
+				this.regIsFn.lastIndex = -1;
+				if (!this.regIsFn.test(match[m])) {
 					const tuple: number[] = CodeHelper.FindMatching(code, code.indexOf(match[m]));
 
 					// fix unclosed arrays
@@ -394,9 +401,9 @@ class G64Basic {
 		}
 
 		// only consider non-command code
-		this.regCmd.lastIndex = -1;
+		this.regIsCmd.lastIndex = -1;
 
-		if (!this.regCmd.test(code)) {
+		if (!this.regIsCmd.test(code)) {
 			this.regEncodeCompArray.lastIndex = -1;
 
 			match = this.regEncodeCompArray.exec(code);
@@ -427,8 +434,8 @@ class G64Basic {
 	 */
 	private DeAbbreviate(code: string): string {
 
-		this.regAbbrv.lastIndex = -1;
-		const match: string[] = code.match(this.regAbbrv);
+		this.regIsAbbrv.lastIndex = -1;
+		const match: string[] = code.match(this.regIsAbbrv);
 
 		if (match !== null) {
 			for (let i: number = 0; i < match.length; i++) {
@@ -499,6 +506,11 @@ class G64Basic {
 		console.timeEnd("temp");
 	}
 
+	/**
+	 * Converts a piece of code into a token
+	 * @param			code		code to tokenize
+	 * @returns			Token
+	 **/
 	public Tokenizer(code: string): Token {
 
 		let token: Token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
@@ -535,8 +547,8 @@ class G64Basic {
 
 		//
 		// commands, every line needs one
-		this.regCmd.lastIndex = -1;
-		match = this.regCmd.exec(code);
+		this.regIsCmd.lastIndex = -1;
+		match = this.regIsCmd.exec(code);
 		if (match !== null) {
 			console.log("- cmd:", match);
 			return this.TokenizeItem(token, match[1], match[2]);
@@ -544,11 +556,19 @@ class G64Basic {
 
 		//
 		// functions
-		this.regFn.lastIndex = -1;
-		match = this.regFn.exec(code);
+		this.regIsFn.lastIndex = -1;
+		match = this.regIsFn.exec(code);
 		if (match !== null) {
 			console.log("- fn:", match);
 			return this.TokenizeItem(token, match[1], match[2]);
+		}
+
+		//
+		// ops
+		this.regIsOps.lastIndex = -1;
+		match = this.regIsOps.exec(code);
+		if (match !== null) {
+			console.log("- ops:", match);
 		}
 
 		//
@@ -590,6 +610,13 @@ class G64Basic {
 
 	}
 
+	/**
+	 * Creates a token for the given item (cmd, fn) and the parameters, checks parameter type and number
+	 * @param			token			Token data, default is: SYNTAX ERROR
+	 * @param			item			the "name" of this item, ie.: print
+	 * @param			code			the parameter code to tokenize
+	 * @returns			Token			overwritten token (with tokenize results)
+	 **/
 	private TokenizeItem(token: Token, item: string, code: string): Token {
 
 		if (this.m_mapCmdId.has(item)) {
@@ -630,16 +657,31 @@ class G64Basic {
 				let tkn: Token = this.Tokenizer(split[i]);
 
 				// no typecheck on error
-				if (tkn.Type != Tokentype.err) {
-					switch (this.SimpleType(def.type[i])) {
+				if (tkn.Type != Tokentype.err && i < def.type.length) {
+					// test against cmd's def types
+					switch (def.type[i]) {
 						case DefType.num:
+						case DefType.adr:
+						case DefType.byte:
 							if (!this.IsNum(tkn))
-								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number " + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
+								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number '" + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
 							break;
 
 						case DefType.str:
 							if (!this.IsStr(tkn))
 								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
+							break;
+
+						case DefType.var:
+							if (!this.IsVar(tkn))
+								token = this.CreateError(ErrorCodes.SYNTAX, "parameter is not a variable '" + split[i] + "'");
+							break;
+
+						case DefType.same: // compare with prev. token type (usually a var)
+							if (i > 0 && token.Values.length > 0) {
+								if (this.GetBaseType(token.Values[token.Values.length - 1]) != this.GetBaseType(tkn))
+									token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "types don't match");
+							}
 							break;
 					}
 				}
@@ -651,7 +693,8 @@ class G64Basic {
 				// add to value list and to part's token list
 				token.Values.push(tkn);
 
-				if (!this.IsNumOrStr(tkn))
+				// plain numbers or strings are not pushed to the token list
+				if (!this.IsPlainType(tkn))
 					this.m_TknData.Tokens.push(tkn);
 			}
 
@@ -660,7 +703,13 @@ class G64Basic {
 		return token;
 	}
 
-	private TokenizeVar(token: Token, item: string, index:string): Token {
+	/**
+	 * Tokinize a variable and creates entries in the variable list and map
+	 * @param			token			Token data, default is: SYNTAX ERROR
+	 * @param			item			name of the variable
+	 * @param			index			index for array, "" if it's a simple var'
+	 **/
+	private TokenizeVar(token: Token, item: string, index: string): Token {
 
 		if (index === "") {
 			let varType: Tokentype = Tokentype.vnum;
@@ -669,26 +718,32 @@ class G64Basic {
 			} else if (item.endsWith("%")) {
 				varType = Tokentype.vint;
 			}
-			
-			token.Id = -1;
-			token.Type = varType;
-			token.Name = item;
-			token.Str = "";		// set via let
-			token.Num = 0;		// set via let
-			token.Values = [];
-			token.Order = (-this.m_TknData.Level * 10);
-			token.hint = item;
 
 			// add var to var list and map (or return token if already in there)
 			if (this.m_TknData.VarMap.has(item)) {
 				token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
+
 			} else {
+				token.Id = -1;
+				token.Type = varType;
+				token.Name = item;
+				token.Str = "";		// set via let
+				token.Num = 0;		// set via let
+				token.Values = [];
+				token.Order = 99999; // vars don't need to be added to tokenlist, just to varlist // (-this.m_TknData.Level * 10);
+				token.hint = "var";
+
 				this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
 				this.m_TknData.Vars.push(token);
 			}
 		}
 
-			return token;
+		return token;
+	}
+
+	private TokenizeOps(token: Token, code: string): Token {
+
+		return token;
 	}
 
 	private Splitter(code: string, split: string): string[] {
@@ -698,6 +753,15 @@ class G64Basic {
 	//
 	//
 	// ----- Helper ----
+
+	/**
+	 * Creates a simple token
+	 * @param			id			id of the command/fn if applicable, otherwise -1
+	 * @param			type		Tokentype of this token
+	 * @param			order		execution order
+	 * @param			value		[optional] number or string value
+	 * @returns			Token
+	 **/
 	private CreateToken(id: number, type: Tokentype, order: number, value?: number | string): Token {
 		const tkn: Token = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
 
@@ -712,6 +776,12 @@ class G64Basic {
 		return tkn;
 	}
 
+	/**
+	 * Creates an error token
+	 * @param			id			error number
+	 * @param			message		additional error message
+	 * @returns			Token
+	 **/
 	private CreateError(id: number, message: string): Token {
 		return {
 			Type: Tokentype.err,
@@ -724,6 +794,11 @@ class G64Basic {
 		};
 	}
 
+	/**
+	 * Sorts the tokens by their Order field
+	 * @param			aToken		array of tokens to sort
+	 * @returns			Token[]		sorted array
+	 **/
 	private SortTokenArray(aToken: Token[]): Token[] {
 		aToken.sort(function (a, b) {
 			if (typeof a.Order === "undefined") a.Order = 99999;
@@ -734,26 +809,39 @@ class G64Basic {
 		return aToken;
 	}
 
-	private SimpleType(value: DefType): DefType {
-		let type: DefType = value;
+	/**
+	 * Returns the base type of a token, ie: aint -> number
+	 * @param			tkn			Token to get the type from
+	 * @returns			Tokentype
+	 **/
+	private GetBaseType(tkn: Token): Tokentype {
 
-		switch (value) {
-			case DefType.num:
-			case DefType.adr:
-			case DefType.byte:
-				type = DefType.num;
-				break;
-		}
+		if (this.IsNum(tkn))
+			return Tokentype.num;
 
-		return type;
+		if (this.IsStr(tkn))
+			return Tokentype.str;
+
+		return tkn.Type;
 	}
 
-	private IsNumOrStr(tkn: Token): boolean {
+	/**
+	 * Checks if the given token is a value (literal or number) 
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 **/
+	private IsPlainType(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
 			|| tkn.Type == Tokentype.int
-			|| tkn.Type == Tokentype.str);
+			|| tkn.Type == Tokentype.str
+			|| this.IsVar(tkn));
 	}
 
+	/**
+	 * Checks if the given token returns a number 
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 **/
 	private IsNum(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
 			|| tkn.Type == Tokentype.int
@@ -765,6 +853,11 @@ class G64Basic {
 			|| tkn.Type == Tokentype.ops);
 	}
 
+	/**
+	 * Checks if the given token returns a string 
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 **/
 	private IsStr(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.str
 			|| tkn.Type == Tokentype.fnstr
@@ -772,5 +865,19 @@ class G64Basic {
 			|| tkn.Type == Tokentype.astr
 			|| tkn.Type == Tokentype.ops);
 	}
+
+	/**
+	 * Checks if the given token is variable 
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 **/
+	private IsVar(tkn: Token): boolean {
+		return (tkn.Type == Tokentype.vnum
+			|| tkn.Type == Tokentype.vint
+			|| tkn.Type == Tokentype.vstr
+			|| tkn.Type == Tokentype.anum
+			|| tkn.Type == Tokentype.aint
+			|| tkn.Type == Tokentype.astr)
+	};
 
 }

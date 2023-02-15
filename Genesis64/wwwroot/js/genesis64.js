@@ -29,6 +29,7 @@ class G64Basic {
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regLiteral = /^{(\d+)}$/;
+        this.regIsOps = /\+|\-|\*|\/|\^|and|or/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
@@ -57,7 +58,7 @@ class G64Basic {
     InitBasicV2() {
         const defIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
         const defPoke = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
-        const defLet = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.any] };
+        const defLet = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.same] };
         const defPrint = {
             fn: (code) => { return [code]; },
             chr: "",
@@ -138,6 +139,11 @@ class G64Basic {
             { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops },
             { name: "or", abbrv: "", tkn: 176, type: CmdType.ops },
             { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops },
+            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops },
+            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops },
+            { name: "*", abbrv: "", tkn: 42, type: CmdType.ops },
+            { name: "/", abbrv: "", tkn: 47, type: CmdType.ops },
+            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops },
         ];
     }
     InitBasicG64() {
@@ -200,9 +206,9 @@ class G64Basic {
                     break;
             }
         }
-        this.regCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
-        this.regFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(])/g, "\\$1") + ")\\s*(.*)\\s*");
-        this.regAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+        this.regIsCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+        this.regIsFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+        this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
     }
     EncodeArray(code) {
         if (code.startsWith("dim"))
@@ -211,11 +217,11 @@ class G64Basic {
         const match = code.match(this.regEncodeArray);
         if (match !== null) {
             for (let m = 0; m < match.length; m++) {
-                const subMatch = match[m].match(this.regCmd);
+                const subMatch = match[m].match(this.regIsCmd);
                 if (subMatch !== null)
                     match[m] = match[m].replace(subMatch[1], "");
-                this.regFn.lastIndex = -1;
-                if (!this.regFn.test(match[m])) {
+                this.regIsFn.lastIndex = -1;
+                if (!this.regIsFn.test(match[m])) {
                     const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
                     if (!CodeHelper.IsMatching(tuple)) {
                         tuple[1] = code.length;
@@ -239,8 +245,8 @@ class G64Basic {
             if (match !== null)
                 code = code.replace(match[1], this.EncodeCompare(match[1], true));
         }
-        this.regCmd.lastIndex = -1;
-        if (!this.regCmd.test(code)) {
+        this.regIsCmd.lastIndex = -1;
+        if (!this.regIsCmd.test(code)) {
             this.regEncodeCompArray.lastIndex = -1;
             match = this.regEncodeCompArray.exec(code);
             if (match !== null) {
@@ -260,8 +266,8 @@ class G64Basic {
         return code;
     }
     DeAbbreviate(code) {
-        this.regAbbrv.lastIndex = -1;
-        const match = code.match(this.regAbbrv);
+        this.regIsAbbrv.lastIndex = -1;
+        const match = code.match(this.regIsAbbrv);
         if (match !== null) {
             for (let i = 0; i < match.length; i++) {
                 code = code.replace(match[i], this.m_mapDeAbbrev.get(match[i]));
@@ -319,17 +325,22 @@ class G64Basic {
             console.log("- let:", match);
             return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
         }
-        this.regCmd.lastIndex = -1;
-        match = this.regCmd.exec(code);
+        this.regIsCmd.lastIndex = -1;
+        match = this.regIsCmd.exec(code);
         if (match !== null) {
             console.log("- cmd:", match);
             return this.TokenizeItem(token, match[1], match[2]);
         }
-        this.regFn.lastIndex = -1;
-        match = this.regFn.exec(code);
+        this.regIsFn.lastIndex = -1;
+        match = this.regIsFn.exec(code);
         if (match !== null) {
             console.log("- fn:", match);
             return this.TokenizeItem(token, match[1], match[2]);
+        }
+        this.regIsOps.lastIndex = -1;
+        match = this.regIsOps.exec(code);
+        if (match !== null) {
+            console.log("- ops:", match);
         }
         this.regVar.lastIndex = -1;
         match = this.regVar.exec(code);
@@ -385,22 +396,34 @@ class G64Basic {
                 this.m_TknData.Tokens.push(token);
             for (let i = 0; i < split.length; i++) {
                 let tkn = this.Tokenizer(split[i]);
-                if (tkn.Type != Tokentype.err) {
-                    switch (this.SimpleType(def.type[i])) {
+                if (tkn.Type != Tokentype.err && i < def.type.length) {
+                    switch (def.type[i]) {
                         case DefType.num:
+                        case DefType.adr:
+                        case DefType.byte:
                             if (!this.IsNum(tkn))
-                                token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number " + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
+                                token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number '" + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
                             break;
                         case DefType.str:
                             if (!this.IsStr(tkn))
                                 token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
+                            break;
+                        case DefType.var:
+                            if (!this.IsVar(tkn))
+                                token = this.CreateError(ErrorCodes.SYNTAX, "parameter is not a variable '" + split[i] + "'");
+                            break;
+                        case DefType.same:
+                            if (i > 0 && token.Values.length > 0) {
+                                if (this.GetBaseType(token.Values[token.Values.length - 1]) != this.GetBaseType(tkn))
+                                    token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "types don't match");
+                            }
                             break;
                     }
                 }
                 if (token.Type == Tokentype.err)
                     break;
                 token.Values.push(tkn);
-                if (!this.IsNumOrStr(tkn))
+                if (!this.IsPlainType(tkn))
                     this.m_TknData.Tokens.push(tkn);
             }
         }
@@ -415,22 +438,25 @@ class G64Basic {
             else if (item.endsWith("%")) {
                 varType = Tokentype.vint;
             }
-            token.Id = -1;
-            token.Type = varType;
-            token.Name = item;
-            token.Str = "";
-            token.Num = 0;
-            token.Values = [];
-            token.Order = (-this.m_TknData.Level * 10);
-            token.hint = item;
             if (this.m_TknData.VarMap.has(item)) {
                 token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
             }
             else {
+                token.Id = -1;
+                token.Type = varType;
+                token.Name = item;
+                token.Str = "";
+                token.Num = 0;
+                token.Values = [];
+                token.Order = 99999;
+                token.hint = "var";
                 this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
                 this.m_TknData.Vars.push(token);
             }
         }
+        return token;
+    }
+    TokenizeOps(token, code) {
         return token;
     }
     Splitter(code, split) {
@@ -467,21 +493,18 @@ class G64Basic {
         });
         return aToken;
     }
-    SimpleType(value) {
-        let type = value;
-        switch (value) {
-            case DefType.num:
-            case DefType.adr:
-            case DefType.byte:
-                type = DefType.num;
-                break;
-        }
-        return type;
+    GetBaseType(tkn) {
+        if (this.IsNum(tkn))
+            return Tokentype.num;
+        if (this.IsStr(tkn))
+            return Tokentype.str;
+        return tkn.Type;
     }
-    IsNumOrStr(tkn) {
+    IsPlainType(tkn) {
         return (tkn.Type == Tokentype.num
             || tkn.Type == Tokentype.int
-            || tkn.Type == Tokentype.str);
+            || tkn.Type == Tokentype.str
+            || this.IsVar(tkn));
     }
     IsNum(tkn) {
         return (tkn.Type == Tokentype.num
@@ -500,6 +523,15 @@ class G64Basic {
             || tkn.Type == Tokentype.astr
             || tkn.Type == Tokentype.ops);
     }
+    IsVar(tkn) {
+        return (tkn.Type == Tokentype.vnum
+            || tkn.Type == Tokentype.vint
+            || tkn.Type == Tokentype.vstr
+            || tkn.Type == Tokentype.anum
+            || tkn.Type == Tokentype.aint
+            || tkn.Type == Tokentype.astr);
+    }
+    ;
 }
 class G64Colors {
     get ColorView() { return this.m_colorView; }
@@ -1823,6 +1855,7 @@ var DefType;
     DefType[DefType["str"] = 4] = "str";
     DefType[DefType["cmd"] = 5] = "cmd";
     DefType[DefType["var"] = 6] = "var";
+    DefType[DefType["same"] = 7] = "same";
 })(DefType || (DefType = {}));
 var ErrorCodes;
 (function (ErrorCodes) {
