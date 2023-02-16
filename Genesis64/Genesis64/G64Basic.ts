@@ -126,24 +126,24 @@ class G64Basic {
 
 
 
-		const defIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [DefType.str, DefType.num, DefType.num] };
+		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
-		const defPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.adr, DefType.byte] };
-		const defLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [DefType.var, DefType.same] };
-		const defOpsNum: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [DefType.num, DefType.num] };
+		const paramPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
+		const paramLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
+		const paramOpsNum: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
 
-		const defPrint: CmdParameter = {
+		const paramPrint: CmdParameter = {
 			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: -1,
-			type: [DefType.any]
+			type: [ParamType.any]
 		}
 
-		const defFnNum: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.num] };
-		const defFnStr: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.str] };
-		const defFnAny: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [DefType.any] };
-		const defFnStr_LR: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num] };
-		const defFnStr_Mid: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [DefType.str, DefType.num, DefType.num] };
+		const paramFnNum: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.num] };
+		const paramFnStr: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.str] };
+		const paramFnAny: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.any] };
+		const paramFnStr_LR: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
+		const paramFnStr_Mid: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		this.m_Commands = [
 
@@ -165,22 +165,22 @@ class G64Basic {
 			{ name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
 			{ name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
 			{ name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
-			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, param: defLet },
+			{ name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, param: paramLet },
 			{ name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
-			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, param: defIO_File },
+			{ name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, param: paramIO_File },
 			{ name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
 			{ name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
 			{ name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
 			{ name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, param: defPoke },
-			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, param: defPrint },
+			{ name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, param: paramPoke },
+			{ name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, param: paramPrint },
 			{ name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
 			{ name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
 			{ name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
 			{ name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
 			{ name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
 			{ name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
-			{ name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, param: defIO_File },
+			{ name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, param: paramIO_File },
 			{ name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
 			{ name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
 			{ name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
@@ -191,33 +191,33 @@ class G64Basic {
 
 			//
 			// ----- fn num -----
-			{ name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: defFnNum },
-			{ name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: defFnNum },
-			{ name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: defFnNum },
-			{ name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: defFnNum },
-			{ name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: defFnNum },
+			{ name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: paramFnNum },
+			{ name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: paramFnNum },
+			{ name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: paramFnNum },
+			{ name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: paramFnNum },
+			{ name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: paramFnNum },
 			{ name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
-			{ name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: defFnNum },
-			{ name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: defFnNum },
-			{ name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: defFnStr },
-			{ name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: defFnNum },
-			{ name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: defFnNum },
-			{ name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: defFnNum },
-			{ name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: defFnNum },
-			{ name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: defFnNum },
-			{ name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: defFnNum },
-			{ name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: defFnNum },
-			{ name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: defFnNum },
-			{ name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: defFnAny }, /* fix: returns a num OR a string */
-			{ name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: defFnStr },
+			{ name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: paramFnNum },
+			{ name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: paramFnNum },
+			{ name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: paramFnStr },
+			{ name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: paramFnNum },
+			{ name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: paramFnNum },
+			{ name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: paramFnNum },
+			{ name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: paramFnNum },
+			{ name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: paramFnNum },
+			{ name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: paramFnNum },
+			{ name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: paramFnNum },
+			{ name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: paramFnNum },
+			{ name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: paramFnAny }, /* fix: returns a num OR a string */
+			{ name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: paramFnStr },
 
 			//
 			// ----- fn str -----
-			{ name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: defFnNum },
-			{ name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr, param: defFnStr_LR },
-			{ name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr, param: defFnStr_Mid },
-			{ name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr, param: defFnStr_LR },
-			{ name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: defFnNum },
+			{ name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: paramFnNum },
+			{ name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr, param: paramFnStr_LR },
+			{ name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr, param: paramFnStr_Mid },
+			{ name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr, param: paramFnStr_LR },
+			{ name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: paramFnNum },
 
 			//
 			// ----- fn out -----
@@ -226,14 +226,14 @@ class G64Basic {
 
 			//
 			// ----- ops -----
-			{ name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: defOpsNum },
-			{ name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: defOpsNum },
-			{ name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: defOpsNum },
-			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: defOpsNum },
-			{ name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: defOpsNum },
-			{ name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: defOpsNum },
-			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: defOpsNum }, /* this is any */
-			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: defOpsNum },
+			{ name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: paramOpsNum },
+			{ name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: paramOpsNum },
+			{ name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: paramOpsNum },
+			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: paramOpsNum },
+			{ name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: paramOpsNum },
+			{ name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: paramOpsNum },
+			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsNum }, /* this is any */
+			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: paramOpsNum },
 
 			//
 			// ----- compare -----
@@ -275,7 +275,7 @@ class G64Basic {
 			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: 0,
-			type: [DefType.any]
+			type: [ParamType.any]
 		};
 
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
@@ -498,7 +498,7 @@ class G64Basic {
 						this.m_TknData.Tokens = this.SortTokenArray(this.m_TknData.Tokens);
 
 						// sort and store in line
-						console.log("-- tkn:", parts[p], token, this.m_TknData);
+						console.log("-- tkn:", parts[p], this.m_TknData);
 					}
 				}
 			}
@@ -624,6 +624,7 @@ class G64Basic {
 		if (this.m_mapCmdId.has(item)) {
 			token.Id = this.m_mapCmdId.get(item);
 			token.Type = this.m_Commands[token.Id].ret;
+			token.Name = this.m_Commands[token.Id].name;
 			token.Str = "";
 			token.Num = 0;
 			token.Values = [];
@@ -637,19 +638,6 @@ class G64Basic {
 			if (code.trim() == "")
 				split.pop();
 
-			// check if we have enough or too many params
-			if (def.len != -1) {
-				if (split.length < def.len) {
-					token = this.CreateError(ErrorCodes.SYNTAX, "not enough parameters");
-					return token;
-				}
-
-				if (((split.length > def.len) && (def.len == def.type.length)) || ((def.len < def.type.length) && (split.length > def.type.length))) {
-					token = this.CreateError(ErrorCodes.SYNTAX, "to many parameters");
-					return token;
-				}
-			}
-
 			// add token to list if it is the first token for this part
 			if (this.m_TknData.Tokens.length == 0)
 				this.m_TknData.Tokens.push(token);
@@ -657,36 +645,6 @@ class G64Basic {
 			// tokenize params and check type
 			for (let i = 0; i < split.length; i++) {
 				let tkn: Token = this.Tokenizer(split[i]);
-
-				// no typecheck on error
-				if (tkn.Type != Tokentype.err && i < def.type.length) {
-					// test against cmd's def types
-					switch (def.type[i]) {
-						case DefType.num:
-						case DefType.adr:
-						case DefType.byte:
-							if (!this.IsNum(tkn))
-								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a number '" + item + CodeHelper.RestoreLiterals(split[i], this.m_TknData.Literals) + "'");
-							break;
-
-						case DefType.str:
-							if (!this.IsStr(tkn))
-								token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "parameter is not a string");
-							break;
-
-						case DefType.var:
-							if (!this.IsVar(tkn))
-								token = this.CreateError(ErrorCodes.SYNTAX, "parameter is not a variable '" + split[i] + "'");
-							break;
-
-						case DefType.same: // compare with prev. token type (usually a var)
-							if (i > 0 && token.Values.length > 0) {
-								if (this.GetBaseType(token.Values[token.Values.length - 1]) != this.GetBaseType(tkn))
-									token = this.CreateError(ErrorCodes.TYPE_MISMATCH, "types don't match");
-							}
-							break;
-					}
-				}
 
 				// do not add param tokens on error
 				if (token.Type == Tokentype.err)
@@ -699,6 +657,8 @@ class G64Basic {
 				if (!this.IsPlainType(tkn))
 					this.m_TknData.Tokens.push(tkn);
 			}
+
+			token = this.CheckType(token);
 
 		}
 
@@ -752,41 +712,38 @@ class G64Basic {
 	 **/
 	private TokenizeOps(token: Token, code: string): Token {
 
-		//		const regMM: RegExp = /\-\s*\-/g;
-		//		const regPP: RegExp = /\+\s*\+/g;
-		//		const regPM: RegExp = /\+\s*\-/g;
-
-		//		// because -- is plus and +- or -+ are minus, fix them before tokenizing
-		//		console.log("::", code);
-		//		while (regMM.test(code)||regPP.test(code) || regPM.test(code)) {
-		//			code = code.replace(regMM, "+");
-		//				code = code.replace(regPP, "+");
-		//				code = code.replace(regPM, "-");
-		//			console.log(":::", code);
-		//		}
-		//console.log(":::>", code);
-
-
-
+		// combine double ops like --, ++, -+ and +-
+		while (/[\+\-]\s*[\+\-]/.test(code))
+			code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
 
 		// go over ops in reverse order of importance
 		for (let i = 0; i < this.m_lstOps.length; i++) {
 
 			const cmd: BasicCmd = this.m_Commands[this.m_lstOps[i]];
 			const split: string[] = this.Splitter(code, cmd.name);
-			//console.log("-->", code, cmd.name, split);
+
+			// if split is empty, chances are high that we have something like x*-y
+			// as variables can't be negative we cheat and turn this into x*0-y
+			if (split.length > 1) {
+				for (let j = 0; j < split.length; j++) {
+					if (split[j] === "")
+						split[j] = "0";
+				}
+			}
 
 			// found at least one pair
 			if (code.includes(cmd.name)) {
 
-
 				token.Id = this.m_mapCmdId.get(cmd.name);
 				token.Type = this.m_Commands[token.Id].ret;
+				token.Name = cmd.name;
 				token.Str = "";
 				token.Num = 0;
 				token.Values = [];
-				token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 - i));
+				token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
 				token.hint = cmd.name;
+
+				const def: CmdParameter = cmd.param;
 
 				for (let j = 0; j < split.length; j++) {
 					let tkn: Token = this.Tokenizer(split[j]);
@@ -821,14 +778,14 @@ class G64Basic {
 					//	}
 					//}
 
-					// do not add param tokens on error
-					if (token.Type == Tokentype.err)
-						break;
+					//// do not add param tokens on error
+					//if (token.Type == Tokentype.err)
+					//	break;
 
 					// add to value list and to part's token list
 					token.Values.push(tkn);
 
-					// plain numbers or strings are not pushed to the token list
+					// plain vars, numbers or strings are not pushed to the token list
 					if (!this.IsPlainType(tkn))
 						this.m_TknData.Tokens.push(tkn);
 				}
@@ -844,6 +801,51 @@ class G64Basic {
 		return token;
 	}
 
+	private CheckType(token: Token): Token {
+
+		if (token.Id != -1) {
+			const param: CmdParameter = this.m_Commands[token.Id].param;
+
+			// check if we have enough or too many params
+			if (param.len != -1) {
+				if (token.Values.length < param.len) {
+					token = this.SetError(token, ErrorCodes.SYNTAX, "not enough parameters");
+					return token;
+				}
+
+				if (((token.Values.length > param.len) && (param.len == param.type.length)) || ((param.len < param.type.length) && (token.Values.length > param.type.length))) {
+					token = this.SetError(token, ErrorCodes.SYNTAX, "to many parameters");
+					return token;
+				}
+			}
+
+			// go over params and check type
+			if (param.type.length > 0) {
+				for (let i = 0; i < token.Values.length; i++) {
+					const paramType: ParamType = param.type[Math.min(i, param.type.length - 1)];
+					const tkn: Token = token.Values[i];
+
+					console.log("->", paramType, tkn);
+
+					switch (paramType) {
+						case ParamType.num:
+						case ParamType.adr:
+						case ParamType.byte:
+							if (!this.IsNum(tkn))
+								token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "parameter #" + (i + 1).toString() + " is not a number");
+							break;
+					}
+
+					if (token.Type == Tokentype.err)
+						break;
+				}
+			}
+
+		}
+
+		return token;
+	}
+
 	/**
 	 * Wrapper CodeHelper.CodeSplitter
 	 * @param			code			code to split
@@ -853,6 +855,7 @@ class G64Basic {
 	private Splitter(code: string, split: string): string[] {
 		return CodeHelper.CodeSplitter(code, split);
 	}
+
 
 	//
 	//
@@ -880,22 +883,25 @@ class G64Basic {
 		return tkn;
 	}
 
+	private CreateError(id: number, message: string): Token {
+		return this.SetError(this.CreateToken(0, Tokentype.nop, 0), id, message);
+	}
+
 	/**
-	 * Creates an error token
+	 * Sets an error token
 	 * @param			id			error number
 	 * @param			message		additional error message
 	 * @returns			Token
 	 **/
-	private CreateError(id: number, message: string): Token {
-		return {
-			Type: Tokentype.err,
-			Values: [],
-			Id: id,
-			Str: message,
-			Num: 0,
-			Order: -99999,
-			hint: CodeHelper.ErrorName(id)
-		};
+	private SetError(token: Token, id: number, message: string): Token {
+		token.Id = id;
+		token.Name = CodeHelper.ErrorName(id);
+		token.Type = Tokentype.err;
+		token.Str = message;
+		token.Num = 0;
+		token.Order = -99999;
+
+		return token;
 	}
 
 	/**
