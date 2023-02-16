@@ -279,7 +279,7 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map() };
+        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map(), Errors: 0 };
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
@@ -447,13 +447,15 @@ class G64Basic {
                 token.Values = [];
                 token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
                 token.hint = cmd.name;
-                const def = cmd.param;
                 for (let j = 0; j < split.length; j++) {
                     let tkn = this.Tokenizer(split[j]);
+                    if (token.Type == Tokentype.err)
+                        break;
                     token.Values.push(tkn);
                     if (!this.IsPlainType(tkn))
                         this.m_TknData.Tokens.push(tkn);
                 }
+                token = this.CheckType(token);
                 console.log("----->", cmd.name, ":", split);
                 break;
             }
@@ -477,13 +479,22 @@ class G64Basic {
                 for (let i = 0; i < token.Values.length; i++) {
                     const paramType = param.type[Math.min(i, param.type.length - 1)];
                     const tkn = token.Values[i];
-                    console.log("->", paramType, tkn);
                     switch (paramType) {
                         case ParamType.num:
                         case ParamType.adr:
                         case ParamType.byte:
                             if (!this.IsNum(tkn))
                                 token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "parameter #" + (i + 1).toString() + " is not a number");
+                            break;
+                        case ParamType.str:
+                            if (!this.IsStr(tkn))
+                                token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "parameter #" + (i + 1).toString() + " is not a string");
+                            break;
+                        case ParamType.same:
+                            if (i > 0 && token.Values.length > 0) {
+                                if (this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
+                                    token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "types don't match");
+                            }
                             break;
                     }
                     if (token.Type == Tokentype.err)
@@ -515,7 +526,7 @@ class G64Basic {
         token.Type = Tokentype.err;
         token.Str = message;
         token.Num = 0;
-        token.Order = -99999;
+        token.Order = -99999 + this.m_TknData.Errors++;
         return token;
     }
     SortTokenArray(aToken) {

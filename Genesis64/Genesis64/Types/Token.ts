@@ -47,4 +47,5 @@ type TokenizeData = {
 	Vars: Token[];					// vars so far
 	VarMap: Map<string, number>;	// helper map to match var name <-> token
 	DimMap: Map<string, boolean>;	// helper map that stores if an array is created by dim or access
+	Errors: number;					// number of errors
 }
