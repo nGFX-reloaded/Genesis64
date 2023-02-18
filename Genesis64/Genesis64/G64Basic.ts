@@ -57,9 +57,14 @@ class G64Basic {
 
 	private regBracket: RegExp = /^[\(\[](.*)[\)\]]$/;
 
-	private regEncodeCompCmd: RegExp[];
-	private regEncodeCompArray: RegExp;
-	private regEncodeArray: RegExp;
+	private regArrayStart: RegExp = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/; // finds the start of an array
+	private regEncodeCompCmd: RegExp[] = [
+		/^for(.*)to/,
+		/^.+then(.*)/,
+		/^let\s*(.*)/,
+		/^def\s*fn\s*(.*)/
+	]; // exclude = / == check for these
+	private regEncodeArray: RegExp = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;	// find array start for the () to [] converter, includes fn (to filter out later)
 
 	//#endregion
 
@@ -78,18 +83,6 @@ class G64Basic {
 	//#region " ----- Init ----- "
 
 	public Init(options: G64BasicOptions) {
-
-		// exclude = to == conversion for these
-		this.regEncodeCompCmd = [
-			/^for(.*)to/,
-			/^.+then(.*)/,
-			/^let\s*(.*)/,
-			/^def\s*fn\s*(.*)/
-		];
-		// ToDo: check if these are needed?
-		this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/; // finds the start of an array
-		this.regEncodeArray = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;	// find array for the () to [] converter
-		//this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;	// find array for the () to [] converter
 
 		switch (options.basicVersion) {
 			case BasicVersion.v2:
@@ -398,9 +391,9 @@ class G64Basic {
 		this.regIsCmd.lastIndex = -1;
 
 		if (!this.regIsCmd.test(code)) {
-			this.regEncodeCompArray.lastIndex = -1;
+			this.regArrayStart.lastIndex = -1;
 
-			match = this.regEncodeCompArray.exec(code);
+			match = this.regArrayStart.exec(code);
 			if (match !== null) {
 
 				// skip inside of arrays

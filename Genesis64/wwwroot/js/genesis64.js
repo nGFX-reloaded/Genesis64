@@ -24,6 +24,14 @@ class G64Basic {
         this.regIsOps = /\+|\-|\*|\/|\^|and|or/;
         this.regIsComp = /./;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
+        this.regArrayStart = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
+        this.regEncodeCompCmd = [
+            /^for(.*)to/,
+            /^.+then(.*)/,
+            /^let\s*(.*)/,
+            /^def\s*fn\s*(.*)/
+        ];
+        this.regEncodeArray = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -31,14 +39,6 @@ class G64Basic {
         this.m_Mem = Genesis64.Instance.Memory;
     }
     Init(options) {
-        this.regEncodeCompCmd = [
-            /^for(.*)to/,
-            /^.+then(.*)/,
-            /^let\s*(.*)/,
-            /^def\s*fn\s*(.*)/
-        ];
-        this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
-        this.regEncodeArray = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;
         switch (options.basicVersion) {
             case BasicVersion.v2:
                 Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
@@ -250,8 +250,8 @@ class G64Basic {
         }
         this.regIsCmd.lastIndex = -1;
         if (!this.regIsCmd.test(code)) {
-            this.regEncodeCompArray.lastIndex = -1;
-            match = this.regEncodeCompArray.exec(code);
+            this.regArrayStart.lastIndex = -1;
+            match = this.regArrayStart.exec(code);
             if (match !== null) {
                 if (match[2] !== "") {
                     const tuple = CodeHelper.FindMatching(code, 0, "[", "]");
