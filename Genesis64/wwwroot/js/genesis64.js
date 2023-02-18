@@ -21,8 +21,8 @@ class G64Basic {
         this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regLiteral = /^{(\d+)}$/;
-        this.regIsOps = /\+|\-|\*|\/|\^|and|or/;
-        this.regIsComp = /./;
+        this.regIsOps = /\+|\-|\*|\/|\^|and|or|not/;
+        this.regIsComp = /==|!=|<>|<=|<|>=|>/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regArrayStart = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
         this.regEncodeCompCmd = [
@@ -209,9 +209,12 @@ class G64Basic {
                     break;
             }
         }
-        this.regIsCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
-        this.regIsFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+        this.regIsCmd = this.CreateListRegExp(aCmd);
+        this.regIsFn = this.CreateListRegExp(aFn);
         this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+    }
+    CreateListRegExp(list) {
+        return new RegExp("^(" + list.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
     }
     EncodeArray(code) {
         if (code.startsWith("dim"))
@@ -221,19 +224,22 @@ class G64Basic {
         if (match !== null) {
             for (let m = 0; m < match.length; m++) {
                 const subMatch = match[m].match(this.regIsCmd);
+                console.log("[]->", subMatch);
                 if (subMatch !== null)
                     match[m] = match[m].replace(subMatch[1], "");
-                this.regIsFn.lastIndex = -1;
-                if (!this.regIsFn.test(match[m])) {
-                    const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
-                    if (!CodeHelper.IsMatching(tuple)) {
-                        tuple[1] = code.length;
-                        code += ")";
-                    }
-                    if (CodeHelper.IsMatching(tuple)) {
-                        code = code.substring(0, tuple[0]) + "["
-                            + code.substring(tuple[0] + 1, tuple[1]) + "]"
-                            + code.substring(tuple[1] + 1);
+                if (match[m] != subMatch[2]) {
+                    this.regIsFn.lastIndex = -1;
+                    if (!this.regIsFn.test(match[m])) {
+                        const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
+                        if (!CodeHelper.IsMatching(tuple)) {
+                            tuple[1] = code.length;
+                            code += ")";
+                        }
+                        if (CodeHelper.IsMatching(tuple)) {
+                            code = code.substring(0, tuple[0]) + "["
+                                + code.substring(tuple[0] + 1, tuple[1]) + "]"
+                                + code.substring(tuple[1] + 1);
+                        }
                     }
                 }
             }

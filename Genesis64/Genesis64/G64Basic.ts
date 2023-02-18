@@ -52,8 +52,8 @@ class G64Basic {
 	private regVar: RegExp = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;	// a single variable (or array, with g64 delimiters [])
 	private regNum: RegExp = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/; // a single number
 	private regLiteral: RegExp = /^{(\d+)}$/;
-	private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or/; // ToDo: create by list
-	private regIsComp: RegExp = /./;
+	private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or|not/; // ToDo: create from list
+	private regIsComp: RegExp = /==|!=|<>|<=|<|>=|>/; // ToDo: create from list
 
 	private regBracket: RegExp = /^[\(\[](.*)[\)\]]$/;
 
@@ -318,10 +318,15 @@ class G64Basic {
 			}
 		}
 
-		this.regIsCmd = new RegExp("^(" + aCmd.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
-		this.regIsFn = new RegExp("^(" + aFn.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
+		// ToDo: move escape and list creation to own method
+		this.regIsCmd = this.CreateListRegExp(aCmd);
+		this.regIsFn = this.CreateListRegExp(aFn);
 		this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
 
+	}
+
+	private CreateListRegExp(list: string[]): RegExp {
+		return new RegExp("^(" + list.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
 	}
 
 	//#endregion
@@ -345,23 +350,27 @@ class G64Basic {
 
 				// remove cmds
 				const subMatch: string[] = match[m].match(this.regIsCmd);
+				console.log("[]->", subMatch);
 				if (subMatch !== null)
 					match[m] = match[m].replace(subMatch[1], "");
 
-				this.regIsFn.lastIndex = -1;
-				if (!this.regIsFn.test(match[m])) {
-					const tuple: number[] = CodeHelper.FindMatching(code, code.indexOf(match[m]));
+				if (match[m] != subMatch[2]) {
 
-					// fix unclosed arrays
-					if (!CodeHelper.IsMatching(tuple)) {
-						tuple[1] = code.length;
-						code += ")";
-					}
+					this.regIsFn.lastIndex = -1;
+					if (!this.regIsFn.test(match[m])) {
+						const tuple: number[] = CodeHelper.FindMatching(code, code.indexOf(match[m]));
 
-					if (CodeHelper.IsMatching(tuple)) {
-						code = code.substring(0, tuple[0]) + "["
-							+ code.substring(tuple[0] + 1, tuple[1]) + "]"
-							+ code.substring(tuple[1] + 1);
+						// fix unclosed arrays
+						if (!CodeHelper.IsMatching(tuple)) {
+							tuple[1] = code.length;
+							code += ")";
+						}
+
+						if (CodeHelper.IsMatching(tuple)) {
+							code = code.substring(0, tuple[0]) + "["
+								+ code.substring(tuple[0] + 1, tuple[1]) + "]"
+								+ code.substring(tuple[1] + 1);
+						}
 					}
 				}
 			}

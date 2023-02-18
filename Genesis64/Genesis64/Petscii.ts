@@ -399,7 +399,7 @@ class Petscii {
 
 	/**
 	 * Convert bastext to html using the C64_Pro_Mono-STYLE font 
-	 * ToDo: move to a better lace
+	 * ToDo: move to a better place
 	 * @param text		string
 	 * @param useLower	boolean, use uppercase/gfx or lowercase/uppercase
 	 **/
