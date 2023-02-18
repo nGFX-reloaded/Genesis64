@@ -42,17 +42,20 @@ class G64Basic {
 
 	//#region " ----- Regex ----- "
 
-	private regLineNr: RegExp;
 	private regIsCmd: RegExp;
 	private regIsFn: RegExp;
 	private regIsAbbrv: RegExp;
-	private regIsOps: RegExp;
 
-	private regLet: RegExp;
-	private regVar: RegExp;
-	private regNum: RegExp;
-	private regBracket: RegExp;
-	private regLiteral: RegExp;
+	private regLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;	// finds a line number, groups into lnr and rest
+
+	private regLet: RegExp = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/; // assignment (optional let)
+	private regVar: RegExp = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;	// a single variable (or array, with g64 delimiters [])
+	private regNum: RegExp = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/; // a single number
+	private regLiteral: RegExp = /^{(\d+)}$/;
+	private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or/; // ToDo: create by list
+	private regIsComp: RegExp = /./;
+
+	private regBracket: RegExp = /^[\(\[](.*)[\)\]]$/;
 
 	private regEncodeCompCmd: RegExp[];
 	private regEncodeCompArray: RegExp;
@@ -76,17 +79,6 @@ class G64Basic {
 
 	public Init(options: G64BasicOptions) {
 
-		// global regexp
-		this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;	// finds a line number, groups into lnr and rest
-
-		this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=]*)$/; // assignment (optional let)
-		this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;	// a single variable (or array, with g64 delimiters [])
-		this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
-		this.regBracket = /^[\(\[](.*)[\)\]]$/;
-		this.regLiteral = /^{(\d+)}$/;
-
-		this.regIsOps = /\+|\-|\*|\/|\^|and|or/; // ToDo: create by list
-
 		// exclude = to == conversion for these
 		this.regEncodeCompCmd = [
 			/^for(.*)to/,
@@ -96,7 +88,8 @@ class G64Basic {
 		];
 		// ToDo: check if these are needed?
 		this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/; // finds the start of an array
-		this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;	// find array for the () to [] converter
+		this.regEncodeArray = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;	// find array for the () to [] converter
+		//this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;	// find array for the () to [] converter
 
 		switch (options.basicVersion) {
 			case BasicVersion.v2:
@@ -131,6 +124,7 @@ class G64Basic {
 		const paramPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
 		const paramLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
 		const paramOpsNum: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
+		const paramOpsAny: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
 
 		const paramPrint: CmdParameter = {
 			fn: (code: string): string[] => { return [code] },
@@ -232,7 +226,7 @@ class G64Basic {
 			{ name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: paramOpsNum },
 			{ name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: paramOpsNum },
 			{ name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: paramOpsNum },
-			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsNum }, /* this is any */
+			{ name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsAny }, /* this is any */
 			{ name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: paramOpsNum },
 
 			//
@@ -297,14 +291,14 @@ class G64Basic {
 			switch (this.m_Commands[i].type) {
 				case CmdType.cmd:
 					this.m_Commands[i].ret = Tokentype.cmd;
-					aCmd.push(this.m_Commands[i].name);
 					this.m_lstCmd.push(i);
+					aCmd.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.fnum:
 					this.m_Commands[i].ret = Tokentype.fnnum;
-					aFn.push(this.m_Commands[i].name);
 					this.m_lstFnNum.push(i);
+					aFn.push(this.m_Commands[i].name);
 					break;
 
 				case CmdType.fstr:
@@ -352,7 +346,6 @@ class G64Basic {
 			return code;
 
 		this.regEncodeArray.lastIndex = -1;
-
 		const match: string[] = code.match(this.regEncodeArray);
 		if (match !== null) {
 			for (let m: number = 0; m < match.length; m++) {
@@ -518,10 +511,20 @@ class G64Basic {
 		let match: string[];
 		let id: number = 0;
 
+		code = code.trim();
+
 		// set nesting level
 		this.m_TknData.Level++;
 
-		code = code.trim();
+		// reset regexes
+		this.regBracket.lastIndex = -1;
+		this.regLet.lastIndex = -1;
+		this.regIsCmd.lastIndex = -1;
+		this.regIsFn.lastIndex = -1;
+		this.regVar.lastIndex = -1;
+		this.regNum.lastIndex = -1;
+		this.regLiteral.lastIndex = -1;
+
 
 		//
 		// ----- errors -----
@@ -530,7 +533,6 @@ class G64Basic {
 
 		//
 		// if code starts and ends with () or [] and they are matching -> remove
-		this.regBracket.lastIndex = -1;
 		match = this.regBracket.exec(code);
 		if (match !== null) {
 			const tuple: [number, number] = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
@@ -542,31 +544,28 @@ class G64Basic {
 		// start with assign which is LET without let, if there's a let, remove it
 		match = this.regLet.exec(code);
 		if (match !== null) {
-			console.log("- let:", match);
 			return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
+			console.log("- let:", match);
 		}
 
 		//
 		// commands, every line needs one
-		this.regIsCmd.lastIndex = -1;
 		match = this.regIsCmd.exec(code);
 		if (match !== null) {
-			console.log("- cmd:", match);
 			return this.TokenizeItem(token, match[1], match[2]);
+			console.log("- cmd:", match);
 		}
 
 		//
 		// functions
-		this.regIsFn.lastIndex = -1;
 		match = this.regIsFn.exec(code);
 		if (match !== null) {
-			console.log("- fn:", match);
 			return this.TokenizeItem(token, match[1], match[2]);
+			console.log("- fn:", match);
 		}
 
 		//
 		// ----- variables -----
-		this.regVar.lastIndex = -1;
 		match = this.regVar.exec(code);
 		if (match !== null) {
 			console.log("- var:", match);
@@ -577,7 +576,6 @@ class G64Basic {
 
 		//
 		// ----- number -----
-		this.regNum.lastIndex = -1;
 		match = this.regNum.exec(code);
 		if (match !== null) {
 			token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
@@ -587,7 +585,6 @@ class G64Basic {
 
 		//
 		// ----- literal -----
-		this.regLiteral.lastIndex = -1;
 		match = this.regLiteral.exec(code);
 		if (match !== null) {
 			token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
@@ -600,8 +597,8 @@ class G64Basic {
 		this.regIsOps.lastIndex = -1;
 		match = this.regIsOps.exec(code);
 		if (match !== null) {
-			console.log("- ops:", match);
 			return this.TokenizeOps(token, code);
+			console.log("- ops:", match);
 		}
 
 		console.log("-- no token or error");
@@ -746,7 +743,7 @@ class G64Basic {
 				for (let j = 0; j < split.length; j++) {
 					let tkn: Token = this.Tokenizer(split[j]);
 
-					// do not add param tokens on error
+					// do not add forther param tokens on error
 					if (token.Type == Tokentype.err)
 						break;
 
@@ -760,7 +757,16 @@ class G64Basic {
 
 				token = this.CheckType(token);
 
-				console.log("----->", cmd.name, ":", split);
+				// set return type to first value
+				if (token.Type != Tokentype.err && token.Values.length > 0) {
+					if (this.IsNum(token.Values[0])) {
+						token.Type = Tokentype.fnnum;
+					} else {
+						if (this.IsStr(token.Values[0]))
+							token.Type = Tokentype.fnstr;
+					}
+				}
+
 				break;
 			}
 
@@ -876,10 +882,10 @@ class G64Basic {
 	private SetError(token: Token, id: number, message: string): Token {
 		token.Id = id;
 		token.Name = CodeHelper.ErrorName(id);
+		token.Order = -99999 + ((token.Type == Tokentype.nop) ? 0 : this.m_TknData.Errors++);
 		token.Type = Tokentype.err;
 		token.Str = message;
 		token.Num = 0;
-		token.Order = -99999 + this.m_TknData.Errors++;
 
 		return token;
 	}

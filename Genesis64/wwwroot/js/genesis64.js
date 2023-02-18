@@ -16,6 +16,14 @@ class G64Basic {
         this.m_lstComp = [];
         this.m_mapDeAbbrev = new Map();
         this.m_mapCmdId = new Map();
+        this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
+        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/;
+        this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
+        this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
+        this.regLiteral = /^{(\d+)}$/;
+        this.regIsOps = /\+|\-|\*|\/|\^|and|or/;
+        this.regIsComp = /./;
+        this.regBracket = /^[\(\[](.*)[\)\]]$/;
         Genesis64.Instance.Log(" - Basic created\n");
         this.m_Options = {
             basicVersion: BasicVersion.v2
@@ -23,13 +31,6 @@ class G64Basic {
         this.m_Mem = Genesis64.Instance.Memory;
     }
     Init(options) {
-        this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
-        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=]*)$/;
-        this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
-        this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
-        this.regBracket = /^[\(\[](.*)[\)\]]$/;
-        this.regLiteral = /^{(\d+)}$/;
-        this.regIsOps = /\+|\-|\*|\/|\^|and|or/;
         this.regEncodeCompCmd = [
             /^for(.*)to/,
             /^.+then(.*)/,
@@ -37,7 +38,7 @@ class G64Basic {
             /^def\s*fn\s*(.*)/
         ];
         this.regEncodeCompArray = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
-        this.regEncodeArray = /((?:fn\s*)?([a-zA-Z]+\d*[$%]?))\s*\(/g;
+        this.regEncodeArray = /(?:fn\s*)?[a-zA-Z]+\d*[$%]?\s*\(/g;
         switch (options.basicVersion) {
             case BasicVersion.v2:
                 Genesis64.Instance.Log("   ... setting up BASIC V2 ... ");
@@ -60,6 +61,7 @@ class G64Basic {
         const paramPoke = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
         const paramLet = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
         const paramOpsNum = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
+        const paramOpsAny = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
         const paramPrint = {
             fn: (code) => { return [code]; },
             chr: "",
@@ -143,7 +145,7 @@ class G64Basic {
             { name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: paramOpsNum },
             { name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: paramOpsNum },
             { name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: paramOpsNum },
-            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsNum },
+            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsAny },
             { name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: paramOpsNum },
         ];
     }
@@ -179,13 +181,13 @@ class G64Basic {
             switch (this.m_Commands[i].type) {
                 case CmdType.cmd:
                     this.m_Commands[i].ret = Tokentype.cmd;
-                    aCmd.push(this.m_Commands[i].name);
                     this.m_lstCmd.push(i);
+                    aCmd.push(this.m_Commands[i].name);
                     break;
                 case CmdType.fnum:
                     this.m_Commands[i].ret = Tokentype.fnnum;
-                    aFn.push(this.m_Commands[i].name);
                     this.m_lstFnNum.push(i);
+                    aFn.push(this.m_Commands[i].name);
                     break;
                 case CmdType.fstr:
                     this.m_Commands[i].ret = Tokentype.fnstr;
@@ -312,9 +314,15 @@ class G64Basic {
         let token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
         let match;
         let id = 0;
-        this.m_TknData.Level++;
         code = code.trim();
+        this.m_TknData.Level++;
         this.regBracket.lastIndex = -1;
+        this.regLet.lastIndex = -1;
+        this.regIsCmd.lastIndex = -1;
+        this.regIsFn.lastIndex = -1;
+        this.regVar.lastIndex = -1;
+        this.regNum.lastIndex = -1;
+        this.regLiteral.lastIndex = -1;
         match = this.regBracket.exec(code);
         if (match !== null) {
             const tuple = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
@@ -323,22 +331,19 @@ class G64Basic {
         }
         match = this.regLet.exec(code);
         if (match !== null) {
-            console.log("- let:", match);
             return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
+            console.log("- let:", match);
         }
-        this.regIsCmd.lastIndex = -1;
         match = this.regIsCmd.exec(code);
         if (match !== null) {
-            console.log("- cmd:", match);
             return this.TokenizeItem(token, match[1], match[2]);
+            console.log("- cmd:", match);
         }
-        this.regIsFn.lastIndex = -1;
         match = this.regIsFn.exec(code);
         if (match !== null) {
-            console.log("- fn:", match);
             return this.TokenizeItem(token, match[1], match[2]);
+            console.log("- fn:", match);
         }
-        this.regVar.lastIndex = -1;
         match = this.regVar.exec(code);
         if (match !== null) {
             console.log("- var:", match);
@@ -346,14 +351,12 @@ class G64Basic {
                 match[2] = "";
             return this.TokenizeVar(token, match[1], match[2]);
         }
-        this.regNum.lastIndex = -1;
         match = this.regNum.exec(code);
         if (match !== null) {
             token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
             token.hint = "number";
             return token;
         }
-        this.regLiteral.lastIndex = -1;
         match = this.regLiteral.exec(code);
         if (match !== null) {
             token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
@@ -363,8 +366,8 @@ class G64Basic {
         this.regIsOps.lastIndex = -1;
         match = this.regIsOps.exec(code);
         if (match !== null) {
-            console.log("- ops:", match);
             return this.TokenizeOps(token, code);
+            console.log("- ops:", match);
         }
         console.log("-- no token or error");
         token.Num = -1;
@@ -456,7 +459,15 @@ class G64Basic {
                         this.m_TknData.Tokens.push(tkn);
                 }
                 token = this.CheckType(token);
-                console.log("----->", cmd.name, ":", split);
+                if (token.Type != Tokentype.err && token.Values.length > 0) {
+                    if (this.IsNum(token.Values[0])) {
+                        token.Type = Tokentype.fnnum;
+                    }
+                    else {
+                        if (this.IsStr(token.Values[0]))
+                            token.Type = Tokentype.fnstr;
+                    }
+                }
                 break;
             }
         }
@@ -523,10 +534,10 @@ class G64Basic {
     SetError(token, id, message) {
         token.Id = id;
         token.Name = CodeHelper.ErrorName(id);
+        token.Order = -99999 + ((token.Type == Tokentype.nop) ? 0 : this.m_TknData.Errors++);
         token.Type = Tokentype.err;
         token.Str = message;
         token.Num = 0;
-        token.Order = -99999 + this.m_TknData.Errors++;
         return token;
     }
     SortTokenArray(aToken) {
