@@ -52,7 +52,8 @@ class G64Basic {
 	private regVar: RegExp = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;	// a single variable (or array, with g64 delimiters [])
 	private regNum: RegExp = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/; // a single number
 	private regLiteral: RegExp = /^{(\d+)}$/;
-	private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or|not/; // ToDo: create from list
+	//private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or|not/; // ToDo: create from list
+	private regIsOps: RegExp = /not|or|and|\^|\*|\/|\+|\-/; // ToDo: create from list
 	private regIsComp: RegExp = /==|!=|<>|<=|>=|<|>/; // ToDo: create from list
 
 	private regBracket: RegExp = /^[\(\[](.*)[\)\]]$/;
@@ -320,7 +321,7 @@ class G64Basic {
 
 				case CmdType.comp:
 					this.m_Commands[i].Ret = Tokentype.fnnum;
-					this.m_lstOps.push(i);
+					this.m_lstComp.push(i);
 					break;
 			}
 		}
@@ -534,15 +535,7 @@ class G64Basic {
 
 		//
 		// if code starts and ends with () or [] and they are matching -> remove
-		while (this.regBracket.test(code)) {
-			match = this.regBracket.exec(code);
-			if (match !== null) {
-				const tuple: [number, number] = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
-				if (tuple[0] == 0 && tuple[1] == (code.length - 1))
-					code = match[1];
-			}
-		}
-
+		code = this.RemoveBrackets(code);
 
 		// start with assign which is LET without let, if there's a let, remove it
 		match = this.regLet.exec(code);
@@ -601,7 +594,7 @@ class G64Basic {
 		match = this.regIsOps.exec(code);
 		if (match !== null) {
 			console.log("- ops:", match);
-			return this.TokenizeOps(token, code);
+			return this.TokenizeOps(token, Tokentype.ops, code);
 		}
 
 		//
@@ -611,7 +604,7 @@ class G64Basic {
 		match = this.regIsComp.exec(code);
 		if (match !== null) {
 			console.log("- comp:", match);
-			return this.TokenizeOps(token, code);
+			return this.TokenizeOps(token, Tokentype.comp, code);
 		}
 
 		console.log("-- no token or error");
@@ -684,12 +677,14 @@ class G64Basic {
 	 **/
 	private TokenizeVar(token: Token, item: string, index: string): Token {
 
+		// single var
 		if (index === "") {
 			let varType: Tokentype = Tokentype.vnum;
 			if (item.endsWith("$")) {
 				varType = Tokentype.vstr;
-			} else if (item.endsWith("%")) {
-				varType = Tokentype.vint;
+			} else {
+				if (item.endsWith("%"))
+					varType = Tokentype.vint;
 			}
 
 			// add var to var list and map (or return token if already in there)
@@ -703,12 +698,28 @@ class G64Basic {
 				token.Str = "";		// set via let
 				token.Num = 0;		// set via let
 				token.Values = [];
-				token.Order = 99999; // vars don't need to be added to tokenlist, just to varlist // (-this.m_TknData.Level * 10);
+				token.Order = 99999; // vars don't need to be added to tokenlist, just to varlist
 				token.hint = "var";
 
 				this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
 				this.m_TknData.Vars.push(token);
 			}
+
+		} else {
+			const split: string[] = this.Splitter(this.RemoveBrackets(index), ",");
+
+			// check if dim exits, otherwise create vars and dim entry
+
+			// tokenize params and check type
+			for (let i = 0; i < split.length; i++) {
+				let tkn: Token = this.Tokenizer(split[i]);
+
+			}
+
+			console.log("we have an array:", item, split);
+
+			
+
 		}
 
 		return token;
@@ -720,25 +731,36 @@ class G64Basic {
 	 * @param			code			code to tokenize
 	 * @returns			Token
 	 **/
-	private TokenizeOps(token: Token, code: string): Token {
+	private TokenizeOps(token: Token, type: Tokentype, code: string): Token {
 
 		// combine double ops like --, ++, -+ and +-
-		while (/[\+\-]\s*[\+\-]/.test(code))
-			code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
+		if (type == Tokentype.ops)
+			while (/[\+\-]\s*[\+\-]/.test(code))
+				code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
 
-		// go over ops in reverse order of importance
-		for (let i = 0; i < this.m_lstOps.length; i++) {
+		// go over ops/comps
+		const list: number[] = (type == Tokentype.ops) ? this.m_lstOps : this.m_lstComp;
+		for (let i = 0; i < list.length; i++) {
 
-			const cmd: BasicCmd = this.m_Commands[this.m_lstOps[i]];
-			const split: string[] = this.Splitter(code, cmd.Name);
+			const cmd: BasicCmd = this.m_Commands[list[i]];
+			let split: string[] = this.Splitter(code, cmd.Name);
 
-			// if split is empty, chances are high that we have something like x*-y
-			// as variables can't be negative we cheat and turn this into x*0-y
 			if (split.length > 1) {
-				for (let j = 0; j < split.length; j++) {
-					if (split[j] === "")
-						split[j] = "0";
+				if (type == Tokentype.ops) {
+					// if split is empty, chances are high that we have something like x*-y
+					// as variables can't be negative we cheat and turn this into x*0-y
+					for (let j = 0; j < split.length; j++) {
+						if (split[j] === "")
+							split[j] = "0";
+					}
+
+				} else {
+					// comps are not chained like ops, so just take the first and feed the rest back in
+					const tmpA: string = split.shift();
+					const tmpB: string = split.join(cmd.Name);
+					split = [tmpA, tmpB];
 				}
+
 			}
 
 			// found at least one pair
@@ -860,6 +882,24 @@ class G64Basic {
 		return CodeHelper.CodeSplitter(code, split);
 	}
 
+	/**
+	 * Remove brackets from code, convert (1) into 1, works for () and []
+	 * @param			code			code to remove brackets
+	 * @returns			string
+	 **/
+	private RemoveBrackets(code: string): string {
+
+		while (this.regBracket.test(code)) {
+			const match: RegExpMatchArray = this.regBracket.exec(code);
+			if (match !== null) {
+				const tuple: [number, number] = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
+				if (tuple[0] == 0 && tuple[1] == (code.length - 1))
+					code = match[1];
+			}
+		}
+
+		return code;
+	}
 
 	//
 	//

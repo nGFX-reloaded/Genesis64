@@ -21,7 +21,7 @@ class G64Basic {
         this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regLiteral = /^{(\d+)}$/;
-        this.regIsOps = /\+|\-|\*|\/|\^|and|or|not/;
+        this.regIsOps = /not|or|and|\^|\*|\/|\+|\-/;
         this.regIsComp = /==|!=|<>|<=|>=|<|>/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regArrayStart = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
@@ -212,7 +212,7 @@ class G64Basic {
                     break;
                 case CmdType.comp:
                     this.m_Commands[i].Ret = Tokentype.fnnum;
-                    this.m_lstOps.push(i);
+                    this.m_lstComp.push(i);
                     break;
             }
         }
@@ -335,14 +335,7 @@ class G64Basic {
         this.regVar.lastIndex = -1;
         this.regNum.lastIndex = -1;
         this.regLiteral.lastIndex = -1;
-        while (this.regBracket.test(code)) {
-            match = this.regBracket.exec(code);
-            if (match !== null) {
-                const tuple = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
-                if (tuple[0] == 0 && tuple[1] == (code.length - 1))
-                    code = match[1];
-            }
-        }
+        code = this.RemoveBrackets(code);
         match = this.regLet.exec(code);
         if (match !== null) {
             console.log("- let:", match);
@@ -381,13 +374,13 @@ class G64Basic {
         match = this.regIsOps.exec(code);
         if (match !== null) {
             console.log("- ops:", match);
-            return this.TokenizeOps(token, code);
+            return this.TokenizeOps(token, Tokentype.ops, code);
         }
         this.regIsComp.lastIndex = -1;
         match = this.regIsComp.exec(code);
         if (match !== null) {
             console.log("- comp:", match);
-            return this.TokenizeOps(token, code);
+            return this.TokenizeOps(token, Tokentype.comp, code);
         }
         console.log("-- no token or error");
         token.Num = -1;
@@ -428,8 +421,9 @@ class G64Basic {
             if (item.endsWith("$")) {
                 varType = Tokentype.vstr;
             }
-            else if (item.endsWith("%")) {
-                varType = Tokentype.vint;
+            else {
+                if (item.endsWith("%"))
+                    varType = Tokentype.vint;
             }
             if (this.m_TknData.VarMap.has(item)) {
                 token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
@@ -447,18 +441,34 @@ class G64Basic {
                 this.m_TknData.Vars.push(token);
             }
         }
+        else {
+            const split = this.Splitter(this.RemoveBrackets(index), ",");
+            for (let i = 0; i < split.length; i++) {
+                let tkn = this.Tokenizer(split[i]);
+            }
+            console.log("we have an array:", item, split);
+        }
         return token;
     }
-    TokenizeOps(token, code) {
-        while (/[\+\-]\s*[\+\-]/.test(code))
-            code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
-        for (let i = 0; i < this.m_lstOps.length; i++) {
-            const cmd = this.m_Commands[this.m_lstOps[i]];
-            const split = this.Splitter(code, cmd.Name);
+    TokenizeOps(token, type, code) {
+        if (type == Tokentype.ops)
+            while (/[\+\-]\s*[\+\-]/.test(code))
+                code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
+        const list = (type == Tokentype.ops) ? this.m_lstOps : this.m_lstComp;
+        for (let i = 0; i < list.length; i++) {
+            const cmd = this.m_Commands[list[i]];
+            let split = this.Splitter(code, cmd.Name);
             if (split.length > 1) {
-                for (let j = 0; j < split.length; j++) {
-                    if (split[j] === "")
-                        split[j] = "0";
+                if (type == Tokentype.ops) {
+                    for (let j = 0; j < split.length; j++) {
+                        if (split[j] === "")
+                            split[j] = "0";
+                    }
+                }
+                else {
+                    const tmpA = split.shift();
+                    const tmpB = split.join(cmd.Name);
+                    split = [tmpA, tmpB];
                 }
             }
             if (code.includes(cmd.Name)) {
@@ -537,6 +547,17 @@ class G64Basic {
     }
     Splitter(code, split) {
         return CodeHelper.CodeSplitter(code, split);
+    }
+    RemoveBrackets(code) {
+        while (this.regBracket.test(code)) {
+            const match = this.regBracket.exec(code);
+            if (match !== null) {
+                const tuple = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
+                if (tuple[0] == 0 && tuple[1] == (code.length - 1))
+                    code = match[1];
+            }
+        }
+        return code;
     }
     CreateToken(id, type, order, value) {
         const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
