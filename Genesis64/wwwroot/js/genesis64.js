@@ -22,7 +22,7 @@ class G64Basic {
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regLiteral = /^{(\d+)}$/;
         this.regIsOps = /\+|\-|\*|\/|\^|and|or|not/;
-        this.regIsComp = /==|!=|<>|<=|<|>=|>/;
+        this.regIsComp = /==|!=|<>|<=|>=|<|>/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regArrayStart = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
         this.regEncodeCompCmd = [
@@ -74,79 +74,86 @@ class G64Basic {
         const paramFnStr_LR = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
         const paramFnStr_Mid = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
         this.m_Commands = [
-            { name: "close", abbrv: "clO", tkn: 160, type: CmdType.cmd },
-            { name: "clr", abbrv: "cR", tkn: 156, type: CmdType.cmd },
-            { name: "cont", abbrv: "cO", tkn: 154, type: CmdType.cmd },
-            { name: "cmd", abbrv: "cM", tkn: 157, type: CmdType.cmd },
-            { name: "data", abbrv: "dA", tkn: 131, type: CmdType.cmd },
-            { name: "def", abbrv: "dE", tkn: 150, type: CmdType.cmd },
-            { name: "dim", abbrv: "dI", tkn: 134, type: CmdType.cmd },
-            { name: "end", abbrv: "eN", tkn: 128, type: CmdType.cmd },
-            { name: "for", abbrv: "fO", tkn: 129, type: CmdType.cmd },
-            { name: "get", abbrv: "gE", tkn: 161, type: CmdType.cmd },
-            { name: "get#", abbrv: "", tkn: 161, type: CmdType.cmd },
-            { name: "gosub", abbrv: "goS", tkn: 141, type: CmdType.cmd },
-            { name: "goto", abbrv: "gO", tkn: 137, type: CmdType.cmd },
-            { name: "if", abbrv: "", tkn: 139, type: CmdType.cmd },
-            { name: "input", abbrv: "", tkn: 133, type: CmdType.cmd },
-            { name: "input#", abbrv: "iN", tkn: 132, type: CmdType.cmd },
-            { name: "let", abbrv: "lE", tkn: 136, type: CmdType.cmd, param: paramLet },
-            { name: "list", abbrv: "lI", tkn: 155, type: CmdType.cmd },
-            { name: "load", abbrv: "lO", tkn: 147, type: CmdType.cmd, param: paramIO_File },
-            { name: "new", abbrv: "", tkn: 162, type: CmdType.cmd },
-            { name: "next", abbrv: "nE", tkn: 130, type: CmdType.cmd },
-            { name: "on", abbrv: "", tkn: 145, type: CmdType.cmd },
-            { name: "open", abbrv: "oP", tkn: 159, type: CmdType.cmd },
-            { name: "poke", abbrv: "pO", tkn: 151, type: CmdType.cmd, param: paramPoke },
-            { name: "print", abbrv: "?", tkn: 153, type: CmdType.cmd, param: paramPrint },
-            { name: "print#", abbrv: "pR", tkn: 152, type: CmdType.cmd },
-            { name: "read", abbrv: "rE", tkn: 135, type: CmdType.cmd },
-            { name: "rem", abbrv: "", tkn: 143, type: CmdType.cmd },
-            { name: "restore", abbrv: "reS", tkn: 140, type: CmdType.cmd },
-            { name: "return", abbrv: "reT", tkn: 142, type: CmdType.cmd },
-            { name: "run", abbrv: "rU", tkn: 138, type: CmdType.cmd },
-            { name: "save", abbrv: "sA", tkn: 148, type: CmdType.cmd, param: paramIO_File },
-            { name: "stop", abbrv: "sT", tkn: 144, type: CmdType.cmd },
-            { name: "step", abbrv: "stE", tkn: 169, type: CmdType.cmd },
-            { name: "sys", abbrv: "sY", tkn: 158, type: CmdType.cmd },
-            { name: "then", abbrv: "tH", tkn: 167, type: CmdType.cmd },
-            { name: "to", abbrv: "", tkn: 164, type: CmdType.cmd },
-            { name: "verify", abbrv: "vE", tkn: 149, type: CmdType.cmd },
-            { name: "wait", abbrv: "wA", tkn: 146, type: CmdType.cmd },
-            { name: "abs", abbrv: "aB", tkn: 182, type: CmdType.fnum, param: paramFnNum },
-            { name: "asc", abbrv: "aS", tkn: 198, type: CmdType.fnum, param: paramFnNum },
-            { name: "atn", abbrv: "aT", tkn: 193, type: CmdType.fnum, param: paramFnNum },
-            { name: "cos", abbrv: "", tkn: 190, type: CmdType.fnum, param: paramFnNum },
-            { name: "exp", abbrv: "eX", tkn: 189, type: CmdType.fnum, param: paramFnNum },
-            { name: "fn", abbrv: "", tkn: 165, type: CmdType.fnum },
-            { name: "fre", abbrv: "fR", tkn: 184, type: CmdType.fnum, param: paramFnNum },
-            { name: "int", abbrv: "", tkn: 181, type: CmdType.fnum, param: paramFnNum },
-            { name: "len", abbrv: "", tkn: 195, type: CmdType.fnum, param: paramFnStr },
-            { name: "log", abbrv: "", tkn: 188, type: CmdType.fnum, param: paramFnNum },
-            { name: "peek", abbrv: "pE", tkn: 194, type: CmdType.fnum, param: paramFnNum },
-            { name: "pos", abbrv: "", tkn: 185, type: CmdType.fnum, param: paramFnNum },
-            { name: "rnd", abbrv: "rN", tkn: 187, type: CmdType.fnum, param: paramFnNum },
-            { name: "sgn", abbrv: "sG", tkn: 180, type: CmdType.fnum, param: paramFnNum },
-            { name: "sin", abbrv: "sI", tkn: 191, type: CmdType.fnum, param: paramFnNum },
-            { name: "sqr", abbrv: "sQ", tkn: 186, type: CmdType.fnum, param: paramFnNum },
-            { name: "tan", abbrv: "", tkn: 192, type: CmdType.fnum, param: paramFnNum },
-            { name: "usr", abbrv: "uS", tkn: 183, type: CmdType.fnum, param: paramFnAny },
-            { name: "val", abbrv: "vA", tkn: 197, type: CmdType.fnum, param: paramFnStr },
-            { name: "chr$", abbrv: "cH", tkn: 199, type: CmdType.fstr, param: paramFnNum },
-            { name: "left$", abbrv: "leF", tkn: 200, type: CmdType.fstr, param: paramFnStr_LR },
-            { name: "mid$", abbrv: "mI", tkn: 202, type: CmdType.fstr, param: paramFnStr_Mid },
-            { name: "right$", abbrv: "rI", tkn: 201, type: CmdType.fstr, param: paramFnStr_LR },
-            { name: "str$", abbrv: "stR", tkn: 196, type: CmdType.fstr, param: paramFnNum },
-            { name: "spc(", abbrv: "sP", tkn: 166, type: CmdType.fout },
-            { name: "tab(", abbrv: "tA", tkn: 163, type: CmdType.fout },
-            { name: "not", abbrv: "nO", tkn: 168, type: CmdType.ops, param: paramOpsNum },
-            { name: "and", abbrv: "aN", tkn: 175, type: CmdType.ops, param: paramOpsNum },
-            { name: "or", abbrv: "", tkn: 176, type: CmdType.ops, param: paramOpsNum },
-            { name: "^", abbrv: "", tkn: 94, type: CmdType.ops, param: paramOpsNum },
-            { name: "*", abbrv: "", tkn: 42, type: CmdType.ops, param: paramOpsNum },
-            { name: "/", abbrv: "", tkn: 47, type: CmdType.ops, param: paramOpsNum },
-            { name: "+", abbrv: "", tkn: 43, type: CmdType.ops, param: paramOpsAny },
-            { name: "-", abbrv: "", tkn: 45, type: CmdType.ops, param: paramOpsNum },
+            { Name: "close", Abbrv: "clO", TknId: 160, Type: CmdType.cmd },
+            { Name: "clr", Abbrv: "cR", TknId: 156, Type: CmdType.cmd },
+            { Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
+            { Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
+            { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd },
+            { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
+            { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
+            { Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
+            { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd },
+            { Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
+            { Name: "get#", Abbrv: "", TknId: 161, Type: CmdType.cmd },
+            { Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
+            { Name: "goto", Abbrv: "gO", TknId: 137, Type: CmdType.cmd },
+            { Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd },
+            { Name: "input", Abbrv: "", TknId: 133, Type: CmdType.cmd },
+            { Name: "input#", Abbrv: "iN", TknId: 132, Type: CmdType.cmd },
+            { Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: paramLet },
+            { Name: "list", Abbrv: "lI", TknId: 155, Type: CmdType.cmd },
+            { Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd, Param: paramIO_File },
+            { Name: "new", Abbrv: "", TknId: 162, Type: CmdType.cmd },
+            { Name: "next", Abbrv: "nE", TknId: 130, Type: CmdType.cmd },
+            { Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
+            { Name: "open", Abbrv: "oP", TknId: 159, Type: CmdType.cmd },
+            { Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: paramPoke },
+            { Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd, Param: paramPrint },
+            { Name: "print#", Abbrv: "pR", TknId: 152, Type: CmdType.cmd },
+            { Name: "read", Abbrv: "rE", TknId: 135, Type: CmdType.cmd },
+            { Name: "rem", Abbrv: "", TknId: 143, Type: CmdType.cmd },
+            { Name: "restore", Abbrv: "reS", TknId: 140, Type: CmdType.cmd },
+            { Name: "return", Abbrv: "reT", TknId: 142, Type: CmdType.cmd },
+            { Name: "run", Abbrv: "rU", TknId: 138, Type: CmdType.cmd },
+            { Name: "save", Abbrv: "sA", TknId: 148, Type: CmdType.cmd, Param: paramIO_File },
+            { Name: "stop", Abbrv: "sT", TknId: 144, Type: CmdType.cmd },
+            { Name: "step", Abbrv: "stE", TknId: 169, Type: CmdType.cmd },
+            { Name: "sys", Abbrv: "sY", TknId: 158, Type: CmdType.cmd },
+            { Name: "then", Abbrv: "tH", TknId: 167, Type: CmdType.cmd },
+            { Name: "to", Abbrv: "", TknId: 164, Type: CmdType.cmd },
+            { Name: "verify", Abbrv: "vE", TknId: 149, Type: CmdType.cmd },
+            { Name: "wait", Abbrv: "wA", TknId: 146, Type: CmdType.cmd },
+            { Name: "abs", Abbrv: "aB", TknId: 182, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "asc", Abbrv: "aS", TknId: 198, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "atn", Abbrv: "aT", TknId: 193, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "cos", Abbrv: "", TknId: 190, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "exp", Abbrv: "eX", TknId: 189, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "fn", Abbrv: "", TknId: 165, Type: CmdType.fnum },
+            { Name: "fre", Abbrv: "fR", TknId: 184, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "int", Abbrv: "", TknId: 181, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "len", Abbrv: "", TknId: 195, Type: CmdType.fnum, Param: paramFnStr },
+            { Name: "log", Abbrv: "", TknId: 188, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "peek", Abbrv: "pE", TknId: 194, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "pos", Abbrv: "", TknId: 185, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "rnd", Abbrv: "rN", TknId: 187, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "sgn", Abbrv: "sG", TknId: 180, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "sin", Abbrv: "sI", TknId: 191, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "sqr", Abbrv: "sQ", TknId: 186, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "tan", Abbrv: "", TknId: 192, Type: CmdType.fnum, Param: paramFnNum },
+            { Name: "usr", Abbrv: "uS", TknId: 183, Type: CmdType.fnum, Param: paramFnAny },
+            { Name: "val", Abbrv: "vA", TknId: 197, Type: CmdType.fnum, Param: paramFnStr },
+            { Name: "chr$", Abbrv: "cH", TknId: 199, Type: CmdType.fstr, Param: paramFnNum },
+            { Name: "left$", Abbrv: "leF", TknId: 200, Type: CmdType.fstr, Param: paramFnStr_LR },
+            { Name: "mid$", Abbrv: "mI", TknId: 202, Type: CmdType.fstr, Param: paramFnStr_Mid },
+            { Name: "right$", Abbrv: "rI", TknId: 201, Type: CmdType.fstr, Param: paramFnStr_LR },
+            { Name: "str$", Abbrv: "stR", TknId: 196, Type: CmdType.fstr, Param: paramFnNum },
+            { Name: "spc(", Abbrv: "sP", TknId: 166, Type: CmdType.fout, Param: paramFnNum },
+            { Name: "tab(", Abbrv: "tA", TknId: 163, Type: CmdType.fout, Param: paramFnNum },
+            { Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "and", Abbrv: "aN", TknId: 175, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "or", Abbrv: "", TknId: 176, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "^", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "*", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "/", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "+", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsAny },
+            { Name: "-", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "==", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: "!=", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: "<=", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: ">=", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: "<>", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: "<", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
+            { Name: ">", Abbrv: "", TknId: -1, Type: CmdType.comp, Param: paramOpsAny },
         ];
     }
     InitBasicG64() {
@@ -171,41 +178,41 @@ class G64Basic {
             type: [ParamType.any]
         };
         for (let i = 0; i < this.m_Commands.length; i++) {
-            if (this.m_Commands[i].abbrv !== "") {
-                this.m_mapDeAbbrev.set(this.m_Commands[i].abbrv, this.m_Commands[i].name);
-                aAbbrv.push(this.m_Commands[i].abbrv);
+            if (this.m_Commands[i].Abbrv !== "") {
+                this.m_mapDeAbbrev.set(this.m_Commands[i].Abbrv, this.m_Commands[i].Name);
+                aAbbrv.push(this.m_Commands[i].Abbrv);
             }
-            this.m_mapCmdId.set(this.m_Commands[i].name, i);
-            if (typeof this.m_Commands[i].param === "undefined")
-                this.m_Commands[i].param = defEmpty;
-            switch (this.m_Commands[i].type) {
+            this.m_mapCmdId.set(this.m_Commands[i].Name, i);
+            if (typeof this.m_Commands[i].Param === "undefined")
+                this.m_Commands[i].Param = defEmpty;
+            switch (this.m_Commands[i].Type) {
                 case CmdType.cmd:
-                    this.m_Commands[i].ret = Tokentype.cmd;
+                    this.m_Commands[i].Ret = Tokentype.cmd;
                     this.m_lstCmd.push(i);
-                    aCmd.push(this.m_Commands[i].name);
+                    aCmd.push(this.m_Commands[i].Name);
                     break;
                 case CmdType.fnum:
-                    this.m_Commands[i].ret = Tokentype.fnnum;
+                    this.m_Commands[i].Ret = Tokentype.fnnum;
                     this.m_lstFnNum.push(i);
-                    aFn.push(this.m_Commands[i].name);
+                    aFn.push(this.m_Commands[i].Name);
                     break;
                 case CmdType.fstr:
-                    this.m_Commands[i].ret = Tokentype.fnstr;
+                    this.m_Commands[i].Ret = Tokentype.fnstr;
                     this.m_lstFnStr.push(i);
-                    aFn.push(this.m_Commands[i].name);
+                    aFn.push(this.m_Commands[i].Name);
                     break;
                 case CmdType.fout:
-                    this.m_Commands[i].ret = Tokentype.fnout;
+                    this.m_Commands[i].Ret = Tokentype.fnout;
                     this.m_lstFnOut.push(i);
-                    aFn.push(this.m_Commands[i].name);
+                    aFn.push(this.m_Commands[i].Name);
                     break;
                 case CmdType.ops:
-                    this.m_Commands[i].ret = Tokentype.ops;
+                    this.m_Commands[i].Ret = Tokentype.fnnum;
                     this.m_lstOps.push(i);
                     break;
                 case CmdType.comp:
-                    this.m_Commands[i].ret = Tokentype.comp;
-                    this.m_lstComp.push(i);
+                    this.m_Commands[i].Ret = Tokentype.fnnum;
+                    this.m_lstOps.push(i);
                     break;
             }
         }
@@ -224,10 +231,9 @@ class G64Basic {
         if (match !== null) {
             for (let m = 0; m < match.length; m++) {
                 const subMatch = match[m].match(this.regIsCmd);
-                console.log("[]->", subMatch);
                 if (subMatch !== null)
                     match[m] = match[m].replace(subMatch[1], "");
-                if (match[m] != subMatch[2]) {
+                if (match[m].length > 1) {
                     this.regIsFn.lastIndex = -1;
                     if (!this.regIsFn.test(match[m])) {
                         const tuple = CodeHelper.FindMatching(code, code.indexOf(match[m]));
@@ -329,26 +335,28 @@ class G64Basic {
         this.regVar.lastIndex = -1;
         this.regNum.lastIndex = -1;
         this.regLiteral.lastIndex = -1;
-        match = this.regBracket.exec(code);
-        if (match !== null) {
-            const tuple = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
-            if (tuple[0] == 0 && tuple[1] == (code.length - 1))
-                code = match[1];
+        while (this.regBracket.test(code)) {
+            match = this.regBracket.exec(code);
+            if (match !== null) {
+                const tuple = CodeHelper.FindMatching(code, 0, code.charAt(0), code.charAt(code.length - 1));
+                if (tuple[0] == 0 && tuple[1] == (code.length - 1))
+                    code = match[1];
+            }
         }
         match = this.regLet.exec(code);
         if (match !== null) {
-            return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
             console.log("- let:", match);
+            return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
         }
         match = this.regIsCmd.exec(code);
         if (match !== null) {
-            return this.TokenizeItem(token, match[1], match[2]);
             console.log("- cmd:", match);
+            return this.TokenizeItem(token, match[1], match[2]);
         }
         match = this.regIsFn.exec(code);
         if (match !== null) {
-            return this.TokenizeItem(token, match[1], match[2]);
             console.log("- fn:", match);
+            return this.TokenizeItem(token, match[1], match[2]);
         }
         match = this.regVar.exec(code);
         if (match !== null) {
@@ -372,8 +380,14 @@ class G64Basic {
         this.regIsOps.lastIndex = -1;
         match = this.regIsOps.exec(code);
         if (match !== null) {
-            return this.TokenizeOps(token, code);
             console.log("- ops:", match);
+            return this.TokenizeOps(token, code);
+        }
+        this.regIsComp.lastIndex = -1;
+        match = this.regIsComp.exec(code);
+        if (match !== null) {
+            console.log("- comp:", match);
+            return this.TokenizeOps(token, code);
         }
         console.log("-- no token or error");
         token.Num = -1;
@@ -383,14 +397,14 @@ class G64Basic {
     TokenizeItem(token, item, code) {
         if (this.m_mapCmdId.has(item)) {
             token.Id = this.m_mapCmdId.get(item);
-            token.Type = this.m_Commands[token.Id].ret;
-            token.Name = this.m_Commands[token.Id].name;
+            token.Type = this.m_Commands[token.Id].Ret;
+            token.Name = this.m_Commands[token.Id].Name;
             token.Str = "";
             token.Num = 0;
             token.Values = [];
             token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
             token.hint = item;
-            const def = this.m_Commands[token.Id].param;
+            const def = this.m_Commands[token.Id].Param;
             const split = def.fn(code, def.chr);
             if (code.trim() == "")
                 split.pop();
@@ -440,22 +454,22 @@ class G64Basic {
             code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
         for (let i = 0; i < this.m_lstOps.length; i++) {
             const cmd = this.m_Commands[this.m_lstOps[i]];
-            const split = this.Splitter(code, cmd.name);
+            const split = this.Splitter(code, cmd.Name);
             if (split.length > 1) {
                 for (let j = 0; j < split.length; j++) {
                     if (split[j] === "")
                         split[j] = "0";
                 }
             }
-            if (code.includes(cmd.name)) {
-                token.Id = this.m_mapCmdId.get(cmd.name);
-                token.Type = this.m_Commands[token.Id].ret;
-                token.Name = cmd.name;
+            if (code.includes(cmd.Name)) {
+                token.Id = this.m_mapCmdId.get(cmd.Name);
+                token.Type = this.m_Commands[token.Id].Ret;
+                token.Name = cmd.Name;
                 token.Str = "";
                 token.Num = 0;
                 token.Values = [];
                 token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
-                token.hint = cmd.name;
+                token.hint = cmd.Name;
                 for (let j = 0; j < split.length; j++) {
                     let tkn = this.Tokenizer(split[j]);
                     if (token.Type == Tokentype.err)
@@ -481,7 +495,7 @@ class G64Basic {
     }
     CheckType(token) {
         if (token.Id != -1) {
-            const param = this.m_Commands[token.Id].param;
+            const param = this.m_Commands[token.Id].Param;
             if (param.len != -1) {
                 if (token.Values.length < param.len) {
                     token = this.SetError(token, ErrorCodes.SYNTAX, "not enough parameters");
