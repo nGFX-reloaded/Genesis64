@@ -145,6 +145,46 @@ class CodeHelper {
 	}
 
 	/**
+	 * builds the array's index as string name[x,y,z]
+	 * @param name		name of the array
+	 * @param aDepth	array of depth per level [2,3]
+	 */
+	public static CreateArrayIndex(name: string, aDepth: Array<number>): Array<string> {
+		let aIndex: Array<string> = [];
+		let aVals: Array<number> = [];
+
+		// initial val array
+		for (let i: number = 0; i < aDepth.length; i++) aVals.push(0);
+
+		// add first index
+		aIndex.push(name + "[" + aVals.join(",") + "]");
+
+
+		// while the array vals != maxs
+		while (!(function () { for (let i: number = 0; i < aDepth.length; i++) if (aVals[i] != aDepth[i] - 1) return false; return true; })()) {
+			// get the next value sequentially starting from the end of the array
+			aVals = this.BuildIndex(aDepth, aVals);
+			aIndex.push(name + "[" + aVals.join(",") + "]");
+		}
+
+		return aIndex;
+	}
+
+	private static BuildIndex(aMaxList: Array<number>, aValues: Array<number>, index?: number) {
+
+		if (typeof index === "undefined")
+			index = aMaxList.length - 1;
+
+		aValues[index]++;
+		if (aValues[index] >= aMaxList[index]) {
+			aValues[index] = 0;
+			if (index > 0) aValues = this.BuildIndex(aMaxList, aValues, index - 1);
+		}
+
+		return aValues;
+	}
+
+	/**
 	 * Returns the name of an error 
 	 * @param	id			error id
 	 **/

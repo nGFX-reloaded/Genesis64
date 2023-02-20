@@ -16,6 +16,8 @@ type BasicCmd = {
 
 	Param?: CmdParameter;	// a parameter definition
 	Ret?: Tokentype;		// the return type
+
+	Helper?: Function;		// a helper function run after tokenizing (ie: store data somewhere else)
 }
 
 

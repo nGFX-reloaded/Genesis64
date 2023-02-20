@@ -1,6 +1,8 @@
 ﻿
 //#region " ----- Interfaces / Enums / Types ----- "
 
+//import { error } from "jquery";
+
 enum BasicVersion {
 	v2, g64
 }
@@ -115,8 +117,12 @@ class G64Basic {
 
 		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
+		// ToDo: write data splitter that fixes data literals (which can be without ""), see: https://www.c64-wiki.de/wiki/DATA
+		const paramData: CmdParameter = { fn: this.Splitter, chr: ",", len: -1, type: [ParamType.any] };
 		const paramPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
 		const paramLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
+
+
 		const paramOpsNum: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
 		const paramOpsAny: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
 
@@ -141,7 +147,7 @@ class G64Basic {
 			{ Name: "clr", Abbrv: "cR", TknId: 156, Type: CmdType.cmd },
 			{ Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
 			{ Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
-			{ Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd },
+			{ Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
 			{ Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
 			{ Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
 			{ Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
@@ -460,7 +466,7 @@ class G64Basic {
 
 		//console.log(lines);
 
-		this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map<string, number>(), DimMap: new Map<string, boolean>(), Errors: 0 };
+		this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map<string, number>(), DimMap: new Map<string, number[]>(), Data: [], Errors: 0 };
 
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
@@ -677,9 +683,11 @@ class G64Basic {
 	 **/
 	private TokenizeVar(token: Token, item: string, index: string): Token {
 
+		let varType: Tokentype = Tokentype.nop;
+
 		// single var
 		if (index === "") {
-			let varType: Tokentype = Tokentype.vnum;
+			varType = Tokentype.vnum;
 			if (item.endsWith("$")) {
 				varType = Tokentype.vstr;
 			} else {
@@ -698,27 +706,70 @@ class G64Basic {
 				token.Str = "";		// set via let
 				token.Num = 0;		// set via let
 				token.Values = [];
-				token.Order = 99999; // vars don't need to be added to tokenlist, just to varlist
+				token.Order = -9999; // add to tokenlist, right after errors, to make sure vars are created on run
 				token.hint = "var";
 
 				this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
-				this.m_TknData.Vars.push(token);
+				this.m_TknData.Vars.push(token);		// store in vars
+				this.m_TknData.Tokens.push(token);		// store in tokenlist
 			}
 
 		} else {
 			const split: string[] = this.Splitter(this.RemoveBrackets(index), ",");
+			var dim: number[] = [];
+
+			varType = Tokentype.anum;
+			if (item.endsWith("$")) {
+				varType = Tokentype.astr;
+			} else {
+				if (item.endsWith("%"))
+					varType = Tokentype.aint;
+			}
+
+			// setup a dummy token, as arrays work like functions
+			token.Id = -1;
+			token.Type = varType;
+			token.Name = item.substring(0, item.indexOf("["));
+			token.Str = "";		// set via let
+			token.Num = 0;		// set via let
+			token.Values = [];
+			token.Order = -9999 + this.m_TknData.Level; // add to tokenlist, right after errors, to make sure vars are created on run
+			token.hint = "array";
+
 
 			// check if dim exits, otherwise create vars and dim entry
+			if (this.m_TknData.DimMap.has(token.Name)) {
+				// check param length against map length
+				dim = this.m_TknData.DimMap.get(token.Name);
+				if (split.length !== dim.length)
+					token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
 
-			// tokenize params and check type
+			} else {
+				//  create dim data
+				for (let i = 0; i < split.length; i++) {
+					dim.push(11);	// default un-dim'ed arrays are 11 elements long (0-10)
+				}
+
+				this.CreateArray(token, dim);
+			}
+
+
 			for (let i = 0; i < split.length; i++) {
-				let tkn: Token = this.Tokenizer(split[i]);
+				const tkn: Token = this.Tokenizer(split[i]);
+
+				if (!this.IsNum(tkn) && token.Type != Tokentype.err)
+					token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
+
+				if (token.Type != Tokentype.err && tkn.Type == Tokentype.num)
+					if (tkn.Num > dim[i] || tkn.Num < 0)
+						token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dim[i].toString() + ")");
+
+				token.Values.push(tkn);
 
 			}
 
-			console.log("we have an array:", item, split);
-
-			
+			if (token.Type != Tokentype.err)
+				this.m_TknData.Tokens.push(token);		// store in tokenlist
 
 		}
 
@@ -855,7 +906,7 @@ class G64Basic {
 
 						case ParamType.same: // compare with prev. token type (usually a var)
 							if (i > 0 && token.Values.length > 0) {
-								if (this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
+								if (tkn.Type != Tokentype.err && token.Values[i - 1].Type != Tokentype.err && this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
 									token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "types don't match");
 							}
 							break;
@@ -899,6 +950,17 @@ class G64Basic {
 		}
 
 		return code;
+	}
+
+	/**
+	 * Takes a DATA token and stores it's values in the DATA list
+	 **/
+	private DataHelper(token: Token): void {
+
+		for (let i = 0; i < token.Values.length; i++) {
+			this.m_TknData.Data.push(token.Values[i]);
+		}
+
 	}
 
 	//
@@ -955,6 +1017,29 @@ class G64Basic {
 	}
 
 	/**
+	 * Creates an array, sets up the name[index] entries in varmap and dimmap
+	 * @param			token			the array token
+	 * @param			dimensions		dimensions of this array
+	 **/
+	private CreateArray(token: Token, dimensions: number[]): Token {
+		const names: string[] = CodeHelper.CreateArrayIndex(token.Name, dimensions);
+
+		for (let i = 0; i < names.length; i++) {
+			const tkn: Token = this.CreateToken(-1, token.Type, -9999);
+
+			tkn.Name = names[i];
+
+			this.m_TknData.VarMap.set(tkn.Name, this.m_TknData.Vars.length);
+			this.m_TknData.Vars.push(tkn);
+		}
+
+		this.m_TknData.DimMap.set(token.Name, dimensions);
+
+		return token;
+	}
+
+
+	/**
 	 * Sorts the tokens by their Order field
 	 * @param			aToken		array of tokens to sort
 	 * @returns			Token[]		sorted array
@@ -992,7 +1077,6 @@ class G64Basic {
 	 **/
 	private IsPlainType(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
-			|| tkn.Type == Tokentype.int
 			|| tkn.Type == Tokentype.str
 			|| this.IsVar(tkn));
 	}
@@ -1004,7 +1088,6 @@ class G64Basic {
 	 **/
 	private IsNum(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
-			|| tkn.Type == Tokentype.int
 			|| tkn.Type == Tokentype.fnnum
 			|| tkn.Type == Tokentype.vnum
 			|| tkn.Type == Tokentype.vint

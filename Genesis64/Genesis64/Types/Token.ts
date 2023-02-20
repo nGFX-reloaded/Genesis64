@@ -8,28 +8,24 @@
 	ops     /*  6, operators, +, -, ... */,
 	comp    /*  7, compare: <, == ... */,
 	num     /*  8, a single number, 1.0 */,
-	int     /*  9, an interger, 1 */,
-	str     /* 10, string, either {1} or "abc" */,
-	vnum    /* 11, num var, A */,
-	vint    /* 12, int var, A% */,
-	vstr    /* 13, str var, A$ */,
-	anum    /* 14, num array, A[x] */,
-	aint    /* 15, int array, A%[x] */,
-	astr    /* 16, string array, A$[x] */,
-	link    /* 17, print links: spc, "," and ";" */,
-	eop     /* 18, token exec ok, end of part */,
-	run     /* 19, token exec ok, end of line */,
-	jmp     /* 20, jump (goto, gosub, etc) */,
-	end     /* 21, prg ends here */
+	str     /*  9, string, either {1} or "abc" */,
+	vnum    /* 10, num var, A */,
+	vint    /* 11, int var, A% */,
+	vstr    /* 12, str var, A$ */,
+	anum    /* 13, num array, A[x] */,
+	aint    /* 14, int array, A%[x] */,
+	astr    /* 15, string array, A$[x] */,
+	link    /* 16, print links: spc, "," and ";" */,
+	eop     /* 17, token exec ok, end of part */,
+	run     /* 18, token exec ok, end of line */,
+	jmp     /* 19, jump (goto, gosub, etc) */,
+	end     /* 20, prg ends here */
 }
 
 type Token = {
 	Type: Tokentype;
 	Id: number;				// basic cmd/fn/error id
-	Data?: number;			// if sub token, the id of the cmd
-
 	Name?: string;			// if var, stores var's name
-
 	Order?: number;			// this will remove the need for the token order array
 
 	Num?: number;			// number data
@@ -46,6 +42,7 @@ type TokenizeData = {
 	Level: number;					// parser nesting level
 	Vars: Token[];					// vars so far
 	VarMap: Map<string, number>;	// helper map to match var name <-> token
-	DimMap: Map<string, boolean>;	// helper map that stores if an array is created by dim or access
+	DimMap: Map<string, number[]>;	// helper map that stores array dimensions
+	Data: Token[];					// data entries stored here
 	Errors: number;					// number of errors
 }

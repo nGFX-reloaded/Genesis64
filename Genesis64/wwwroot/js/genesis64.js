@@ -58,6 +58,7 @@ class G64Basic {
     }
     InitBasicV2() {
         const paramIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
+        const paramData = { fn: this.Splitter, chr: ",", len: -1, type: [ParamType.any] };
         const paramPoke = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
         const paramLet = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
         const paramOpsNum = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
@@ -78,7 +79,7 @@ class G64Basic {
             { Name: "clr", Abbrv: "cR", TknId: 156, Type: CmdType.cmd },
             { Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
             { Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
-            { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd },
+            { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
             { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
             { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
             { Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
@@ -293,7 +294,7 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map(), Errors: 0 };
+        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map(), Data: [], Errors: 0 };
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
@@ -416,8 +417,9 @@ class G64Basic {
         return token;
     }
     TokenizeVar(token, item, index) {
+        let varType = Tokentype.nop;
         if (index === "") {
-            let varType = Tokentype.vnum;
+            varType = Tokentype.vnum;
             if (item.endsWith("$")) {
                 varType = Tokentype.vstr;
             }
@@ -435,18 +437,54 @@ class G64Basic {
                 token.Str = "";
                 token.Num = 0;
                 token.Values = [];
-                token.Order = 99999;
+                token.Order = -9999;
                 token.hint = "var";
                 this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
                 this.m_TknData.Vars.push(token);
+                this.m_TknData.Tokens.push(token);
             }
         }
         else {
             const split = this.Splitter(this.RemoveBrackets(index), ",");
-            for (let i = 0; i < split.length; i++) {
-                let tkn = this.Tokenizer(split[i]);
+            var dim = [];
+            varType = Tokentype.anum;
+            if (item.endsWith("$")) {
+                varType = Tokentype.astr;
             }
-            console.log("we have an array:", item, split);
+            else {
+                if (item.endsWith("%"))
+                    varType = Tokentype.aint;
+            }
+            token.Id = -1;
+            token.Type = varType;
+            token.Name = item.substring(0, item.indexOf("["));
+            token.Str = "";
+            token.Num = 0;
+            token.Values = [];
+            token.Order = -9999 + this.m_TknData.Level;
+            token.hint = "array";
+            if (this.m_TknData.DimMap.has(token.Name)) {
+                dim = this.m_TknData.DimMap.get(token.Name);
+                if (split.length !== dim.length)
+                    token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
+            }
+            else {
+                for (let i = 0; i < split.length; i++) {
+                    dim.push(11);
+                }
+                this.CreateArray(token, dim);
+            }
+            for (let i = 0; i < split.length; i++) {
+                const tkn = this.Tokenizer(split[i]);
+                if (!this.IsNum(tkn) && token.Type != Tokentype.err)
+                    token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
+                if (token.Type != Tokentype.err && tkn.Type == Tokentype.num)
+                    if (tkn.Num > dim[i] || tkn.Num < 0)
+                        token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dim[i].toString() + ")");
+                token.Values.push(tkn);
+            }
+            if (token.Type != Tokentype.err)
+                this.m_TknData.Tokens.push(token);
         }
         return token;
     }
@@ -533,7 +571,7 @@ class G64Basic {
                             break;
                         case ParamType.same:
                             if (i > 0 && token.Values.length > 0) {
-                                if (this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
+                                if (tkn.Type != Tokentype.err && token.Values[i - 1].Type != Tokentype.err && this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
                                     token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "types don't match");
                             }
                             break;
@@ -559,6 +597,11 @@ class G64Basic {
         }
         return code;
     }
+    DataHelper(token) {
+        for (let i = 0; i < token.Values.length; i++) {
+            this.m_TknData.Data.push(token.Values[i]);
+        }
+    }
     CreateToken(id, type, order, value) {
         const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
         if (typeof value !== "undefined") {
@@ -581,6 +624,17 @@ class G64Basic {
         token.Num = 0;
         return token;
     }
+    CreateArray(token, dimensions) {
+        const names = CodeHelper.CreateArrayIndex(token.Name, dimensions);
+        for (let i = 0; i < names.length; i++) {
+            const tkn = this.CreateToken(-1, token.Type, -9999);
+            tkn.Name = names[i];
+            this.m_TknData.VarMap.set(tkn.Name, this.m_TknData.Vars.length);
+            this.m_TknData.Vars.push(tkn);
+        }
+        this.m_TknData.DimMap.set(token.Name, dimensions);
+        return token;
+    }
     SortTokenArray(aToken) {
         aToken.sort(function (a, b) {
             if (typeof a.Order === "undefined")
@@ -600,13 +654,11 @@ class G64Basic {
     }
     IsPlainType(tkn) {
         return (tkn.Type == Tokentype.num
-            || tkn.Type == Tokentype.int
             || tkn.Type == Tokentype.str
             || this.IsVar(tkn));
     }
     IsNum(tkn) {
         return (tkn.Type == Tokentype.num
-            || tkn.Type == Tokentype.int
             || tkn.Type == Tokentype.fnnum
             || tkn.Type == Tokentype.vnum
             || tkn.Type == Tokentype.vint
@@ -1418,6 +1470,31 @@ class CodeHelper {
         }
         return code;
     }
+    static CreateArrayIndex(name, aDepth) {
+        let aIndex = [];
+        let aVals = [];
+        for (let i = 0; i < aDepth.length; i++)
+            aVals.push(0);
+        aIndex.push(name + "[" + aVals.join(",") + "]");
+        while (!(function () { for (let i = 0; i < aDepth.length; i++)
+            if (aVals[i] != aDepth[i] - 1)
+                return false; return true; })()) {
+            aVals = this.BuildIndex(aDepth, aVals);
+            aIndex.push(name + "[" + aVals.join(",") + "]");
+        }
+        return aIndex;
+    }
+    static BuildIndex(aMaxList, aValues, index) {
+        if (typeof index === "undefined")
+            index = aMaxList.length - 1;
+        aValues[index]++;
+        if (aValues[index] >= aMaxList[index]) {
+            aValues[index] = 0;
+            if (index > 0)
+                aValues = this.BuildIndex(aMaxList, aValues, index - 1);
+        }
+        return aValues;
+    }
     static ErrorName(id) {
         let error = "syntax error";
         switch (id) {
@@ -2000,18 +2077,17 @@ var Tokentype;
     Tokentype[Tokentype["ops"] = 6] = "ops";
     Tokentype[Tokentype["comp"] = 7] = "comp";
     Tokentype[Tokentype["num"] = 8] = "num";
-    Tokentype[Tokentype["int"] = 9] = "int";
-    Tokentype[Tokentype["str"] = 10] = "str";
-    Tokentype[Tokentype["vnum"] = 11] = "vnum";
-    Tokentype[Tokentype["vint"] = 12] = "vint";
-    Tokentype[Tokentype["vstr"] = 13] = "vstr";
-    Tokentype[Tokentype["anum"] = 14] = "anum";
-    Tokentype[Tokentype["aint"] = 15] = "aint";
-    Tokentype[Tokentype["astr"] = 16] = "astr";
-    Tokentype[Tokentype["link"] = 17] = "link";
-    Tokentype[Tokentype["eop"] = 18] = "eop";
-    Tokentype[Tokentype["run"] = 19] = "run";
-    Tokentype[Tokentype["jmp"] = 20] = "jmp";
-    Tokentype[Tokentype["end"] = 21] = "end";
+    Tokentype[Tokentype["str"] = 9] = "str";
+    Tokentype[Tokentype["vnum"] = 10] = "vnum";
+    Tokentype[Tokentype["vint"] = 11] = "vint";
+    Tokentype[Tokentype["vstr"] = 12] = "vstr";
+    Tokentype[Tokentype["anum"] = 13] = "anum";
+    Tokentype[Tokentype["aint"] = 14] = "aint";
+    Tokentype[Tokentype["astr"] = 15] = "astr";
+    Tokentype[Tokentype["link"] = 16] = "link";
+    Tokentype[Tokentype["eop"] = 17] = "eop";
+    Tokentype[Tokentype["run"] = 18] = "run";
+    Tokentype[Tokentype["jmp"] = 19] = "jmp";
+    Tokentype[Tokentype["end"] = 20] = "end";
 })(Tokentype || (Tokentype = {}));
 //# sourceMappingURL=genesis64.js.map
