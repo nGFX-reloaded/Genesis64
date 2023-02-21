@@ -16,13 +16,12 @@ type BasicCmd = {
 
 	Param?: CmdParameter;	// a parameter definition
 	Ret?: Tokentype;		// the return type
-
-	Helper?: Function;		// a helper function run after tokenizing (ie: store data somewhere else)
 }
 
 
+
 type CmdParameter = {
-	fn: Function;
+	fn?: Function		// parsing function (Token, BasicCmd, string)
 	len: number;		// max num of params, -1 no limit
 	chr: string;		// split char
 	type: ParamType[];	// type list, min number of params

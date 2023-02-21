@@ -34,7 +34,8 @@ class CodeHelper {
 				}
 
 				if (code.substring(iPos, iPos + len) == chars) {
-					aResult.push(code.substring(0, iPos).trim())
+					// aResult.push(code.substring(0, iPos).trim())
+					aResult.push(code.substring(0, iPos)); // do not trim
 					code = code.substring(iPos + len);
 					iPos = 0;
 				} else {
@@ -43,7 +44,7 @@ class CodeHelper {
 			}
 		}
 
-		aResult.push(code.trim());
+		aResult.push(code); // do not trim
 
 		return aResult;
 	}
@@ -170,6 +171,9 @@ class CodeHelper {
 		return aIndex;
 	}
 
+	/**
+	 * Helper for create CreateArrayIndex 
+	 **/
 	private static BuildIndex(aMaxList: Array<number>, aValues: Array<number>, index?: number) {
 
 		if (typeof index === "undefined")

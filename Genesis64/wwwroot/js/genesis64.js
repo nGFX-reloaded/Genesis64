@@ -58,22 +58,17 @@ class G64Basic {
     }
     InitBasicV2() {
         const paramIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
-        const paramData = { fn: this.Splitter, chr: ",", len: -1, type: [ParamType.any] };
-        const paramPoke = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
-        const paramLet = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
-        const paramOpsNum = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
-        const paramOpsAny = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
-        const paramPrint = {
-            fn: (code) => { return [code]; },
-            chr: "",
-            len: -1,
-            type: [ParamType.any]
-        };
-        const paramFnNum = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.num] };
-        const paramFnStr = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.str] };
-        const paramFnAny = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.any] };
-        const paramFnStr_LR = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
-        const paramFnStr_Mid = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
+        const paramData = { chr: ",", len: -1, type: [ParamType.any] };
+        const paramPoke = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
+        const paramLet = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
+        const paramOpsNum = { chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
+        const paramOpsAny = { chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
+        const paramPrint = { chr: "", len: -1, type: [ParamType.any] };
+        const paramFnNum = { chr: ",", len: 1, type: [ParamType.num] };
+        const paramFnStr = { chr: ",", len: 1, type: [ParamType.str] };
+        const paramFnAny = { chr: ",", len: 1, type: [ParamType.any] };
+        const paramFnStr_LR = { chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
+        const paramFnStr_Mid = { chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
         this.m_Commands = [
             { Name: "close", Abbrv: "clO", TknId: 160, Type: CmdType.cmd },
             { Name: "clr", Abbrv: "cR", TknId: 156, Type: CmdType.cmd },
@@ -140,7 +135,7 @@ class G64Basic {
             { Name: "str$", Abbrv: "stR", TknId: 196, Type: CmdType.fstr, Param: paramFnNum },
             { Name: "spc(", Abbrv: "sP", TknId: 166, Type: CmdType.fout, Param: paramFnNum },
             { Name: "tab(", Abbrv: "tA", TknId: 163, Type: CmdType.fout, Param: paramFnNum },
-            { Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.ops, Param: paramOpsNum },
+            { Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.fnum, Param: paramFnNum },
             { Name: "and", Abbrv: "aN", TknId: 175, Type: CmdType.ops, Param: paramOpsNum },
             { Name: "or", Abbrv: "", TknId: 176, Type: CmdType.ops, Param: paramOpsNum },
             { Name: "^", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
@@ -173,7 +168,6 @@ class G64Basic {
         this.m_lstOps = [];
         this.m_lstComp = [];
         const defEmpty = {
-            fn: (code) => { return [code]; },
             chr: "",
             len: 0,
             type: [ParamType.any]
@@ -186,6 +180,8 @@ class G64Basic {
             this.m_mapCmdId.set(this.m_Commands[i].Name, i);
             if (typeof this.m_Commands[i].Param === "undefined")
                 this.m_Commands[i].Param = defEmpty;
+            if (typeof this.m_Commands[i].Param.fn === "undefined")
+                this.m_Commands[i].Param.fn = this.TokenizeParam.bind(this);
             switch (this.m_Commands[i].Type) {
                 case CmdType.cmd:
                     this.m_Commands[i].Ret = Tokentype.cmd;
@@ -336,6 +332,8 @@ class G64Basic {
         this.regVar.lastIndex = -1;
         this.regNum.lastIndex = -1;
         this.regLiteral.lastIndex = -1;
+        this.regIsComp.lastIndex = -1;
+        this.regIsOps.lastIndex = -1;
         code = this.RemoveBrackets(code);
         match = this.regLet.exec(code);
         if (match !== null) {
@@ -371,40 +369,46 @@ class G64Basic {
             token.hint = "literal";
             return token;
         }
-        this.regIsOps.lastIndex = -1;
-        match = this.regIsOps.exec(code);
-        if (match !== null) {
-            console.log("- ops:", match);
-            return this.TokenizeOps(token, Tokentype.ops, code);
-        }
-        this.regIsComp.lastIndex = -1;
         match = this.regIsComp.exec(code);
         if (match !== null) {
             console.log("- comp:", match);
             return this.TokenizeOps(token, Tokentype.comp, code);
         }
-        console.log("-- no token or error");
+        match = this.regIsOps.exec(code);
+        if (match !== null) {
+            console.log("- ops:", match);
+            return this.TokenizeOps(token, Tokentype.ops, code);
+        }
+        console.log("-- no token or error '" + code + "'");
         token.Num = -1;
         token.hint = "no token found";
         return token;
     }
     TokenizeItem(token, item, code) {
         if (this.m_mapCmdId.has(item)) {
-            token.Id = this.m_mapCmdId.get(item);
-            token.Type = this.m_Commands[token.Id].Ret;
-            token.Name = this.m_Commands[token.Id].Name;
+            const id = this.m_mapCmdId.get(item);
+            const cmd = this.m_Commands[id];
+            token.Id = id;
+            token.Type = cmd.Ret;
+            token.Name = cmd.Name;
             token.Str = "";
             token.Num = 0;
             token.Values = [];
             token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
             token.hint = item;
-            const def = this.m_Commands[token.Id].Param;
-            const split = def.fn(code, def.chr);
-            if (code.trim() == "")
-                split.pop();
-            if (this.m_TknData.Tokens.length == 0)
-                this.m_TknData.Tokens.push(token);
-            for (let i = 0; i < split.length; i++) {
+            token = cmd.Param.fn(token, cmd, code);
+        }
+        return token;
+    }
+    TokenizeParam(token, cmd, code) {
+        const def = cmd.Param;
+        const split = this.Splitter(code, def.chr);
+        if (code.trim() == "")
+            split.pop();
+        if (this.m_TknData.Tokens.length == 0)
+            this.m_TknData.Tokens.push(token);
+        for (let i = 0; i < split.length; i++) {
+            if (split[i] !== "") {
                 let tkn = this.Tokenizer(split[i]);
                 if (token.Type == Tokentype.err)
                     break;
@@ -412,9 +416,8 @@ class G64Basic {
                 if (!this.IsPlainType(tkn))
                     this.m_TknData.Tokens.push(tkn);
             }
-            token = this.CheckType(token);
         }
-        return token;
+        return this.CheckType(token);
     }
     TokenizeVar(token, item, index) {
         let varType = Tokentype.nop;
@@ -497,13 +500,11 @@ class G64Basic {
             const cmd = this.m_Commands[list[i]];
             let split = this.Splitter(code, cmd.Name);
             if (split.length > 1) {
-                if (type == Tokentype.ops) {
-                    for (let j = 0; j < split.length; j++) {
-                        if (split[j] === "")
-                            split[j] = "0";
-                    }
+                for (let j = 0; j < split.length; j++) {
+                    if (split[j] === "")
+                        split[j] = "0";
                 }
-                else {
+                if (type == Tokentype.comp) {
                     const tmpA = split.shift();
                     const tmpB = split.join(cmd.Name);
                     split = [tmpA, tmpB];
@@ -1395,7 +1396,7 @@ class CodeHelper {
                     }
                 }
                 if (code.substring(iPos, iPos + len) == chars) {
-                    aResult.push(code.substring(0, iPos).trim());
+                    aResult.push(code.substring(0, iPos));
                     code = code.substring(iPos + len);
                     iPos = 0;
                 }
@@ -1404,7 +1405,7 @@ class CodeHelper {
                 }
             }
         }
-        aResult.push(code.trim());
+        aResult.push(code);
         return aResult;
     }
     static FindMatching(code, offset, start, end) {

@@ -1,4 +1,4 @@
-﻿type BasicBrogram = {
+﻿type BasicProgram = {
 	Name: string;			// name of the prg (after load or 1st save with a name)
 	Code: string;			// prgs unmodified code ?? NEEDED ??
 	Lines: PrgLine[];		// line's o code

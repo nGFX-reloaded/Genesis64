@@ -118,26 +118,21 @@ class G64Basic {
 		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		// ToDo: write data splitter that fixes data literals (which can be without ""), see: https://www.c64-wiki.de/wiki/DATA
-		const paramData: CmdParameter = { fn: this.Splitter, chr: ",", len: -1, type: [ParamType.any] };
-		const paramPoke: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
-		const paramLet: CmdParameter = { fn: this.Splitter, chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
+		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any] };
+		const paramPoke: CmdParameter = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
+		const paramLet: CmdParameter = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
 
 
-		const paramOpsNum: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
-		const paramOpsAny: CmdParameter = { fn: this.Splitter, chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
+		const paramOpsNum: CmdParameter = { chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
+		const paramOpsAny: CmdParameter = { chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
 
-		const paramPrint: CmdParameter = {
-			fn: (code: string): string[] => { return [code] },
-			chr: "",
-			len: -1,
-			type: [ParamType.any]
-		}
+		const paramPrint: CmdParameter = { chr: "", len: -1, type: [ParamType.any] };
 
-		const paramFnNum: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.num] };
-		const paramFnStr: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.str] };
-		const paramFnAny: CmdParameter = { fn: this.Splitter, chr: ",", len: 1, type: [ParamType.any] };
-		const paramFnStr_LR: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
-		const paramFnStr_Mid: CmdParameter = { fn: this.Splitter, chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
+		const paramFnNum: CmdParameter = { chr: ",", len: 1, type: [ParamType.num] };
+		const paramFnStr: CmdParameter = { chr: ",", len: 1, type: [ParamType.str] };
+		const paramFnAny: CmdParameter = { chr: ",", len: 1, type: [ParamType.any] };
+		const paramFnStr_LR: CmdParameter = { chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
+		const paramFnStr_Mid: CmdParameter = { chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		this.m_Commands = [
 
@@ -220,7 +215,7 @@ class G64Basic {
 
 			//
 			// ----- ops -----
-			{ Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.ops, Param: paramOpsNum },
+			{ Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.fnum, Param: paramFnNum },
 			{ Name: "and", Abbrv: "aN", TknId: 175, Type: CmdType.ops, Param: paramOpsNum },
 			{ Name: "or", Abbrv: "", TknId: 176, Type: CmdType.ops, Param: paramOpsNum },
 			{ Name: "^", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
@@ -273,7 +268,6 @@ class G64Basic {
 		this.m_lstComp = [];
 
 		const defEmpty: CmdParameter = {
-			fn: (code: string): string[] => { return [code] },
 			chr: "",
 			len: 0,
 			type: [ParamType.any]
@@ -293,6 +287,11 @@ class G64Basic {
 			// set parser definition
 			if (typeof this.m_Commands[i].Param === "undefined")
 				this.m_Commands[i].Param = defEmpty;
+
+			// set param parser
+			if (typeof this.m_Commands[i].Param.fn === "undefined")
+				this.m_Commands[i].Param.fn = this.TokenizeParam.bind(this);
+
 
 			// set regex
 			switch (this.m_Commands[i].Type) {
@@ -464,8 +463,6 @@ class G64Basic {
 
 		const lines: string[] = CodeHelper.CodeSplitter(code, "\n");
 
-		//console.log(lines);
-
 		this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map<string, number>(), DimMap: new Map<string, number[]>(), Data: [], Errors: 0 };
 
 		for (let l: number = 0; l < lines.length; l++) {
@@ -538,6 +535,9 @@ class G64Basic {
 		this.regVar.lastIndex = -1;
 		this.regNum.lastIndex = -1;
 		this.regLiteral.lastIndex = -1;
+		this.regIsComp.lastIndex = -1;
+		this.regIsOps.lastIndex = -1;
+
 
 		//
 		// if code starts and ends with () or [] and they are matching -> remove
@@ -595,25 +595,22 @@ class G64Basic {
 		}
 
 		//
-		// ops
-		this.regIsOps.lastIndex = -1;
-		match = this.regIsOps.exec(code);
-		if (match !== null) {
-			console.log("- ops:", match);
-			return this.TokenizeOps(token, Tokentype.ops, code);
-		}
-
-		//
 		// comp
-		// ToDo: check if the order does matter for compares
-		this.regIsComp.lastIndex = -1;
 		match = this.regIsComp.exec(code);
 		if (match !== null) {
 			console.log("- comp:", match);
 			return this.TokenizeOps(token, Tokentype.comp, code);
 		}
 
-		console.log("-- no token or error");
+		//
+		// ops
+		match = this.regIsOps.exec(code);
+		if (match !== null) {
+			console.log("- ops:", match);
+			return this.TokenizeOps(token, Tokentype.ops, code);
+		}
+
+		console.log("-- no token or error '" + code + "'");
 		token.Num = -1;
 		token.hint = "no token found";
 
@@ -631,28 +628,41 @@ class G64Basic {
 	private TokenizeItem(token: Token, item: string, code: string): Token {
 
 		if (this.m_mapCmdId.has(item)) {
-			token.Id = this.m_mapCmdId.get(item);
-			token.Type = this.m_Commands[token.Id].Ret;
-			token.Name = this.m_Commands[token.Id].Name;
+			const id: number = this.m_mapCmdId.get(item);
+			const cmd: BasicCmd = this.m_Commands[id];
+
+			token.Id = id;
+			token.Type = cmd.Ret;
+			token.Name = cmd.Name;
 			token.Str = "";
 			token.Num = 0;
 			token.Values = [];
 			token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
 			token.hint = item;
 
-			const def: CmdParameter = this.m_Commands[token.Id].Param;
-			const split: string[] = def.fn(code, def.chr);
+			token = cmd.Param.fn(token, cmd, code);
 
-			// if there are no params remove the empty split
-			if (code.trim() == "")
-				split.pop();
+		}
 
-			// add token to list if it is the first token for this part
-			if (this.m_TknData.Tokens.length == 0)
-				this.m_TknData.Tokens.push(token);
+		return token;
+	}
 
-			// tokenize params and check type
-			for (let i = 0; i < split.length; i++) {
+	private TokenizeParam(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const def: CmdParameter = cmd.Param;
+		const split: string[] = this.Splitter(code, def.chr);
+
+		// if there are no params remove the empty split
+		if (code.trim() == "")
+			split.pop();
+
+		// add token to list if it is the first token for this part
+		if (this.m_TknData.Tokens.length == 0)
+			this.m_TknData.Tokens.push(token);
+
+		// tokenize params and check type
+		for (let i = 0; i < split.length; i++) {
+			if (split[i] !== "") {
 				let tkn: Token = this.Tokenizer(split[i]);
 
 				// do not add param tokens on error
@@ -666,12 +676,9 @@ class G64Basic {
 				if (!this.IsPlainType(tkn))
 					this.m_TknData.Tokens.push(tkn);
 			}
-
-			token = this.CheckType(token);
-
 		}
 
-		return token;
+		return this.CheckType(token);
 	}
 
 	/**
@@ -797,15 +804,16 @@ class G64Basic {
 			let split: string[] = this.Splitter(code, cmd.Name);
 
 			if (split.length > 1) {
-				if (type == Tokentype.ops) {
-					// if split is empty, chances are high that we have something like x*-y
-					// as variables can't be negative we cheat and turn this into x*0-y
-					for (let j = 0; j < split.length; j++) {
-						if (split[j] === "")
-							split[j] = "0";
-					}
 
-				} else {
+				// if split is empty, chances are high that we have something like x*-y
+				// as variables can't be negative we cheat and turn this into x*0-y
+				// or code like b=<>-1
+				for (let j = 0; j < split.length; j++) {
+					if (split[j] === "")
+						split[j] = "0";
+				}
+
+				if (type == Tokentype.comp) {
 					// comps are not chained like ops, so just take the first and feed the rest back in
 					const tmpA: string = split.shift();
 					const tmpB: string = split.join(cmd.Name);
