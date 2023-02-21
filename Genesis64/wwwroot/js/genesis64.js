@@ -58,7 +58,7 @@ class G64Basic {
     }
     InitBasicV2() {
         const paramIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
-        const paramData = { chr: ",", len: -1, type: [ParamType.any] };
+        const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
         const paramPoke = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
         const paramLet = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
         const paramOpsNum = { chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
@@ -396,6 +396,8 @@ class G64Basic {
             token.Values = [];
             token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
             token.hint = item;
+            if (this.m_TknData.Tokens.length == 0)
+                this.m_TknData.Tokens.push(token);
             token = cmd.Param.fn(token, cmd, code);
         }
         return token;
@@ -405,8 +407,6 @@ class G64Basic {
         const split = this.Splitter(code, def.chr);
         if (code.trim() == "")
             split.pop();
-        if (this.m_TknData.Tokens.length == 0)
-            this.m_TknData.Tokens.push(token);
         for (let i = 0; i < split.length; i++) {
             if (split[i] !== "") {
                 let tkn = this.Tokenizer(split[i]);
@@ -418,6 +418,24 @@ class G64Basic {
             }
         }
         return this.CheckType(token);
+    }
+    TokenizeData(token, cmd, code) {
+        const def = cmd.Param;
+        const split = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
+        let match;
+        if (split.length == 0) {
+            token = this.SetError(token, ErrorCodes.SYNTAX, "data without data");
+            return token;
+        }
+        console.log("----", code);
+        for (let i = 0; i < split.length; i++) {
+            if (i == 0)
+                split[i] = split[i].trimStart();
+            let tkn = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
+            token.Values.push(tkn);
+            console.log(i, " > ", split[i], tkn);
+        }
+        return token;
     }
     TokenizeVar(token, item, index) {
         let varType = Tokentype.nop;

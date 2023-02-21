@@ -130,8 +130,10 @@ class CodeHelper {
 
 	/**
 	 * Restores encoded literals
-	 * @param	code		encoded piece of code
-	 * @param	literals	list of literals
+	 * @param			code			encoded piece of code
+	 * @param			literals		list of literals
+	 * @param			getText			[optional] return text without ""
+	 * @returns			string
 	 **/
 	public static RestoreLiterals(code: string, literals: string[], getText:boolean = false): string {
 

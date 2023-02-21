@@ -118,7 +118,7 @@ class G64Basic {
 		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		// ToDo: write data splitter that fixes data literals (which can be without ""), see: https://www.c64-wiki.de/wiki/DATA
-		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any] };
+		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
 		const paramPoke: CmdParameter = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
 		const paramLet: CmdParameter = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
 
@@ -640,6 +640,11 @@ class G64Basic {
 			token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
 			token.hint = item;
 
+			// add token to list if it is the first token for this part
+			if (this.m_TknData.Tokens.length == 0)
+				this.m_TknData.Tokens.push(token);
+
+
 			token = cmd.Param.fn(token, cmd, code);
 
 		}
@@ -647,6 +652,13 @@ class G64Basic {
 		return token;
 	}
 
+	/**
+	 * Tokenize parameters and add to command token
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
 	private TokenizeParam(token: Token, cmd: BasicCmd, code: string): Token {
 
 		const def: CmdParameter = cmd.Param;
@@ -655,10 +667,6 @@ class G64Basic {
 		// if there are no params remove the empty split
 		if (code.trim() == "")
 			split.pop();
-
-		// add token to list if it is the first token for this part
-		if (this.m_TknData.Tokens.length == 0)
-			this.m_TknData.Tokens.push(token);
 
 		// tokenize params and check type
 		for (let i = 0; i < split.length; i++) {
@@ -679,6 +687,37 @@ class G64Basic {
 		}
 
 		return this.CheckType(token);
+	}
+
+	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const def: CmdParameter = cmd.Param;
+		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
+
+		let match: RegExpMatchArray;
+
+		if (split.length == 0) {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "data without data");
+			return token;
+		}
+
+		console.log("----", code);
+		for (let i: number = 0; i < split.length; i++) {
+
+			if (i == 0)
+				split[i] = split[i].trimStart();
+
+			let tkn: Token = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
+			
+				// check number
+				// -- everything else is a string
+
+			token.Values.push(tkn); // ToDo: on run collect all datas
+
+			console.log(i, " > ", split[i], tkn);
+		}
+
+		return token;
 	}
 
 	/**
