@@ -664,6 +664,8 @@ class G64Basic {
 		const def: CmdParameter = cmd.Param;
 		const split: string[] = this.Splitter(code, def.chr);
 
+		// ToDo: find way to store data sorted by line for READ
+
 		// if there are no params remove the empty split
 		if (code.trim() == "")
 			split.pop();
@@ -694,6 +696,8 @@ class G64Basic {
 		const def: CmdParameter = cmd.Param;
 		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
 
+		const regString: RegExp = /^\s*\"(.*)\"\s*$/;
+
 		let match: RegExpMatchArray;
 
 		if (split.length == 0) {
@@ -701,20 +705,35 @@ class G64Basic {
 			return token;
 		}
 
-		console.log("----", code);
 		for (let i: number = 0; i < split.length; i++) {
-
-			if (i == 0)
-				split[i] = split[i].trimStart();
-
 			let tkn: Token = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
-			
-				// check number
-				// -- everything else is a string
+
+			this.regNum.lastIndex = -1;
+			regString.lastIndex = -1;
+
+			split[i] = split[i].trimStart(); // data ignores trailing spaces
+
+			// check for numbers ...
+			match = this.regNum.exec(split[i].trim());
+			if (match !== null) {
+				tkn = this.CreateToken(-1, Tokentype.num, 99999, match[0]); // read can access numbers via string as well
+				tkn.Num = parseFloat(match[0]);
+				tkn.hint = "num";
+
+			} else {
+				// ... everything else is treated as string
+				match = regString.exec(split[i]);
+				if (match !== null) {
+					tkn = this.CreateToken(-1, Tokentype.num, 99999, match[1]); // pure strings enclosed in "" are store WITHOUT ""
+					tkn.hint = "str";
+
+				} else {
+					tkn = this.CreateToken(-1, Tokentype.num, 99999, split[i]); // everything else is stored "as is"
+					tkn.hint = "str";
+				}
+			}
 
 			token.Values.push(tkn); // ToDo: on run collect all datas
-
-			console.log(i, " > ", split[i], tkn);
 		}
 
 		return token;

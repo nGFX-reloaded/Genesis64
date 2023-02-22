@@ -422,18 +422,35 @@ class G64Basic {
     TokenizeData(token, cmd, code) {
         const def = cmd.Param;
         const split = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
+        const regString = /^\s*\"(.*)\"\s*$/;
         let match;
         if (split.length == 0) {
             token = this.SetError(token, ErrorCodes.SYNTAX, "data without data");
             return token;
         }
-        console.log("----", code);
         for (let i = 0; i < split.length; i++) {
-            if (i == 0)
-                split[i] = split[i].trimStart();
             let tkn = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
+            this.regNum.lastIndex = -1;
+            regString.lastIndex = -1;
+            split[i] = split[i].trimStart();
+            match = this.regNum.exec(split[i].trim());
+            if (match !== null) {
+                tkn = this.CreateToken(-1, Tokentype.num, 99999, match[0]);
+                tkn.Num = parseFloat(match[0]);
+                tkn.hint = "num";
+            }
+            else {
+                match = regString.exec(split[i]);
+                if (match !== null) {
+                    tkn = this.CreateToken(-1, Tokentype.num, 99999, match[1]);
+                    tkn.hint = "str";
+                }
+                else {
+                    tkn = this.CreateToken(-1, Tokentype.num, 99999, split[i]);
+                    tkn.hint = "str";
+                }
+            }
             token.Values.push(tkn);
-            console.log(i, " > ", split[i], tkn);
         }
         return token;
     }
