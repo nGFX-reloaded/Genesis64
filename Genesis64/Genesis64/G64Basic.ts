@@ -700,8 +700,8 @@ class G64Basic {
 
 		let match: RegExpMatchArray;
 
-		if (split.length == 0) {
-			token = this.SetError(token, ErrorCodes.SYNTAX, "data without data");
+		if (split.length == 1 && split[0].trim() === "") {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "data without entries");
 			return token;
 		}
 
