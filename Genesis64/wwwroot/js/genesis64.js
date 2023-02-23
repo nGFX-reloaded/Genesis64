@@ -7,6 +7,7 @@ class G64Basic {
     get Commands() { return this.m_Commands; }
     get Version() { return this.m_Options.basicVersion; }
     constructor() {
+        this.PIPE = "|";
         this.m_Commands = [];
         this.m_lstCmd = [];
         this.m_lstFnNum = [];
@@ -59,11 +60,12 @@ class G64Basic {
     InitBasicV2() {
         const paramIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
         const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
-        const paramFor = { chr: "|", len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
+        const paramFor = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
+        const paramIf = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.TokenizeIf.bind(this) };
         const paramPoke = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
-        const paramLet = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
-        const paramOpsNum = { chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
-        const paramOpsAny = { chr: "|", len: -1, type: [ParamType.any, ParamType.same] };
+        const paramLet = { chr: this.PIPE, len: 2, type: [ParamType.var, ParamType.same] };
+        const paramOpsNum = { chr: this.PIPE, len: -1, type: [ParamType.num, ParamType.num] };
+        const paramOpsAny = { chr: this.PIPE, len: -1, type: [ParamType.any, ParamType.same] };
         const paramPrint = { chr: "", len: -1, type: [ParamType.any] };
         const paramFnNum = { chr: ",", len: 1, type: [ParamType.num] };
         const paramFnStr = { chr: ",", len: 1, type: [ParamType.str] };
@@ -83,8 +85,8 @@ class G64Basic {
             { Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
             { Name: "get#", Abbrv: "", TknId: 161, Type: CmdType.cmd },
             { Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
-            { Name: "goto", Abbrv: "gO", TknId: 137, Type: CmdType.cmd },
-            { Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd },
+            { Name: "goto", Abbrv: "gO", TknId: 137, Type: CmdType.cmd, Param: paramFnNum },
+            { Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd, Param: paramIf },
             { Name: "input", Abbrv: "", TknId: 133, Type: CmdType.cmd },
             { Name: "input#", Abbrv: "iN", TknId: 132, Type: CmdType.cmd },
             { Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: paramLet },
@@ -337,10 +339,8 @@ class G64Basic {
         this.regIsOps.lastIndex = -1;
         code = this.RemoveBrackets(code);
         match = this.regLet.exec(code);
-        if (match !== null) {
-            console.log("- let:", match);
-            return this.TokenizeItem(token, "let", match[1] + "|" + match[2]);
-        }
+        if (match !== null)
+            code = "let " + match[1] + this.PIPE + match[2];
         match = this.regIsCmd.exec(code);
         if (match !== null) {
             console.log("- cmd:", match);
@@ -360,13 +360,13 @@ class G64Basic {
         }
         match = this.regNum.exec(code);
         if (match !== null) {
-            token = this.CreateToken(-1, Tokentype.num, 10, parseFloat(match[0]));
+            token = this.CreateToken(-1, Tokentype.num, 100, parseFloat(match[0]));
             token.hint = "number";
             return token;
         }
         match = this.regLiteral.exec(code);
         if (match !== null) {
-            token = this.CreateToken(-1, Tokentype.str, 10, this.m_TknData.Literals[parseInt(match[1])]);
+            token = this.CreateToken(-1, Tokentype.str, 100, this.m_TknData.Literals[parseInt(match[1])]);
             token.hint = "literal";
             return token;
         }
@@ -397,6 +397,8 @@ class G64Basic {
             token.Values = [];
             token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * 10);
             token.hint = item;
+            if (token.Type == Tokentype.cmd && this.m_TknData.Tokens.length > 0)
+                token.Order = 10;
             if (this.m_TknData.Tokens.length == 0)
                 this.m_TknData.Tokens.push(token);
             token = cmd.Param.fn(token, cmd, code);
@@ -456,16 +458,36 @@ class G64Basic {
         return token;
     }
     TokenizeFor(token, cmd, code) {
-        const regFor = /(.+)to(.+)step(.+)/;
+        const regFor = /^(.+)to(.+)step(.+)$/;
         if (!code.includes("step"))
             code += "step1";
         const match = regFor.exec(code);
         if (match !== null) {
             match.shift();
-            token = this.TokenizeParam(token, cmd, match.join("|"));
+            token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
         }
         else {
             token = this.SetError(token, ErrorCodes.SYNTAX, "malformed for");
+        }
+        return token;
+    }
+    TokenizeIf(token, cmd, code) {
+        const regIf = /^(.+)(then|goto)(.+)$/;
+        code = code.replace(/then\s*goto/, "goto");
+        code = code.replace(/then\s*(\d+)/, "goto$1");
+        const match = regIf.exec(code);
+        if (match !== null) {
+            match.shift();
+            if (match[1] === "then") {
+                match[1] = match.pop();
+            }
+            else {
+                match[1] = match[1] + match.pop();
+            }
+            token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
+        }
+        else {
+            token = this.SetError(token, ErrorCodes.SYNTAX, "malformed if");
         }
         return token;
     }
@@ -625,6 +647,8 @@ class G64Basic {
                                 if (tkn.Type != Tokentype.err && token.Values[i - 1].Type != Tokentype.err && this.GetBaseType(token.Values[i - 1]) != this.GetBaseType(tkn))
                                     token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "types don't match");
                             }
+                            break;
+                        case ParamType.cmd:
                             break;
                     }
                     if (token.Type == Tokentype.err)
