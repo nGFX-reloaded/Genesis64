@@ -50,11 +50,10 @@ class G64Basic {
 
 	private regLineNr: RegExp = /^\s*(\d*)\s*(.*)\s*/;	// finds a line number, groups into lnr and rest
 
-	private regLet: RegExp = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/; // assignment (optional let)
+	private regLet: RegExp = /^(?:let\s*)?(?!for|if)([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/; // assignment (optional let)
 	private regVar: RegExp = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;	// a single variable (or array, with g64 delimiters [])
 	private regNum: RegExp = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/; // a single number
 	private regLiteral: RegExp = /^{(\d+)}$/;
-	//private regIsOps: RegExp = /\+|\-|\*|\/|\^|and|or|not/; // ToDo: create from list
 	private regIsOps: RegExp = /not|or|and|\^|\*|\/|\+|\-/; // ToDo: create from list
 	private regIsComp: RegExp = /==|!=|<>|<=|>=|<|>/; // ToDo: create from list
 
@@ -117,8 +116,10 @@ class G64Basic {
 
 		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
-		// ToDo: write data splitter that fixes data literals (which can be without ""), see: https://www.c64-wiki.de/wiki/DATA
 		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+		const paramFor: CmdParameter = { chr: "|", len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
+
+
 		const paramPoke: CmdParameter = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
 		const paramLet: CmdParameter = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
 
@@ -146,7 +147,7 @@ class G64Basic {
 			{ Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
 			{ Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
 			{ Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
-			{ Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd },
+			{ Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
 			{ Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
 			{ Name: "get#", Abbrv: "", TknId: 161 /*161 35*/, Type: CmdType.cmd },
 			{ Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
@@ -691,6 +692,13 @@ class G64Basic {
 		return this.CheckType(token);
 	}
 
+	/**
+	 * Tokenize DATA parameters 
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
 	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
 
 		const def: CmdParameter = cmd.Param;
@@ -736,6 +744,24 @@ class G64Basic {
 			token.Values.push(tkn); // ToDo: on run collect all datas
 		}
 
+		return token;
+	}
+
+	private TokenizeFor(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const regFor = /(.+)to(.+)step(.+)/;
+
+		if (!code.includes("step"))
+			code += "step1";
+
+		const match: RegExpMatchArray = regFor.exec(code);
+		if (match !== null) {
+			match.shift();
+			token = this.TokenizeParam(token, cmd, match.join("|"));
+		} else {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "malformed for");
+		}
+		
 		return token;
 	}
 
@@ -1016,17 +1042,6 @@ class G64Basic {
 		}
 
 		return code;
-	}
-
-	/**
-	 * Takes a DATA token and stores it's values in the DATA list
-	 **/
-	private DataHelper(token: Token): void {
-
-		for (let i = 0; i < token.Values.length; i++) {
-			this.m_TknData.Data.push(token.Values[i]);
-		}
-
 	}
 
 	//

@@ -17,7 +17,7 @@ class G64Basic {
         this.m_mapDeAbbrev = new Map();
         this.m_mapCmdId = new Map();
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
-        this.regLet = /^(?:let\s*)?([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/;
+        this.regLet = /^(?:let\s*)?(?!for|if)([a-zA-Z]+\d*[$%]?\s*(?:\[.+\])?)\s*=([^=].*)$/;
         this.regVar = /^([a-zA-Z]+\d*[$%]?\s*(\[.+\])?)$/;
         this.regNum = /^[\+-]?(?:\d*\.)?\d+(?:e[\+-]?\d+)?$/;
         this.regLiteral = /^{(\d+)}$/;
@@ -59,6 +59,7 @@ class G64Basic {
     InitBasicV2() {
         const paramIO_File = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
         const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+        const paramFor = { chr: "|", len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
         const paramPoke = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
         const paramLet = { chr: "|", len: 2, type: [ParamType.var, ParamType.same] };
         const paramOpsNum = { chr: "|", len: -1, type: [ParamType.num, ParamType.num] };
@@ -78,7 +79,7 @@ class G64Basic {
             { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
             { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
             { Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
-            { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd },
+            { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
             { Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
             { Name: "get#", Abbrv: "", TknId: 161, Type: CmdType.cmd },
             { Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
@@ -454,6 +455,20 @@ class G64Basic {
         }
         return token;
     }
+    TokenizeFor(token, cmd, code) {
+        const regFor = /(.+)to(.+)step(.+)/;
+        if (!code.includes("step"))
+            code += "step1";
+        const match = regFor.exec(code);
+        if (match !== null) {
+            match.shift();
+            token = this.TokenizeParam(token, cmd, match.join("|"));
+        }
+        else {
+            token = this.SetError(token, ErrorCodes.SYNTAX, "malformed for");
+        }
+        return token;
+    }
     TokenizeVar(token, item, index) {
         let varType = Tokentype.nop;
         if (index === "") {
@@ -632,11 +647,6 @@ class G64Basic {
             }
         }
         return code;
-    }
-    DataHelper(token) {
-        for (let i = 0; i < token.Values.length; i++) {
-            this.m_TknData.Data.push(token.Values[i]);
-        }
     }
     CreateToken(id, type, order, value) {
         const tkn = { Name: "", Id: id, Type: type, Order: order, Num: 0, Str: "", Values: [], hint: "" };
