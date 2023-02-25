@@ -116,9 +116,10 @@ class G64Basic {
 
 
 
-		const paramIO_File: CmdParameter = { fn: this.Splitter, chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
+		const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+		const paramDim: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
 		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
 		const paramIf: CmdParameter = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.TokenizeIf.bind(this) };
 
@@ -148,19 +149,20 @@ class G64Basic {
 			{ Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
 			{ Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
 			{ Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
-			{ Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd },
+			{ Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd, Param: paramDim },
 			{ Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
 			{ Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
 			{ Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
 			{ Name: "get#", Abbrv: "", TknId: 161 /*161 35*/, Type: CmdType.cmd },
 			{ Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
+			//{ Name: "go", Abbrv: "", TknId: -1, Type: CmdType.cmd },
 			{ Name: "goto", Abbrv: "gO", TknId: 137 /*203 164*/, Type: CmdType.cmd, Param: paramFnNum },
 			{ Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd, Param: paramIf },
 			{ Name: "input", Abbrv: "", TknId: 133, Type: CmdType.cmd },
 			{ Name: "input#", Abbrv: "iN", TknId: 132, Type: CmdType.cmd },
 			{ Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: paramLet },
 			{ Name: "list", Abbrv: "lI", TknId: 155, Type: CmdType.cmd },
-			{ Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd, Param: paramIO_File },
+			{ Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd, Param: paramFile },
 			{ Name: "new", Abbrv: "", TknId: 162, Type: CmdType.cmd },
 			{ Name: "next", Abbrv: "nE", TknId: 130, Type: CmdType.cmd },
 			{ Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
@@ -173,12 +175,12 @@ class G64Basic {
 			{ Name: "restore", Abbrv: "reS", TknId: 140, Type: CmdType.cmd },
 			{ Name: "return", Abbrv: "reT", TknId: 142, Type: CmdType.cmd },
 			{ Name: "run", Abbrv: "rU", TknId: 138, Type: CmdType.cmd },
-			{ Name: "save", Abbrv: "sA", TknId: 148, Type: CmdType.cmd, Param: paramIO_File },
+			{ Name: "save", Abbrv: "sA", TknId: 148, Type: CmdType.cmd, Param: paramFile },
 			{ Name: "stop", Abbrv: "sT", TknId: 144, Type: CmdType.cmd },
 			{ Name: "step", Abbrv: "stE", TknId: 169, Type: CmdType.cmd },
 			{ Name: "sys", Abbrv: "sY", TknId: 158, Type: CmdType.cmd },
 			{ Name: "then", Abbrv: "tH", TknId: 167, Type: CmdType.cmd },
-			{ Name: "to", Abbrv: "", TknId: 164, Type: CmdType.cmd },
+			//{ Name: "to", Abbrv: "", TknId: 164, Type: CmdType.cmd },
 			{ Name: "verify", Abbrv: "vE", TknId: 149, Type: CmdType.cmd },
 			{ Name: "wait", Abbrv: "wA", TknId: 146, Type: CmdType.cmd },
 
@@ -272,7 +274,7 @@ class G64Basic {
 		this.m_lstComp = [];
 
 		const defEmpty: CmdParameter = {
-			chr: "",
+			chr: ",",
 			len: 0,
 			type: [ParamType.any]
 		};
@@ -658,7 +660,7 @@ class G64Basic {
 	}
 
 	/**
-	 * Tokenize parameters and add to command token
+	 * Default parameter tokenizer and add to command token
 	 * @param			Token			token to add params to
 	 * @param			cmd				the command
 	 * @param			code			code containing params
@@ -668,8 +670,6 @@ class G64Basic {
 
 		const def: CmdParameter = cmd.Param;
 		const split: string[] = this.Splitter(code, def.chr);
-
-		// ToDo: find way to store data sorted by line for READ
 
 		// if there are no params remove the empty split
 		if (code.trim() == "")
@@ -695,6 +695,8 @@ class G64Basic {
 
 		return this.CheckType(token);
 	}
+
+	//#region " ---- Command Tokenizers ----- "
 
 	/**
 	 * Tokenize DATA parameters 
@@ -752,6 +754,66 @@ class G64Basic {
 	}
 
 	/**
+	 * Tokenize DIM parameters 
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private TokenizeDim(token: Token, cmd: BasicCmd, code: string): Token {
+
+		// check if this DIM dims more than one array
+		const arrays: string[] = this.Splitter(code, ",");
+
+		for (let i: number = 0; i < arrays.length; i++) {
+			if (/.+\(.+\)/.test(arrays[i].trim())) {
+
+				const name: string = arrays[i].substring(0, arrays[i].indexOf("(")).trim();
+
+				let type:Tokentype = Tokentype.anum;
+				if (name.endsWith("$")) {
+					type = Tokentype.astr;
+				} else {
+					if (name.endsWith("%"))
+						type = Tokentype.aint;
+				}
+
+				if (this.m_TknData.DimMap.has(name)) {
+					token = this.SetError(token, ErrorCodes.REDIMD_ARRAY, "array '" + name + "' already exists");
+					break;
+
+				} else {
+					const tkn: Token = this.TokenizeParam(this.CreateToken(token.Id, token.Type, 100, name), cmd, this.RemoveBrackets(arrays[i].substring(arrays[i].indexOf("("))));
+
+					if (tkn.Type != Tokentype.err) {
+						tkn.Id = -1;
+						tkn.Type = type;
+
+						// simply register array now without really setting dimensions
+						const dims: number[] = [];
+						for (let k: number = 0; k < tkn.Values.length; k++) {
+							dims.push(-1);
+						}
+
+						this.m_TknData.DimMap.set(name, dims);
+
+						token.Values.push(tkn);
+
+					} else {
+						token = this.SetError(token, tkn.Id, tkn.Str);
+						break;
+					}
+				}
+
+			} else {
+				token = this.SetError(token, ErrorCodes.SYNTAX, "parameter #" + (i + 1).toString() + " is not an array");
+			}
+		}
+
+		return token;
+	}
+
+	/**
 	 * Tokenizer for FOR, modifies code string and uses default parameter tokenizer
 	 * @param			Token			token to add params to
 	 * @param			cmd				the command
@@ -786,7 +848,7 @@ class G64Basic {
 	 **/
 	private TokenizeIf(token: Token, cmd: BasicCmd, code: string): Token {
 
-		const regIf = /^(.+)(then|goto)(.+)$/; 
+		const regIf = /^(.+)(then|goto)(.+)$/;
 
 		// fix THEN GOTO
 		code = code.replace(/then\s*goto/, "goto");
@@ -855,7 +917,7 @@ class G64Basic {
 
 		} else {
 			const split: string[] = this.Splitter(this.RemoveBrackets(index), ",");
-			var dim: number[] = [];
+			var dims: number[] = [];
 
 			varType = Tokentype.anum;
 			if (item.endsWith("$")) {
@@ -879,17 +941,19 @@ class G64Basic {
 			// check if dim exits, otherwise create vars and dim entry
 			if (this.m_TknData.DimMap.has(token.Name)) {
 				// check param length against map length
-				dim = this.m_TknData.DimMap.get(token.Name);
-				if (split.length !== dim.length)
+				dims = this.m_TknData.DimMap.get(token.Name);
+				if (split.length !== dims.length)
 					token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
 
 			} else {
 				//  create dim data
-				for (let i = 0; i < split.length; i++) {
-					dim.push(11);	// default un-dim'ed arrays are 11 elements long (0-10)
+				for (let i: number = 0; i < split.length; i++) {
+					dims.push(11);	// default un-dim'ed arrays are 11 elements long (0-10)
 				}
 
-				this.CreateArray(token, dim);
+				// this is the only place where we can pre-create array data (well, we also could in dim with only numbers)
+				// ToDo: create a tmp DIM token and use that instead of "dims"
+				this.CreateArray(token, dims);
 			}
 
 
@@ -900,8 +964,8 @@ class G64Basic {
 					token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
 
 				if (token.Type != Tokentype.err && tkn.Type == Tokentype.num)
-					if (tkn.Num > dim[i] || tkn.Num < 0)
-						token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dim[i].toString() + ")");
+					if (tkn.Num > dims[i] || tkn.Num < 0)
+						token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dims[i].toString() + ")");
 
 				token.Values.push(tkn);
 
@@ -1001,6 +1065,8 @@ class G64Basic {
 
 		return token;
 	}
+
+	//#endregion
 
 	/**
 	 * Checks a token's parameters, length and types
@@ -1153,6 +1219,7 @@ class G64Basic {
 	 * @param			token			the array token
 	 * @param			dimensions		dimensions of this array
 	 **/
+	// ToDo: rewrite to take a DIM token either a real DIM or a tmp one
 	private CreateArray(token: Token, dimensions: number[]): Token {
 		const names: string[] = CodeHelper.CreateArrayIndex(token.Name, dimensions);
 
@@ -1191,7 +1258,7 @@ class G64Basic {
 	 * @param			tkn			Token to get the type from
 	 * @returns			Tokentype
 	 **/
-	private GetBaseType(tkn: Token): Tokentype {
+	public GetBaseType(tkn: Token): Tokentype {
 
 		if (this.IsNum(tkn))
 			return Tokentype.num;
@@ -1207,7 +1274,7 @@ class G64Basic {
 	 * @param			tkn			Token to check
 	 * @returns			boolean
 	 **/
-	private IsPlainType(tkn: Token): boolean {
+	public IsPlainType(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
 			|| tkn.Type == Tokentype.str
 			|| this.IsVar(tkn));
@@ -1218,7 +1285,7 @@ class G64Basic {
 	 * @param			tkn			Token to check
 	 * @returns			boolean
 	 **/
-	private IsNum(tkn: Token): boolean {
+	public IsNum(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.num
 			|| tkn.Type == Tokentype.fnnum
 			|| tkn.Type == Tokentype.vnum
@@ -1233,7 +1300,7 @@ class G64Basic {
 	 * @param			tkn			Token to check
 	 * @returns			boolean
 	 **/
-	private IsStr(tkn: Token): boolean {
+	public IsStr(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.str
 			|| tkn.Type == Tokentype.fnstr
 			|| tkn.Type == Tokentype.vstr
@@ -1246,7 +1313,7 @@ class G64Basic {
 	 * @param			tkn			Token to check
 	 * @returns			boolean
 	 **/
-	private IsVar(tkn: Token): boolean {
+	public IsVar(tkn: Token): boolean {
 		return (tkn.Type == Tokentype.vnum
 			|| tkn.Type == Tokentype.vint
 			|| tkn.Type == Tokentype.vstr

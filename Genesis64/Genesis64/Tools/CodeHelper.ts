@@ -22,6 +22,9 @@ class CodeHelper {
 		const open: string = "([{\"'";
 		const close: string = ")]}\"'";
 
+		if (chars === "")
+			return [code];
+
 		if (code.includes(chars)) {
 
 			while (iPos < code.length) {
