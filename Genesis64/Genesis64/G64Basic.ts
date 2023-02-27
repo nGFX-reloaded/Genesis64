@@ -575,9 +575,11 @@ class G64Basic {
 		match = this.regVar.exec(code);
 		if (match !== null) {
 			console.log("- var:", match);
-			if (typeof match[2] === "undefined")
-				match[2] = "";
-			return this.TokenizeVar(token, match[1], match[2]);
+			if (typeof match[2] === "undefined") {
+				return this.TokenizeVar(token, match[1]);
+			} else {
+				return this.TokenizeArray(token, match[1], match[2]);
+			}
 		}
 
 		//
@@ -770,7 +772,7 @@ class G64Basic {
 
 				const name: string = arrays[i].substring(0, arrays[i].indexOf("(")).trim();
 
-				let type:Tokentype = Tokentype.anum;
+				let type: Tokentype = Tokentype.anum;
 				if (name.endsWith("$")) {
 					type = Tokentype.astr;
 				} else {
@@ -879,102 +881,98 @@ class G64Basic {
 	 * Tokinize a variable and creates entries in the variable list and map
 	 * @param			token			Token data, default is: SYNTAX ERROR
 	 * @param			item			name of the variable
-	 * @param			index			index for array, "" if it's a simple var'
 	 * @returns			Token
 	 **/
-	private TokenizeVar(token: Token, item: string, index: string): Token {
+	private TokenizeVar(token: Token, item: string): Token {
 
 		let varType: Tokentype = Tokentype.nop;
 
-		// single var
-		if (index === "") {
-			varType = Tokentype.vnum;
-			if (item.endsWith("$")) {
-				varType = Tokentype.vstr;
-			} else {
-				if (item.endsWith("%"))
-					varType = Tokentype.vint;
-			}
+		varType = Tokentype.vnum;
+		if (item.endsWith("$")) {
+			varType = Tokentype.vstr;
+		} else {
+			if (item.endsWith("%"))
+				varType = Tokentype.vint;
+		}
 
-			// add var to var list and map (or return token if already in there)
-			if (this.m_TknData.VarMap.has(item)) {
-				token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
-
-			} else {
-				token.Id = -1;
-				token.Type = varType;
-				token.Name = item;
-				token.Str = "";		// set via let
-				token.Num = 0;		// set via let
-				token.Values = [];
-				token.Order = -9999; // add to tokenlist, right after errors, to make sure vars are created on run
-				token.hint = "var";
-
-				this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
-				this.m_TknData.Vars.push(token);		// store in vars
-				this.m_TknData.Tokens.push(token);		// store in tokenlist
-			}
+		// add var to var list and map (or return token if already in there)
+		if (this.m_TknData.VarMap.has(item)) {
+			token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
 
 		} else {
-			const split: string[] = this.Splitter(this.RemoveBrackets(index), ",");
-			var dims: number[] = [];
-
-			varType = Tokentype.anum;
-			if (item.endsWith("$")) {
-				varType = Tokentype.astr;
-			} else {
-				if (item.endsWith("%"))
-					varType = Tokentype.aint;
-			}
-
-			// setup a dummy token, as arrays work like functions
 			token.Id = -1;
 			token.Type = varType;
-			token.Name = item.substring(0, item.indexOf("["));
+			token.Name = item;
 			token.Str = "";		// set via let
 			token.Num = 0;		// set via let
 			token.Values = [];
 			token.Order = -9999 + this.m_TknData.Level; // add to tokenlist, right after errors, to make sure vars are created on run
-			token.hint = "array";
+			token.hint = "var";
 
-
-			// check if dim exits, otherwise create vars and dim entry
-			if (this.m_TknData.DimMap.has(token.Name)) {
-				// check param length against map length
-				dims = this.m_TknData.DimMap.get(token.Name);
-				if (split.length !== dims.length)
-					token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
-
-			} else {
-				//  create dim data
-				for (let i: number = 0; i < split.length; i++) {
-					dims.push(11);	// default un-dim'ed arrays are 11 elements long (0-10)
-				}
-
-				// this is the only place where we can pre-create array data (well, we also could in dim with only numbers)
-				// ToDo: create a tmp DIM token and use that instead of "dims"
-				this.CreateArray(token, dims);
-			}
-
-
-			for (let i = 0; i < split.length; i++) {
-				const tkn: Token = this.Tokenizer(split[i]);
-
-				if (!this.IsNum(tkn) && token.Type != Tokentype.err)
-					token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
-
-				if (token.Type != Tokentype.err && tkn.Type == Tokentype.num)
-					if (tkn.Num > dims[i] || tkn.Num < 0)
-						token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dims[i].toString() + ")");
-
-				token.Values.push(tkn);
-
-			}
-
-			if (token.Type != Tokentype.err)
-				this.m_TknData.Tokens.push(token);		// store in tokenlist
-
+			this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
+			this.m_TknData.Vars.push(token);		// store in vars
+			this.m_TknData.Tokens.push(token);		// store in tokenlist
 		}
+
+		return token;
+	}
+
+	/**
+	 * Tokinize a variable and creates entries in the variable list and map
+	 * @param			token			Token data, default is: SYNTAX ERROR
+	 * @param			item			name of the variable
+	 * @param			index			index for array, "" if it's a simple var'
+	 * @returns			Token
+	 **/
+
+	private TokenizeArray(token: Token, item: string, index: string): Token {
+
+		const split: string[] = this.Splitter(this.RemoveBrackets(index), ",");
+		var dims: number[] = [];
+
+		let varType: Tokentype = Tokentype.anum;
+		if (item.endsWith("$")) {
+			varType = Tokentype.astr;
+		} else {
+			if (item.endsWith("%"))
+				varType = Tokentype.aint;
+		}
+
+		// setup a dummy token, as arrays work like functions
+		token.Id = -1;
+		token.Type = varType;
+		token.Name = item.substring(0, item.indexOf("["));
+		token.Str = "";		// set via let
+		token.Num = 0;		// set via let
+		token.Values = [];
+		token.Order = -9999 + this.m_TknData.Level; // add to tokenlist, right after errors, to make sure vars are created on run
+		token.hint = "array";
+
+		// check if dim exits, otherwise create vars and dim entry
+		if (this.m_TknData.DimMap.has(token.Name)) {
+			// check param length against map length
+			dims = this.m_TknData.DimMap.get(token.Name);
+			if (split.length !== dims.length)
+				token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
+
+		} else {
+			//  create dim data
+			for (let i: number = 0; i < split.length; i++) {
+				dims.push(-1);	// just create a dim entry for now
+			}
+		}
+
+		for (let i = 0; i < split.length; i++) {
+			const tkn: Token = this.Tokenizer(split[i]);
+
+			if (!this.IsNum(tkn) && token.Type != Tokentype.err)
+				token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
+
+			token.Values.push(tkn);
+		}
+
+		if (token.Type != Tokentype.err)
+			this.m_TknData.Tokens.push(token);		// store in tokenlist
 
 		return token;
 	}

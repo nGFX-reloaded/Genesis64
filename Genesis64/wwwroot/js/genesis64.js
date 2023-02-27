@@ -354,9 +354,12 @@ class G64Basic {
         match = this.regVar.exec(code);
         if (match !== null) {
             console.log("- var:", match);
-            if (typeof match[2] === "undefined")
-                match[2] = "";
-            return this.TokenizeVar(token, match[1], match[2]);
+            if (typeof match[2] === "undefined") {
+                return this.TokenizeVar(token, match[1]);
+            }
+            else {
+                return this.TokenizeArray(token, match[1], match[2]);
+            }
         }
         match = this.regNum.exec(code);
         if (match !== null) {
@@ -532,76 +535,71 @@ class G64Basic {
         }
         return token;
     }
-    TokenizeVar(token, item, index) {
+    TokenizeVar(token, item) {
         let varType = Tokentype.nop;
-        if (index === "") {
-            varType = Tokentype.vnum;
-            if (item.endsWith("$")) {
-                varType = Tokentype.vstr;
-            }
-            else {
-                if (item.endsWith("%"))
-                    varType = Tokentype.vint;
-            }
-            if (this.m_TknData.VarMap.has(item)) {
-                token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
-            }
-            else {
-                token.Id = -1;
-                token.Type = varType;
-                token.Name = item;
-                token.Str = "";
-                token.Num = 0;
-                token.Values = [];
-                token.Order = -9999;
-                token.hint = "var";
-                this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
-                this.m_TknData.Vars.push(token);
-                this.m_TknData.Tokens.push(token);
-            }
+        varType = Tokentype.vnum;
+        if (item.endsWith("$")) {
+            varType = Tokentype.vstr;
         }
         else {
-            const split = this.Splitter(this.RemoveBrackets(index), ",");
-            var dims = [];
-            varType = Tokentype.anum;
-            if (item.endsWith("$")) {
-                varType = Tokentype.astr;
-            }
-            else {
-                if (item.endsWith("%"))
-                    varType = Tokentype.aint;
-            }
+            if (item.endsWith("%"))
+                varType = Tokentype.vint;
+        }
+        if (this.m_TknData.VarMap.has(item)) {
+            token = this.m_TknData.Vars[this.m_TknData.VarMap.get(item)];
+        }
+        else {
             token.Id = -1;
             token.Type = varType;
-            token.Name = item.substring(0, item.indexOf("["));
+            token.Name = item;
             token.Str = "";
             token.Num = 0;
             token.Values = [];
             token.Order = -9999 + this.m_TknData.Level;
-            token.hint = "array";
-            if (this.m_TknData.DimMap.has(token.Name)) {
-                dims = this.m_TknData.DimMap.get(token.Name);
-                if (split.length !== dims.length)
-                    token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
-            }
-            else {
-                for (let i = 0; i < split.length; i++) {
-                    dims.push(11);
-                }
-                this.CreateArray(token, dims);
-            }
-            for (let i = 0; i < split.length; i++) {
-                const tkn = this.Tokenizer(split[i]);
-                if (!this.IsNum(tkn) && token.Type != Tokentype.err)
-                    token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
-                if (token.Type != Tokentype.err && tkn.Type == Tokentype.num)
-                    if (tkn.Num > dims[i] || tkn.Num < 0)
-                        token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "array index #" + (i + 1).toString() + " (" + tkn.Num.toString() + ") is out of bounds (0 - " + dims[i].toString() + ")");
-                token.Values.push(tkn);
-            }
-            if (token.Type != Tokentype.err)
-                this.m_TknData.Tokens.push(token);
+            token.hint = "var";
+            this.m_TknData.VarMap.set(item, this.m_TknData.Vars.length);
+            this.m_TknData.Vars.push(token);
+            this.m_TknData.Tokens.push(token);
         }
+        return token;
+    }
+    TokenizeArray(token, item, index) {
+        const split = this.Splitter(this.RemoveBrackets(index), ",");
+        var dims = [];
+        let varType = Tokentype.anum;
+        if (item.endsWith("$")) {
+            varType = Tokentype.astr;
+        }
+        else {
+            if (item.endsWith("%"))
+                varType = Tokentype.aint;
+        }
+        token.Id = -1;
+        token.Type = varType;
+        token.Name = item.substring(0, item.indexOf("["));
+        token.Str = "";
+        token.Num = 0;
+        token.Values = [];
+        token.Order = -9999 + this.m_TknData.Level;
+        token.hint = "array";
+        if (this.m_TknData.DimMap.has(token.Name)) {
+            dims = this.m_TknData.DimMap.get(token.Name);
+            if (split.length !== dims.length)
+                token = this.SetError(token, ErrorCodes.BAD_SUBSCRIPT, "too many dimensions");
+        }
+        else {
+            for (let i = 0; i < split.length; i++) {
+                dims.push(-1);
+            }
+        }
+        for (let i = 0; i < split.length; i++) {
+            const tkn = this.Tokenizer(split[i]);
+            if (!this.IsNum(tkn) && token.Type != Tokentype.err)
+                token = this.SetError(token, ErrorCodes.TYPE_MISMATCH, "array index #" + (i + 1).toString() + " is not a number");
+            token.Values.push(tkn);
+        }
+        if (token.Type != Tokentype.err)
+            this.m_TknData.Tokens.push(token);
         return token;
     }
     TokenizeOps(token, type, code) {
