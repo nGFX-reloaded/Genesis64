@@ -118,7 +118,7 @@ class G64Basic {
 
 		const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
-		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.PrepareData.bind(this) };
 		const paramDef: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
 		const paramDim: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
 		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
@@ -534,7 +534,7 @@ class G64Basic {
 	 **/
 	public Tokenizer(code: string): Token {
 
-		let token: Token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
+		let token: Token = this.CreateToken(-1, Tokentype.nop, 0);
 		let match: string[];
 		let id: number = 0;
 
@@ -559,50 +559,23 @@ class G64Basic {
 		// if code starts and ends with () or [] and they are matching -> remove
 		code = this.RemoveBrackets(code);
 
+		//
+		// ----- commands, vars, literals and numbers are checked "as is -----
+		//
+
 		// start with assign which is LET without let, so just add it
 		match = this.regLet.exec(code);
 		if (match !== null)
 			code = "let " + match[1] + this.PIPE + match[2];
 
-		//
-		// commands, every line needs one
+		// commands
 		match = this.regIsCmd.exec(code);
 		if (match !== null) {
 			console.log("- cmd:", match);
 			return this.TokenizeItem(token, match[1], match[2]);
 		}
 
-		//
-		// comp
-		match = this.regIsComp.exec(code);
-		if (match !== null) {
-			console.log("- comp:", match);
-			return this.TokenizeOps(token, Tokentype.comp, code);
-		}
-
-		//
-		// ops
-
-		//
-		// if ops doesn't return a result go on instead of returning
-		//
-
-		match = this.regIsOps.exec(code);
-		if (match !== null) {
-			console.log("- ops:", match);
-			return this.TokenizeOps(token, Tokentype.ops, code);
-		}
-
-		//
-		// functions
-		match = this.regIsFn.exec(code);
-		if (match !== null) {
-			console.log("- fn:", match);
-			return this.TokenizeItem(token, match[1], match[2]);
-		}
-
-		//
-		// ----- variables -----
+		// variables
 		match = this.regVar.exec(code);
 		if (match !== null) {
 			console.log("- var:", match);
@@ -612,9 +585,7 @@ class G64Basic {
 				return this.TokenizeArray(token, match[1], match[2]);
 			}
 		}
-
-		//
-		// ----- number -----
+		// number
 		match = this.regNum.exec(code);
 		if (match !== null) {
 			token = this.CreateToken(-1, Tokentype.num, 100, parseFloat(match[0]));
@@ -622,8 +593,7 @@ class G64Basic {
 			return token;
 		}
 
-		//
-		// ----- literal -----
+		// literals
 		match = this.regLiteral.exec(code);
 		if (match !== null) {
 			token = this.CreateToken(-1, Tokentype.str, 100, this.m_TknData.Literals[parseInt(match[1])]);
@@ -631,8 +601,36 @@ class G64Basic {
 			return token;
 		}
 
+		//
+		// ----- operators, compares and functions need more than simple testing -----
+		//
+
+		// ops
+		match = this.regIsOps.exec(code); // just check if there is one of the ops in the code
+		if (match !== null) {
+			console.log("- ops:", match);
+			token = this.TokenizeOps(token, Tokentype.ops, code);
+			if (token.Type != Tokentype.nop)
+				return token;
+		}
+				
+		// comp
+		match = this.regIsComp.exec(code);
+		if (match !== null) {
+			console.log("- comp:", match);
+			return this.TokenizeOps(token, Tokentype.comp, code);
+		}
+		
+		// functions
+		match = this.regIsFn.exec(code);
+		if (match !== null) {
+			console.log("- fn:", match);
+			// ToDo: test fn code -> abs(-1*2) +sin(a*2)
+			//return this.TokenizeItem(token, match[1], match[2]);
+		}
 
 		console.log("-- no token or error '" + code + "'");
+		token = this.SetError(token, ErrorCodes.SYNTAX, "no token found");
 		token.Num = -1;
 		token.hint = "no token found";
 
@@ -761,7 +759,7 @@ class G64Basic {
 	 * @param			code			code containing params
 	 * @returns			Token
 	 **/
-	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
+	private PrepareData(token: Token, cmd: BasicCmd, code: string): Token {
 
 		const def: CmdParameter = cmd.Param;
 		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
@@ -1046,7 +1044,6 @@ class G64Basic {
 
 		// go over ops/comps
 		const list: number[] = (type == Tokentype.ops) ? this.m_lstOps : this.m_lstComp;
-
 		for (let i = 0; i < list.length; i++) {
 			const cmd: BasicCmd = this.m_Commands[list[i]];
 
@@ -1088,81 +1085,23 @@ class G64Basic {
 
 					console.log("--->", token);
 
+					// ToDo: test adding strings ...
+
 					break;
 				}
 			}
 
 		}
 
-		//	
-
-		//	if (split.length > 1) {
-
-		//		// if split is empty, chances are high that we have something like x*-y
-		//		// as variables can't be negative we cheat and turn this into x*0-y
-		//		// or code like b=<>-1
-		//		for (let j = 0; j < split.length; j++) {
-		//			if (split[j] === "")
-		//				split[j] = "0";
-		//		}
-
-		//		if (type == Tokentype.comp) {
-		//			// comps are not chained like ops, so just take the first and feed the rest back in
-		//			const tmpA: string = split.shift();
-		//			const tmpB: string = split.join(cmd.Name);
-		//			split = [tmpA, tmpB];
-		//		}
-
-		//	}
-
-		//	// found at least one pair
-		//	if (code.includes(cmd.Name)) {
-
-		//		token.Id = this.m_mapCmdId.get(cmd.Name);
-		//		token.Type = this.m_Commands[token.Id].Ret;
-		//		token.Name = cmd.Name;
-		//		token.Str = "";
-		//		token.Num = 0;
-		//		token.Values = [];
-		//		token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
-		//		token.hint = cmd.Name;
-
-		//		for (let j = 0; j < split.length; j++) {
-		//			let tkn: Token = this.Tokenizer(split[j]);
-
-		//			// do not add further param tokens on error
-		//			if (token.Type == Tokentype.err)
-		//				break;
-
-		//			// add to value list and to part's token list
-		//			token.Values.push(tkn);
-
-		//			// plain vars, numbers or strings are not pushed to the token list
-		//			if (!this.IsPlainType(tkn))
-		//				this.m_TknData.Tokens.push(tkn);
-		//		}
-
-		//		token = this.CheckType(token);
-
-		//		// set return type to first value
-		//		if (token.Type != Tokentype.err && token.Values.length > 0) {
-		//			if (this.IsNum(token.Values[0])) {
-		//				token.Type = Tokentype.fnnum;
-		//			} else {
-		//				if (this.IsStr(token.Values[0]))
-		//					token.Type = Tokentype.fnstr;
-		//			}
-		//		}
-
-		//		break;
-		//	}
-
-
-		//}
-
 		return token;
 	}
 
+	private TokenizeFunction(token: Token, item: string, code:string): Token {
+
+		console.log("~~ fn:", item, code);
+
+		return token;
+	}
 	//#endregion
 
 	/**

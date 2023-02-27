@@ -59,7 +59,7 @@ class G64Basic {
     }
     InitBasicV2() {
         const paramFile = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
-        const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+        const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.PrepareData.bind(this) };
         const paramDef = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
         const paramDim = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
         const paramFor = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
@@ -333,7 +333,7 @@ class G64Basic {
         console.timeEnd("temp");
     }
     Tokenizer(code) {
-        let token = this.CreateError(ErrorCodes.SYNTAX, "syntax error");
+        let token = this.CreateToken(-1, Tokentype.nop, 0);
         let match;
         let id = 0;
         code = code.trim();
@@ -354,21 +354,6 @@ class G64Basic {
         match = this.regIsCmd.exec(code);
         if (match !== null) {
             console.log("- cmd:", match);
-            return this.TokenizeItem(token, match[1], match[2]);
-        }
-        match = this.regIsComp.exec(code);
-        if (match !== null) {
-            console.log("- comp:", match);
-            return this.TokenizeOps(token, Tokentype.comp, code);
-        }
-        match = this.regIsOps.exec(code);
-        if (match !== null) {
-            console.log("- ops:", match);
-            return this.TokenizeOps(token, Tokentype.ops, code);
-        }
-        match = this.regIsFn.exec(code);
-        if (match !== null) {
-            console.log("- fn:", match);
             return this.TokenizeItem(token, match[1], match[2]);
         }
         match = this.regVar.exec(code);
@@ -393,7 +378,24 @@ class G64Basic {
             token.hint = "literal";
             return token;
         }
+        match = this.regIsOps.exec(code);
+        if (match !== null) {
+            console.log("- ops:", match);
+            token = this.TokenizeOps(token, Tokentype.ops, code);
+            if (token.Type != Tokentype.nop)
+                return token;
+        }
+        match = this.regIsComp.exec(code);
+        if (match !== null) {
+            console.log("- comp:", match);
+            return this.TokenizeOps(token, Tokentype.comp, code);
+        }
+        match = this.regIsFn.exec(code);
+        if (match !== null) {
+            console.log("- fn:", match);
+        }
         console.log("-- no token or error '" + code + "'");
+        token = this.SetError(token, ErrorCodes.SYNTAX, "no token found");
         token.Num = -1;
         token.hint = "no token found";
         return token;
@@ -462,7 +464,7 @@ class G64Basic {
         token = this.SetError(token, -1, "def fn");
         return token;
     }
-    TokenizeData(token, cmd, code) {
+    PrepareData(token, cmd, code) {
         const def = cmd.Param;
         const split = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
         const regString = /^\s*\"(.*)\"\s*$/;
@@ -678,6 +680,10 @@ class G64Basic {
                 }
             }
         }
+        return token;
+    }
+    TokenizeFunction(token, item, code) {
+        console.log("~~ fn:", item, code);
         return token;
     }
     CheckType(token) {
