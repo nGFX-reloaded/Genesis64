@@ -43,6 +43,7 @@ type TokenizeData = {
 	Vars: Token[];					// vars so far
 	VarMap: Map<string, number>;	// helper map to match var name <-> token
 	DimMap: Map<string, number[]>;	// helper map that stores array dimensions
+	FnMap: Map<string, Token>;		// helper map to stor FNs
 	Data: Token[];					// data entries stored here
 	Errors: number;					// number of errors
 }

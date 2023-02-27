@@ -119,6 +119,7 @@ class G64Basic {
 		const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+		const paramDef: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
 		const paramDim: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
 		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
 		const paramIf: CmdParameter = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.TokenizeIf.bind(this) };
@@ -148,14 +149,14 @@ class G64Basic {
 			{ Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
 			{ Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
 			{ Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
-			{ Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
+			{ Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd, Param: paramDef },
 			{ Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd, Param: paramDim },
 			{ Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
 			{ Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
 			{ Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
 			{ Name: "get#", Abbrv: "", TknId: 161 /*161 35*/, Type: CmdType.cmd },
 			{ Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
-			//{ Name: "go", Abbrv: "", TknId: -1, Type: CmdType.cmd },
+			// { Name: "go", Abbrv: "", TknId: -1, Type: CmdType.cmd },
 			{ Name: "goto", Abbrv: "gO", TknId: 137 /*203 164*/, Type: CmdType.cmd, Param: paramFnNum },
 			{ Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd, Param: paramIf },
 			{ Name: "input", Abbrv: "", TknId: 133, Type: CmdType.cmd },
@@ -180,7 +181,7 @@ class G64Basic {
 			{ Name: "step", Abbrv: "stE", TknId: 169, Type: CmdType.cmd },
 			{ Name: "sys", Abbrv: "sY", TknId: 158, Type: CmdType.cmd },
 			{ Name: "then", Abbrv: "tH", TknId: 167, Type: CmdType.cmd },
-			//{ Name: "to", Abbrv: "", TknId: 164, Type: CmdType.cmd },
+			// { Name: "to", Abbrv: "", TknId: 164, Type: CmdType.cmd },
 			{ Name: "verify", Abbrv: "vE", TknId: 149, Type: CmdType.cmd },
 			{ Name: "wait", Abbrv: "wA", TknId: 146, Type: CmdType.cmd },
 
@@ -469,7 +470,16 @@ class G64Basic {
 
 		const lines: string[] = CodeHelper.CodeSplitter(code, "\n");
 
-		this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map<string, number>(), DimMap: new Map<string, number[]>(), Data: [], Errors: 0 };
+		this.m_TknData = {
+			Tokens: [],
+			Literals: [],
+			Level: 0, Vars: [],
+			VarMap: new Map<string, number>(),
+			DimMap: new Map<string, number[]>(),
+			FnMap: new Map<string, Token>(),
+			Data: [],
+			Errors: 0
+		};
 
 		for (let l: number = 0; l < lines.length; l++) {
 			if (lines[l].trim() !== "") {
@@ -563,6 +573,27 @@ class G64Basic {
 		}
 
 		//
+		// comp
+		match = this.regIsComp.exec(code);
+		if (match !== null) {
+			console.log("- comp:", match);
+			return this.TokenizeOps(token, Tokentype.comp, code);
+		}
+
+		//
+		// ops
+
+		//
+		// if ops doesn't return a result go on instead of returning
+		//
+
+		match = this.regIsOps.exec(code);
+		if (match !== null) {
+			console.log("- ops:", match);
+			return this.TokenizeOps(token, Tokentype.ops, code);
+		}
+
+		//
 		// functions
 		match = this.regIsFn.exec(code);
 		if (match !== null) {
@@ -600,21 +631,6 @@ class G64Basic {
 			return token;
 		}
 
-		//
-		// comp
-		match = this.regIsComp.exec(code);
-		if (match !== null) {
-			console.log("- comp:", match);
-			return this.TokenizeOps(token, Tokentype.comp, code);
-		}
-
-		//
-		// ops
-		match = this.regIsOps.exec(code);
-		if (match !== null) {
-			console.log("- ops:", match);
-			return this.TokenizeOps(token, Tokentype.ops, code);
-		}
 
 		console.log("-- no token or error '" + code + "'");
 		token.Num = -1;
@@ -699,6 +715,44 @@ class G64Basic {
 	}
 
 	//#region " ---- Command Tokenizers ----- "
+
+	private TokenizeDef(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const regFN: RegExp = /fn(.+)\((.+)\)\s*=(.+)/;
+		const match: RegExpExecArray = regFN.exec(code.trim());
+
+
+		if (match !== null) {
+			match.shift();
+			const fnName: string = match[0].trim();
+			const fnVar: string = match[1].trim();
+			const fnCode: string = match[2].trim();
+
+			// create fn token
+			let tknFn: Token = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+			if (this.m_TknData.FnMap.has(fnName)) {
+				tknFn = this.m_TknData.FnMap.get(fnName);
+			} else {
+				tknFn = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+				tknFn.Name = fnName;
+				this.m_TknData.FnMap.set(fnName, tknFn);
+			}
+
+			// set var token
+			tknFn.Values.push(this.TokenizeVar(this.CreateToken(-1, Tokentype.err, -999), fnVar));
+
+			// set fn
+			tknFn.Values.push(this.TokenizeParam(tknFn, cmd, fnCode));
+
+			console.log("DEF FN ->", code, tknFn);
+
+		} else {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "cannot parse def fn");
+		}
+
+		token = this.SetError(token, -1, "def fn");
+		return token;
+	}
 
 	/**
 	 * Tokenize DATA parameters 
@@ -992,74 +1046,119 @@ class G64Basic {
 
 		// go over ops/comps
 		const list: number[] = (type == Tokentype.ops) ? this.m_lstOps : this.m_lstComp;
+
 		for (let i = 0; i < list.length; i++) {
-
 			const cmd: BasicCmd = this.m_Commands[list[i]];
-			let split: string[] = this.Splitter(code, cmd.Name);
 
-			if (split.length > 1) {
-
-				// if split is empty, chances are high that we have something like x*-y
-				// as variables can't be negative we cheat and turn this into x*0-y
-				// or code like b=<>-1
-				for (let j = 0; j < split.length; j++) {
-					if (split[j] === "")
-						split[j] = "0";
-				}
-
-				if (type == Tokentype.comp) {
-					// comps are not chained like ops, so just take the first and feed the rest back in
-					const tmpA: string = split.shift();
-					const tmpB: string = split.join(cmd.Name);
-					split = [tmpA, tmpB];
-				}
-
-			}
-
-			// found at least one pair
 			if (code.includes(cmd.Name)) {
+				let split: string[] = this.Splitter(code, cmd.Name);
 
-				token.Id = this.m_mapCmdId.get(cmd.Name);
-				token.Type = this.m_Commands[token.Id].Ret;
-				token.Name = cmd.Name;
-				token.Str = "";
-				token.Num = 0;
-				token.Values = [];
-				token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
-				token.hint = cmd.Name;
+				console.log(">>", cmd.Name, split, split.length);
 
-				for (let j = 0; j < split.length; j++) {
-					let tkn: Token = this.Tokenizer(split[j]);
-
-					// do not add forther param tokens on error
-					if (token.Type == Tokentype.err)
-						break;
-
-					// add to value list and to part's token list
-					token.Values.push(tkn);
-
-					// plain vars, numbers or strings are not pushed to the token list
-					if (!this.IsPlainType(tkn))
-						this.m_TknData.Tokens.push(tkn);
-				}
-
-				token = this.CheckType(token);
-
-				// set return type to first value
-				if (token.Type != Tokentype.err && token.Values.length > 0) {
-					if (this.IsNum(token.Values[0])) {
-						token.Type = Tokentype.fnnum;
-					} else {
-						if (this.IsStr(token.Values[0]))
-							token.Type = Tokentype.fnstr;
+				if (split.length > 1) {
+					// if split is empty, chances are high that we have something like x*-y
+					// as variables can't be negative we cheat and turn this into x*0-y
+					// or code like b=<>-1
+					if (split[0].trim() === "") {
+						if (isNaN(parseFloat(split[1]))) {
+							split[0] = "0";
+						} else {
+							split.shift();
+						}
 					}
+
+					// we do not chain ops/comps so we grab the first and join the rest again
+					if (split.length > 2) {
+						const tmpA: string = split.shift();
+						const tmpB: string = split.join(cmd.Name);
+						split = [tmpA, tmpB];
+					}
+
+					token.Id = this.m_mapCmdId.get(cmd.Name);
+					token.Type = this.m_Commands[token.Id].Ret;
+					token.Name = cmd.Name;
+					token.Str = "";
+					token.Num = 0;
+					token.Values = [];
+					token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
+					token.hint = cmd.Name;
+
+					console.log("-->", cmd.Name, split.join(this.PIPE));
+					token = this.TokenizeParam(token, cmd, split.join(this.PIPE));
+
+					console.log("--->", token);
+
+					break;
 				}
-
-				break;
 			}
-
 
 		}
+
+		//	
+
+		//	if (split.length > 1) {
+
+		//		// if split is empty, chances are high that we have something like x*-y
+		//		// as variables can't be negative we cheat and turn this into x*0-y
+		//		// or code like b=<>-1
+		//		for (let j = 0; j < split.length; j++) {
+		//			if (split[j] === "")
+		//				split[j] = "0";
+		//		}
+
+		//		if (type == Tokentype.comp) {
+		//			// comps are not chained like ops, so just take the first and feed the rest back in
+		//			const tmpA: string = split.shift();
+		//			const tmpB: string = split.join(cmd.Name);
+		//			split = [tmpA, tmpB];
+		//		}
+
+		//	}
+
+		//	// found at least one pair
+		//	if (code.includes(cmd.Name)) {
+
+		//		token.Id = this.m_mapCmdId.get(cmd.Name);
+		//		token.Type = this.m_Commands[token.Id].Ret;
+		//		token.Name = cmd.Name;
+		//		token.Str = "";
+		//		token.Num = 0;
+		//		token.Values = [];
+		//		token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
+		//		token.hint = cmd.Name;
+
+		//		for (let j = 0; j < split.length; j++) {
+		//			let tkn: Token = this.Tokenizer(split[j]);
+
+		//			// do not add further param tokens on error
+		//			if (token.Type == Tokentype.err)
+		//				break;
+
+		//			// add to value list and to part's token list
+		//			token.Values.push(tkn);
+
+		//			// plain vars, numbers or strings are not pushed to the token list
+		//			if (!this.IsPlainType(tkn))
+		//				this.m_TknData.Tokens.push(tkn);
+		//		}
+
+		//		token = this.CheckType(token);
+
+		//		// set return type to first value
+		//		if (token.Type != Tokentype.err && token.Values.length > 0) {
+		//			if (this.IsNum(token.Values[0])) {
+		//				token.Type = Tokentype.fnnum;
+		//			} else {
+		//				if (this.IsStr(token.Values[0]))
+		//					token.Type = Tokentype.fnstr;
+		//			}
+		//		}
+
+		//		break;
+		//	}
+
+
+		//}
 
 		return token;
 	}

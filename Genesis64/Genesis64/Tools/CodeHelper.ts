@@ -25,6 +25,9 @@ class CodeHelper {
 		if (chars === "")
 			return [code];
 
+		if (code.trim().startsWith(chars))
+			code = " " + code;
+
 		if (code.includes(chars)) {
 
 			while (iPos < code.length) {
@@ -37,7 +40,6 @@ class CodeHelper {
 				}
 
 				if (code.substring(iPos, iPos + len) == chars) {
-					// aResult.push(code.substring(0, iPos).trim())
 					aResult.push(code.substring(0, iPos)); // do not trim
 					code = code.substring(iPos + len);
 					iPos = 0;

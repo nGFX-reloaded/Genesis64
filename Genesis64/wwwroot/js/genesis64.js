@@ -60,6 +60,7 @@ class G64Basic {
     InitBasicV2() {
         const paramFile = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
         const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+        const paramDef = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
         const paramDim = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
         const paramFor = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
         const paramIf = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.TokenizeIf.bind(this) };
@@ -79,7 +80,7 @@ class G64Basic {
             { Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
             { Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
             { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
-            { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd },
+            { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd, Param: paramDef },
             { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd, Param: paramDim },
             { Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
             { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
@@ -293,7 +294,16 @@ class G64Basic {
     Temp(code) {
         console.time("temp");
         const lines = CodeHelper.CodeSplitter(code, "\n");
-        this.m_TknData = { Tokens: [], Literals: [], Level: 0, Vars: [], VarMap: new Map(), DimMap: new Map(), Data: [], Errors: 0 };
+        this.m_TknData = {
+            Tokens: [],
+            Literals: [],
+            Level: 0, Vars: [],
+            VarMap: new Map(),
+            DimMap: new Map(),
+            FnMap: new Map(),
+            Data: [],
+            Errors: 0
+        };
         for (let l = 0; l < lines.length; l++) {
             if (lines[l].trim() !== "") {
                 let match = lines[l].match(this.regLineNr);
@@ -346,6 +356,16 @@ class G64Basic {
             console.log("- cmd:", match);
             return this.TokenizeItem(token, match[1], match[2]);
         }
+        match = this.regIsComp.exec(code);
+        if (match !== null) {
+            console.log("- comp:", match);
+            return this.TokenizeOps(token, Tokentype.comp, code);
+        }
+        match = this.regIsOps.exec(code);
+        if (match !== null) {
+            console.log("- ops:", match);
+            return this.TokenizeOps(token, Tokentype.ops, code);
+        }
         match = this.regIsFn.exec(code);
         if (match !== null) {
             console.log("- fn:", match);
@@ -372,16 +392,6 @@ class G64Basic {
             token = this.CreateToken(-1, Tokentype.str, 100, this.m_TknData.Literals[parseInt(match[1])]);
             token.hint = "literal";
             return token;
-        }
-        match = this.regIsComp.exec(code);
-        if (match !== null) {
-            console.log("- comp:", match);
-            return this.TokenizeOps(token, Tokentype.comp, code);
-        }
-        match = this.regIsOps.exec(code);
-        if (match !== null) {
-            console.log("- ops:", match);
-            return this.TokenizeOps(token, Tokentype.ops, code);
         }
         console.log("-- no token or error '" + code + "'");
         token.Num = -1;
@@ -424,6 +434,33 @@ class G64Basic {
             }
         }
         return this.CheckType(token);
+    }
+    TokenizeDef(token, cmd, code) {
+        const regFN = /fn(.+)\((.+)\)\s*=(.+)/;
+        const match = regFN.exec(code.trim());
+        if (match !== null) {
+            match.shift();
+            const fnName = match[0].trim();
+            const fnVar = match[1].trim();
+            const fnCode = match[2].trim();
+            let tknFn = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+            if (this.m_TknData.FnMap.has(fnName)) {
+                tknFn = this.m_TknData.FnMap.get(fnName);
+            }
+            else {
+                tknFn = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+                tknFn.Name = fnName;
+                this.m_TknData.FnMap.set(fnName, tknFn);
+            }
+            tknFn.Values.push(this.TokenizeVar(this.CreateToken(-1, Tokentype.err, -999), fnVar));
+            tknFn.Values.push(this.TokenizeParam(tknFn, cmd, fnCode));
+            console.log("DEF FN ->", code, tknFn);
+        }
+        else {
+            token = this.SetError(token, ErrorCodes.SYNTAX, "cannot parse def fn");
+        }
+        token = this.SetError(token, -1, "def fn");
+        return token;
     }
     TokenizeData(token, cmd, code) {
         const def = cmd.Param;
@@ -609,46 +646,36 @@ class G64Basic {
         const list = (type == Tokentype.ops) ? this.m_lstOps : this.m_lstComp;
         for (let i = 0; i < list.length; i++) {
             const cmd = this.m_Commands[list[i]];
-            let split = this.Splitter(code, cmd.Name);
-            if (split.length > 1) {
-                for (let j = 0; j < split.length; j++) {
-                    if (split[j] === "")
-                        split[j] = "0";
-                }
-                if (type == Tokentype.comp) {
-                    const tmpA = split.shift();
-                    const tmpB = split.join(cmd.Name);
-                    split = [tmpA, tmpB];
-                }
-            }
             if (code.includes(cmd.Name)) {
-                token.Id = this.m_mapCmdId.get(cmd.Name);
-                token.Type = this.m_Commands[token.Id].Ret;
-                token.Name = cmd.Name;
-                token.Str = "";
-                token.Num = 0;
-                token.Values = [];
-                token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
-                token.hint = cmd.Name;
-                for (let j = 0; j < split.length; j++) {
-                    let tkn = this.Tokenizer(split[j]);
-                    if (token.Type == Tokentype.err)
-                        break;
-                    token.Values.push(tkn);
-                    if (!this.IsPlainType(tkn))
-                        this.m_TknData.Tokens.push(tkn);
-                }
-                token = this.CheckType(token);
-                if (token.Type != Tokentype.err && token.Values.length > 0) {
-                    if (this.IsNum(token.Values[0])) {
-                        token.Type = Tokentype.fnnum;
+                let split = this.Splitter(code, cmd.Name);
+                console.log(">>", cmd.Name, split, split.length);
+                if (split.length > 1) {
+                    if (split[0].trim() === "") {
+                        if (isNaN(parseFloat(split[1]))) {
+                            split[0] = "0";
+                        }
+                        else {
+                            split.shift();
+                        }
                     }
-                    else {
-                        if (this.IsStr(token.Values[0]))
-                            token.Type = Tokentype.fnstr;
+                    if (split.length > 2) {
+                        const tmpA = split.shift();
+                        const tmpB = split.join(cmd.Name);
+                        split = [tmpA, tmpB];
                     }
+                    token.Id = this.m_mapCmdId.get(cmd.Name);
+                    token.Type = this.m_Commands[token.Id].Ret;
+                    token.Name = cmd.Name;
+                    token.Str = "";
+                    token.Num = 0;
+                    token.Values = [];
+                    token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
+                    token.hint = cmd.Name;
+                    console.log("-->", cmd.Name, split.join(this.PIPE));
+                    token = this.TokenizeParam(token, cmd, split.join(this.PIPE));
+                    console.log("--->", token);
+                    break;
                 }
-                break;
             }
         }
         return token;
@@ -1496,6 +1523,8 @@ class CodeHelper {
         const close = ")]}\"'";
         if (chars === "")
             return [code];
+        if (code.trim().startsWith(chars))
+            code = " " + code;
         if (code.includes(chars)) {
             while (iPos < code.length) {
                 if (open.includes(code.charAt(iPos))) {
