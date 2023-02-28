@@ -118,7 +118,7 @@ class G64Basic {
 
 		const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
-		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.PrepareData.bind(this) };
+		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
 		const paramDef: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
 		const paramDim: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
 		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
@@ -134,7 +134,7 @@ class G64Basic {
 
 		const paramPrint: CmdParameter = { chr: "", len: -1, type: [ParamType.any] };
 
-		const paramFnNum: CmdParameter = { chr: ",", len: 1, type: [ParamType.num] };
+		const paramFnNum: CmdParameter = { chr: ",", len: 1, type: [ParamType.num], fn: this.TokenizeFunction.bind(this) };
 		const paramFnStr: CmdParameter = { chr: ",", len: 1, type: [ParamType.str] };
 		const paramFnAny: CmdParameter = { chr: ",", len: 1, type: [ParamType.any] };
 		const paramFnStr_LR: CmdParameter = { chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
@@ -588,6 +588,7 @@ class G64Basic {
 		// number
 		match = this.regNum.exec(code);
 		if (match !== null) {
+			console.log("- num:", match);
 			token = this.CreateToken(-1, Tokentype.num, 100, parseFloat(match[0]));
 			token.hint = "number";
 			return token;
@@ -613,20 +614,19 @@ class G64Basic {
 			if (token.Type != Tokentype.nop)
 				return token;
 		}
-				
+
 		// comp
 		match = this.regIsComp.exec(code);
 		if (match !== null) {
 			console.log("- comp:", match);
 			return this.TokenizeOps(token, Tokentype.comp, code);
 		}
-		
+
 		// functions
 		match = this.regIsFn.exec(code);
 		if (match !== null) {
 			console.log("- fn:", match);
-			// ToDo: test fn code -> abs(-1*2) +sin(a*2)
-			//return this.TokenizeItem(token, match[1], match[2]);
+			return this.TokenizeItem(token, match[1], match[2]);
 		}
 
 		console.log("-- no token or error '" + code + "'");
@@ -714,6 +714,13 @@ class G64Basic {
 
 	//#region " ---- Command Tokenizers ----- "
 
+	/**
+	 * Tokenizer for DEF
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
 	private TokenizeDef(token: Token, cmd: BasicCmd, code: string): Token {
 
 		const regFN: RegExp = /fn(.+)\((.+)\)\s*=(.+)/;
@@ -759,7 +766,7 @@ class G64Basic {
 	 * @param			code			code containing params
 	 * @returns			Token
 	 **/
-	private PrepareData(token: Token, cmd: BasicCmd, code: string): Token {
+	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
 
 		const def: CmdParameter = cmd.Param;
 		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
@@ -1096,9 +1103,29 @@ class G64Basic {
 		return token;
 	}
 
-	private TokenizeFunction(token: Token, item: string, code:string): Token {
+	/**
+	 * Tokenizer for functions
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private TokenizeFunction(token: Token, cmd: BasicCmd, code: string): Token {
 
-		console.log("~~ fn:", item, code);
+		code = code.trim();
+
+		const tuple: [number, number] = CodeHelper.FindMatching(code);
+
+		if (tuple[0] == 0) {
+			if (!CodeHelper.IsMatching(tuple)) {
+				code += ")";
+				tuple[1] = code.length - 1;
+			}
+
+			if (tuple[0] == 0 && tuple[1] == code.length - 1) {
+				token = this.TokenizeParam(token, cmd, this.RemoveBrackets(code));
+			}
+		}
 
 		return token;
 	}

@@ -59,7 +59,7 @@ class G64Basic {
     }
     InitBasicV2() {
         const paramFile = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
-        const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.PrepareData.bind(this) };
+        const paramData = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
         const paramDef = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
         const paramDim = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
         const paramFor = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
@@ -69,7 +69,7 @@ class G64Basic {
         const paramOpsNum = { chr: this.PIPE, len: -1, type: [ParamType.num, ParamType.num] };
         const paramOpsAny = { chr: this.PIPE, len: -1, type: [ParamType.any, ParamType.same] };
         const paramPrint = { chr: "", len: -1, type: [ParamType.any] };
-        const paramFnNum = { chr: ",", len: 1, type: [ParamType.num] };
+        const paramFnNum = { chr: ",", len: 1, type: [ParamType.num], fn: this.TokenizeFunction.bind(this) };
         const paramFnStr = { chr: ",", len: 1, type: [ParamType.str] };
         const paramFnAny = { chr: ",", len: 1, type: [ParamType.any] };
         const paramFnStr_LR = { chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
@@ -368,6 +368,7 @@ class G64Basic {
         }
         match = this.regNum.exec(code);
         if (match !== null) {
+            console.log("- num:", match);
             token = this.CreateToken(-1, Tokentype.num, 100, parseFloat(match[0]));
             token.hint = "number";
             return token;
@@ -393,6 +394,7 @@ class G64Basic {
         match = this.regIsFn.exec(code);
         if (match !== null) {
             console.log("- fn:", match);
+            return this.TokenizeItem(token, match[1], match[2]);
         }
         console.log("-- no token or error '" + code + "'");
         token = this.SetError(token, ErrorCodes.SYNTAX, "no token found");
@@ -464,7 +466,7 @@ class G64Basic {
         token = this.SetError(token, -1, "def fn");
         return token;
     }
-    PrepareData(token, cmd, code) {
+    TokenizeData(token, cmd, code) {
         const def = cmd.Param;
         const split = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
         const regString = /^\s*\"(.*)\"\s*$/;
@@ -682,8 +684,18 @@ class G64Basic {
         }
         return token;
     }
-    TokenizeFunction(token, item, code) {
-        console.log("~~ fn:", item, code);
+    TokenizeFunction(token, cmd, code) {
+        code = code.trim();
+        const tuple = CodeHelper.FindMatching(code);
+        if (tuple[0] == 0) {
+            if (!CodeHelper.IsMatching(tuple)) {
+                code += ")";
+                tuple[1] = code.length - 1;
+            }
+            if (tuple[0] == 0 && tuple[1] == code.length - 1) {
+                token = this.TokenizeParam(token, cmd, this.RemoveBrackets(code));
+            }
+        }
         return token;
     }
     CheckType(token) {
