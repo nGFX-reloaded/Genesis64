@@ -21,10 +21,10 @@ type BasicCmd = {
 
 
 type CmdParameter = {
-	fn?: Function		// parsing function (Token, BasicCmd, string)
-	len: number;		// max num of params, -1 no limit
-	chr: string;		// split char
-	type: ParamType[];	// type list, min number of params
+	fn?: (token: Token, cmd: BasicCmd, code: string) => Token		// parsing function (Token, BasicCmd, string)
+	chr?: string;			// split char
+	len: number;			// max num of params, -1 no limit
+	type: ParamType[];		// type list, min number of params
 }
 
 enum ParamType {

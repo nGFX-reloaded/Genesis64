@@ -116,29 +116,30 @@ class G64Basic {
 
 
 
-		const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
+		// const paramFile: CmdParameter = { chr: ",", len: 0, type: [ParamType.str, ParamType.num, ParamType.num] };
 
-		const paramData: CmdParameter = { chr: ",", len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
-		const paramDef: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDef.bind(this) };
-		const paramDim: CmdParameter = { chr: ",", len: -1, type: [ParamType.var, ParamType.num], fn: this.TokenizeDim.bind(this) };
-		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.TokenizeFor.bind(this) };
-		const paramIf: CmdParameter = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.TokenizeIf.bind(this) };
+		const paramData: CmdParameter = { len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
+		const paramDef: CmdParameter = { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDef.bind(this) };
+		const paramDim: CmdParameter = { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDim.bind(this) };
+		const paramFor: CmdParameter = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.ParamFor.bind(this) };
+		const paramIf: CmdParameter = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.ParamIf.bind(this) };
 
 
-		const paramPoke: CmdParameter = { chr: ",", len: 2, type: [ParamType.adr, ParamType.byte] };
+		const paramPoke: CmdParameter = { len: 2, type: [ParamType.adr, ParamType.byte] };
 		const paramLet: CmdParameter = { chr: this.PIPE, len: 2, type: [ParamType.var, ParamType.same] };
 
 
 		const paramOpsNum: CmdParameter = { chr: this.PIPE, len: -1, type: [ParamType.num, ParamType.num] };
 		const paramOpsAny: CmdParameter = { chr: this.PIPE, len: -1, type: [ParamType.any, ParamType.same] };
 
-		const paramPrint: CmdParameter = { chr: "", len: -1, type: [ParamType.any] };
+		//const paramPrint: CmdParameter = { chr: "", len: -1, type: [ParamType.any] };
 
-		const paramFnNum: CmdParameter = { chr: ",", len: 1, type: [ParamType.num], fn: this.TokenizeFunction.bind(this) };
-		const paramFnStr: CmdParameter = { chr: ",", len: 1, type: [ParamType.str] };
-		const paramFnAny: CmdParameter = { chr: ",", len: 1, type: [ParamType.any] };
-		const paramFnStr_LR: CmdParameter = { chr: ",", len: 2, type: [ParamType.str, ParamType.num] };
-		const paramFnStr_Mid: CmdParameter = { chr: ",", len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
+		const paramFnNum: CmdParameter = { len: 1, type: [ParamType.num], fn: this.TokenizeFunction.bind(this) };
+		const paramFnStr: CmdParameter = { len: 1, type: [ParamType.str] };
+
+		const paramFnAny: CmdParameter = { len: 1, type: [ParamType.any] };
+		const paramFnStr_LR: CmdParameter = { len: 2, type: [ParamType.str, ParamType.num] };
+		const paramFnStr_Mid: CmdParameter = { len: 2, type: [ParamType.str, ParamType.num, ParamType.num] };
 
 		this.m_Commands = [
 
@@ -163,20 +164,20 @@ class G64Basic {
 			{ Name: "input#", Abbrv: "iN", TknId: 132, Type: CmdType.cmd },
 			{ Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: paramLet },
 			{ Name: "list", Abbrv: "lI", TknId: 155, Type: CmdType.cmd },
-			{ Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd, Param: paramFile },
+			{ Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd },
 			{ Name: "new", Abbrv: "", TknId: 162, Type: CmdType.cmd },
 			{ Name: "next", Abbrv: "nE", TknId: 130, Type: CmdType.cmd },
 			{ Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
 			{ Name: "open", Abbrv: "oP", TknId: 159, Type: CmdType.cmd },
 			{ Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: paramPoke },
-			{ Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd, Param: paramPrint },
+			{ Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd },
 			{ Name: "print#", Abbrv: "pR", TknId: 152, Type: CmdType.cmd },
 			{ Name: "read", Abbrv: "rE", TknId: 135, Type: CmdType.cmd },
 			{ Name: "rem", Abbrv: "", TknId: 143, Type: CmdType.cmd },
 			{ Name: "restore", Abbrv: "reS", TknId: 140, Type: CmdType.cmd },
 			{ Name: "return", Abbrv: "reT", TknId: 142, Type: CmdType.cmd },
 			{ Name: "run", Abbrv: "rU", TknId: 138, Type: CmdType.cmd },
-			{ Name: "save", Abbrv: "sA", TknId: 148, Type: CmdType.cmd, Param: paramFile },
+			{ Name: "save", Abbrv: "sA", TknId: 148, Type: CmdType.cmd },
 			{ Name: "stop", Abbrv: "sT", TknId: 144, Type: CmdType.cmd },
 			{ Name: "step", Abbrv: "stE", TknId: 169, Type: CmdType.cmd },
 			{ Name: "sys", Abbrv: "sY", TknId: 158, Type: CmdType.cmd },
@@ -222,7 +223,7 @@ class G64Basic {
 
 			//
 			// ----- ops -----
-			{ Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.fnum, Param: paramFnNum },
+			{ Name: "not", Abbrv: "nO", TknId: 168, Type: CmdType.ops, Param: paramOpsNum },
 			{ Name: "and", Abbrv: "aN", TknId: 175, Type: CmdType.ops, Param: paramOpsNum },
 			{ Name: "or", Abbrv: "", TknId: 176, Type: CmdType.ops, Param: paramOpsNum },
 			{ Name: "^", Abbrv: "", TknId: -1, Type: CmdType.ops, Param: paramOpsNum },
@@ -298,6 +299,10 @@ class G64Basic {
 			// set param parser
 			if (typeof this.m_Commands[i].Param.fn === "undefined")
 				this.m_Commands[i].Param.fn = this.TokenizeParam.bind(this);
+
+			// set param split
+			if (typeof this.m_Commands[i].Param.chr === "undefined")
+				this.m_Commands[i].Param.chr = ",";
 
 
 			// set regex
@@ -527,6 +532,8 @@ class G64Basic {
 		console.timeEnd("temp");
 	}
 
+	//#region " ----- Tokenizer ----- "
+
 	/**
 	 * Converts a piece of code into a token
 	 * @param			code		code to tokenize
@@ -554,7 +561,6 @@ class G64Basic {
 		this.regIsComp.lastIndex = -1;
 		this.regIsOps.lastIndex = -1;
 
-
 		//
 		// if code starts and ends with () or [] and they are matching -> remove
 		code = this.RemoveBrackets(code);
@@ -578,11 +584,13 @@ class G64Basic {
 		// variables
 		match = this.regVar.exec(code);
 		if (match !== null) {
-			console.log("- var:", match);
-			if (typeof match[2] === "undefined") {
-				return this.TokenizeVar(token, match[1]);
-			} else {
-				return this.TokenizeArray(token, match[1], match[2]);
+			if (!this.regIsFn.test(match[1])) {
+				console.log("- var:", match);
+				if (typeof match[2] === "undefined") {
+					return this.TokenizeVar(token, match[1]);
+				} else {
+					return this.TokenizeArray(token, match[1], match[2]);
+				}
 			}
 		}
 		// number
@@ -712,230 +720,6 @@ class G64Basic {
 		return this.CheckType(token);
 	}
 
-	//#region " ---- Command Tokenizers ----- "
-
-	/**
-	 * Tokenizer for DEF
-	 * @param			Token			token to add params to
-	 * @param			cmd				the command
-	 * @param			code			code containing params
-	 * @returns			Token
-	 **/
-	private TokenizeDef(token: Token, cmd: BasicCmd, code: string): Token {
-
-		const regFN: RegExp = /fn(.+)\((.+)\)\s*=(.+)/;
-		const match: RegExpExecArray = regFN.exec(code.trim());
-
-
-		if (match !== null) {
-			match.shift();
-			const fnName: string = match[0].trim();
-			const fnVar: string = match[1].trim();
-			const fnCode: string = match[2].trim();
-
-			// create fn token
-			let tknFn: Token = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
-			if (this.m_TknData.FnMap.has(fnName)) {
-				tknFn = this.m_TknData.FnMap.get(fnName);
-			} else {
-				tknFn = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
-				tknFn.Name = fnName;
-				this.m_TknData.FnMap.set(fnName, tknFn);
-			}
-
-			// set var token
-			tknFn.Values.push(this.TokenizeVar(this.CreateToken(-1, Tokentype.err, -999), fnVar));
-
-			// set fn
-			tknFn.Values.push(this.TokenizeParam(tknFn, cmd, fnCode));
-
-			console.log("DEF FN ->", code, tknFn);
-
-		} else {
-			token = this.SetError(token, ErrorCodes.SYNTAX, "cannot parse def fn");
-		}
-
-		token = this.SetError(token, -1, "def fn");
-		return token;
-	}
-
-	/**
-	 * Tokenize DATA parameters 
-	 * @param			Token			token to add params to
-	 * @param			cmd				the command
-	 * @param			code			code containing params
-	 * @returns			Token
-	 **/
-	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
-
-		const def: CmdParameter = cmd.Param;
-		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
-
-		const regString: RegExp = /^\s*\"(.*)\"\s*$/;
-
-		let match: RegExpMatchArray;
-
-		if (split.length == 1 && split[0].trim() === "") {
-			token = this.SetError(token, ErrorCodes.SYNTAX, "data without entries");
-			return token;
-		}
-
-		for (let i: number = 0; i < split.length; i++) {
-			let tkn: Token = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
-
-			this.regNum.lastIndex = -1;
-			regString.lastIndex = -1;
-
-			split[i] = split[i].trimStart(); // data ignores trailing spaces
-
-			// check for numbers ...
-			match = this.regNum.exec(split[i].trim());
-			if (match !== null) {
-				tkn = this.CreateToken(-1, Tokentype.num, 99999, match[0]); // read can access numbers via string as well
-				tkn.Num = parseFloat(match[0]);
-				tkn.hint = "num";
-
-			} else {
-				// ... everything else is treated as string
-				match = regString.exec(split[i]);
-				if (match !== null) {
-					tkn = this.CreateToken(-1, Tokentype.num, 99999, match[1]); // pure strings enclosed in "" are store WITHOUT ""
-					tkn.hint = "str";
-
-				} else {
-					tkn = this.CreateToken(-1, Tokentype.num, 99999, split[i]); // everything else is stored "as is"
-					tkn.hint = "str";
-				}
-			}
-
-			token.Values.push(tkn); // ToDo: on run collect all datas
-		}
-
-		return token;
-	}
-
-	/**
-	 * Tokenize DIM parameters 
-	 * @param			Token			token to add params to
-	 * @param			cmd				the command
-	 * @param			code			code containing params
-	 * @returns			Token
-	 **/
-	private TokenizeDim(token: Token, cmd: BasicCmd, code: string): Token {
-
-		// check if this DIM dims more than one array
-		const arrays: string[] = this.Splitter(code, ",");
-
-		for (let i: number = 0; i < arrays.length; i++) {
-			if (/.+\(.+\)/.test(arrays[i].trim())) {
-
-				const name: string = arrays[i].substring(0, arrays[i].indexOf("(")).trim();
-
-				let type: Tokentype = Tokentype.anum;
-				if (name.endsWith("$")) {
-					type = Tokentype.astr;
-				} else {
-					if (name.endsWith("%"))
-						type = Tokentype.aint;
-				}
-
-				if (this.m_TknData.DimMap.has(name)) {
-					token = this.SetError(token, ErrorCodes.REDIMD_ARRAY, "array '" + name + "' already exists");
-					break;
-
-				} else {
-					const tkn: Token = this.TokenizeParam(this.CreateToken(token.Id, token.Type, 100, name), cmd, this.RemoveBrackets(arrays[i].substring(arrays[i].indexOf("("))));
-
-					if (tkn.Type != Tokentype.err) {
-						tkn.Id = -1;
-						tkn.Type = type;
-
-						// simply register array now without really setting dimensions
-						const dims: number[] = [];
-						for (let k: number = 0; k < tkn.Values.length; k++) {
-							dims.push(-1);
-						}
-
-						this.m_TknData.DimMap.set(name, dims);
-
-						token.Values.push(tkn);
-
-					} else {
-						token = this.SetError(token, tkn.Id, tkn.Str);
-						break;
-					}
-				}
-
-			} else {
-				token = this.SetError(token, ErrorCodes.SYNTAX, "parameter #" + (i + 1).toString() + " is not an array");
-			}
-		}
-
-		return token;
-	}
-
-	/**
-	 * Tokenizer for FOR, modifies code string and uses default parameter tokenizer
-	 * @param			Token			token to add params to
-	 * @param			cmd				the command
-	 * @param			code			code containing params
-	 * @returns			Token
-	 **/
-	private TokenizeFor(token: Token, cmd: BasicCmd, code: string): Token {
-
-		const regFor = /^(.+)to(.+)step(.+)$/;
-
-		if (!code.includes("step"))
-			code += "step1";
-
-		const match: RegExpMatchArray = regFor.exec(code);
-		if (match !== null) {
-			match.shift();
-			token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
-
-		} else {
-			token = this.SetError(token, ErrorCodes.SYNTAX, "malformed for");
-		}
-
-		return token;
-	}
-
-	/**
-	 * Tokenizer for IF, modifies code string and uses default parameter tokenizer
-	 * @param			Token			token to add params to
-	 * @param			cmd				the command
-	 * @param			code			code containing params
-	 * @returns			Token
-	 **/
-	private TokenizeIf(token: Token, cmd: BasicCmd, code: string): Token {
-
-		const regIf = /^(.+)(then|goto)(.+)$/;
-
-		// fix THEN GOTO
-		code = code.replace(/then\s*goto/, "goto");
-
-		// fix THEN 10
-		code = code.replace(/then\s*(\d+)/, "goto$1");
-
-		const match: RegExpMatchArray = regIf.exec(code);
-		if (match !== null) {
-			match.shift();
-
-			if (match[1] === "then") {
-				match[1] = match.pop();
-			} else {
-				match[1] = match[1] + match.pop();
-			}
-
-			token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
-
-		} else {
-			token = this.SetError(token, ErrorCodes.SYNTAX, "malformed if");
-		}
-
-		return token;
-	}
-
 	/**
 	 * Tokinize a variable and creates entries in the variable list and map
 	 * @param			token			Token data, default is: SYNTAX ERROR
@@ -1057,14 +841,12 @@ class G64Basic {
 			if (code.includes(cmd.Name)) {
 				let split: string[] = this.Splitter(code, cmd.Name);
 
-				console.log(">>", cmd.Name, split, split.length);
-
 				if (split.length > 1) {
 					// if split is empty, chances are high that we have something like x*-y
 					// as variables can't be negative we cheat and turn this into x*0-y
 					// or code like b=<>-1
 					if (split[0].trim() === "") {
-						if (isNaN(parseFloat(split[1]))) {
+						if ((cmd.Name === "-") && isNaN(parseFloat(split[1]))) {
 							split[0] = "0";
 						} else {
 							split.shift();
@@ -1087,17 +869,16 @@ class G64Basic {
 					token.Order = (this.m_TknData.Tokens.length == 0) ? 0 : (-this.m_TknData.Level * (10 + i));
 					token.hint = cmd.Name;
 
-					console.log("-->", cmd.Name, split.join(this.PIPE));
 					token = this.TokenizeParam(token, cmd, split.join(this.PIPE));
 
-					console.log("--->", token);
-
-					// ToDo: test adding strings ...
+					// + can add strings, so we change the return type
+					if (cmd.Name === "+")
+						if (this.IsStr(token.Values[0]))
+							token.Type = Tokentype.fnstr;
 
 					break;
 				}
 			}
-
 		}
 
 		return token;
@@ -1129,6 +910,234 @@ class G64Basic {
 
 		return token;
 	}
+
+	//#endregion
+
+	//#region " ---- Command Tokenizers ----- "
+
+	/**
+	 * Tokenizer for DEF
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private ParamDef(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const regFN: RegExp = /fn(.+)\((.+)\)\s*=(.+)/;
+		const match: RegExpExecArray = regFN.exec(code.trim());
+
+
+		if (match !== null) {
+			match.shift();
+			const fnName: string = match[0].trim();
+			const fnVar: string = match[1].trim();
+			const fnCode: string = match[2].trim();
+
+			// create fn token
+			let tknFn: Token = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+			if (this.m_TknData.FnMap.has(fnName)) {
+				tknFn = this.m_TknData.FnMap.get(fnName);
+			} else {
+				tknFn = this.CreateToken(this.m_mapCmdId.get("fn"), Tokentype.fnnum, 50);
+				tknFn.Name = fnName;
+				this.m_TknData.FnMap.set(fnName, tknFn);
+			}
+
+			// set var token
+			tknFn.Values.push(this.TokenizeVar(this.CreateToken(-1, Tokentype.err, -999), fnVar));
+
+			// set fn
+			tknFn.Values.push(this.TokenizeParam(tknFn, cmd, fnCode));
+
+			console.log("DEF FN ->", code, tknFn);
+
+		} else {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "cannot parse def fn");
+		}
+
+		token = this.SetError(token, -1, "def fn");
+		return token;
+	}
+
+	/**
+	 * Tokenize DATA parameters 
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private TokenizeData(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const def: CmdParameter = cmd.Param;
+		const split: string[] = this.Splitter(CodeHelper.RestoreLiterals(code, this.m_TknData.Literals), def.chr);
+
+		const regString: RegExp = /^\s*\"(.*)\"\s*$/;
+
+		let match: RegExpMatchArray;
+
+		if (split.length == 1 && split[0].trim() === "") {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "data without entries");
+			return token;
+		}
+
+		for (let i: number = 0; i < split.length; i++) {
+			let tkn: Token = this.CreateError(ErrorCodes.SYNTAX, "data entry error");
+
+			this.regNum.lastIndex = -1;
+			regString.lastIndex = -1;
+
+			split[i] = split[i].trimStart(); // data ignores trailing spaces
+
+			// check for numbers ...
+			match = this.regNum.exec(split[i].trim());
+			if (match !== null) {
+				tkn = this.CreateToken(-1, Tokentype.num, 99999, match[0]); // read can access numbers via string as well
+				tkn.Num = parseFloat(match[0]);
+				tkn.hint = "num";
+
+			} else {
+				// ... everything else is treated as string
+				match = regString.exec(split[i]);
+				if (match !== null) {
+					tkn = this.CreateToken(-1, Tokentype.num, 99999, match[1]); // pure strings enclosed in "" are store WITHOUT ""
+					tkn.hint = "str";
+
+				} else {
+					tkn = this.CreateToken(-1, Tokentype.num, 99999, split[i]); // everything else is stored "as is"
+					tkn.hint = "str";
+				}
+			}
+
+			token.Values.push(tkn); // ToDo: on run collect all datas
+		}
+
+		return token;
+	}
+
+	/**
+	 * Tokenize DIM parameters 
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private ParamDim(token: Token, cmd: BasicCmd, code: string): Token {
+
+		// check if this DIM dims more than one array
+		const arrays: string[] = this.Splitter(code, ",");
+
+		for (let i: number = 0; i < arrays.length; i++) {
+			if (/.+\(.+\)/.test(arrays[i].trim())) {
+
+				const name: string = arrays[i].substring(0, arrays[i].indexOf("(")).trim();
+
+				let type: Tokentype = Tokentype.anum;
+				if (name.endsWith("$")) {
+					type = Tokentype.astr;
+				} else {
+					if (name.endsWith("%"))
+						type = Tokentype.aint;
+				}
+
+				if (this.m_TknData.DimMap.has(name)) {
+					token = this.SetError(token, ErrorCodes.REDIMD_ARRAY, "array '" + name + "' already exists");
+					break;
+
+				} else {
+					const tkn: Token = this.TokenizeParam(this.CreateToken(token.Id, token.Type, 100, name), cmd, this.RemoveBrackets(arrays[i].substring(arrays[i].indexOf("("))));
+
+					if (tkn.Type != Tokentype.err) {
+						tkn.Id = -1;
+						tkn.Type = type;
+
+						// simply register array now without really setting dimensions
+						const dims: number[] = [];
+						for (let k: number = 0; k < tkn.Values.length; k++) {
+							dims.push(-1);
+						}
+
+						this.m_TknData.DimMap.set(name, dims);
+
+						token.Values.push(tkn);
+
+					} else {
+						token = this.SetError(token, tkn.Id, tkn.Str);
+						break;
+					}
+				}
+
+			} else {
+				token = this.SetError(token, ErrorCodes.SYNTAX, "parameter #" + (i + 1).toString() + " is not an array");
+			}
+		}
+
+		return token;
+	}
+
+	/**
+	 * Tokenizer for FOR, modifies code string and uses default parameter tokenizer
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private ParamFor(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const regFor = /^(.+)to(.+)step(.+)$/;
+
+		if (!code.includes("step"))
+			code += "step1";
+
+		const match: RegExpMatchArray = regFor.exec(code);
+		if (match !== null) {
+			match.shift();
+			token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
+
+		} else {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "malformed for");
+		}
+
+		return token;
+	}
+
+	/**
+	 * Tokenizer for IF, modifies code string and uses default parameter tokenizer
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
+	private ParamIf(token: Token, cmd: BasicCmd, code: string): Token {
+
+		const regIf = /^(.+)(then|goto)(.+)$/;
+
+		// fix THEN GOTO
+		code = code.replace(/then\s*goto/, "goto");
+
+		// fix THEN 10
+		code = code.replace(/then\s*(\d+)/, "goto$1");
+
+		const match: RegExpMatchArray = regIf.exec(code);
+		if (match !== null) {
+			match.shift();
+
+			if (match[1] === "then") {
+				match[1] = match.pop();
+			} else {
+				match[1] = match[1] + match.pop();
+			}
+
+			token = this.TokenizeParam(token, cmd, match.join(this.PIPE));
+
+		} else {
+			token = this.SetError(token, ErrorCodes.SYNTAX, "malformed if");
+		}
+
+		return token;
+	}
+
+
 	//#endregion
 
 	/**
