@@ -24,6 +24,7 @@ class G64Basic {
         this.regLiteral = /^{(\d+)}$/;
         this.regIsOps = /not|or|and|\^|\*|\/|\+|\-/;
         this.regIsComp = /==|!=|<>|<=|>=|<|>/;
+        this.regIsSeperator = /^[,;]$/;
         this.regBracket = /^[\(\[](.*)[\)\]]$/;
         this.regArrayStart = /^\s*([a-zA-Z]+\d*[$%]?\s*(\[?))(.+)/;
         this.regEncodeCompCmd = [
@@ -58,13 +59,6 @@ class G64Basic {
         };
     }
     InitBasicV2() {
-        const paramData = { len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) };
-        const paramDef = { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDef.bind(this) };
-        const paramDim = { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDim.bind(this) };
-        const paramFor = { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.ParamFor.bind(this) };
-        const paramIf = { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.ParamIf.bind(this) };
-        const paramPoke = { len: 2, type: [ParamType.adr, ParamType.byte] };
-        const paramLet = { chr: this.PIPE, len: 2, type: [ParamType.var, ParamType.same] };
         const paramOpsNum = { chr: this.PIPE, len: -1, type: [ParamType.num, ParamType.num] };
         const paramOpsAny = { chr: this.PIPE, len: -1, type: [ParamType.any, ParamType.same] };
         const paramFnNum = { len: 1, type: [ParamType.num], fn: this.TokenizeFunction.bind(this) };
@@ -77,26 +71,26 @@ class G64Basic {
             { Name: "clr", Abbrv: "cR", TknId: 156, Type: CmdType.cmd },
             { Name: "cont", Abbrv: "cO", TknId: 154, Type: CmdType.cmd },
             { Name: "cmd", Abbrv: "cM", TknId: 157, Type: CmdType.cmd },
-            { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: paramData },
-            { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd, Param: paramDef },
-            { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd, Param: paramDim },
+            { Name: "data", Abbrv: "dA", TknId: 131, Type: CmdType.cmd, Param: { len: -1, type: [ParamType.any], fn: this.TokenizeData.bind(this) } },
+            { Name: "def", Abbrv: "dE", TknId: 150, Type: CmdType.cmd, Param: { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDef.bind(this) } },
+            { Name: "dim", Abbrv: "dI", TknId: 134, Type: CmdType.cmd, Param: { len: -1, type: [ParamType.var, ParamType.num], fn: this.ParamDim.bind(this) } },
             { Name: "end", Abbrv: "eN", TknId: 128, Type: CmdType.cmd },
-            { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: paramFor },
+            { Name: "for", Abbrv: "fO", TknId: 129, Type: CmdType.cmd, Param: { chr: this.PIPE, len: 3, type: [ParamType.var, ParamType.num, ParamType.num], fn: this.ParamFor.bind(this) } },
             { Name: "get", Abbrv: "gE", TknId: 161, Type: CmdType.cmd },
             { Name: "get#", Abbrv: "", TknId: 161, Type: CmdType.cmd },
             { Name: "gosub", Abbrv: "goS", TknId: 141, Type: CmdType.cmd },
             { Name: "goto", Abbrv: "gO", TknId: 137, Type: CmdType.cmd, Param: paramFnNum },
-            { Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd, Param: paramIf },
+            { Name: "if", Abbrv: "", TknId: 139, Type: CmdType.cmd, Param: { chr: this.PIPE, len: 2, type: [ParamType.num, ParamType.any], fn: this.ParamIf.bind(this) } },
             { Name: "input", Abbrv: "", TknId: 133, Type: CmdType.cmd },
             { Name: "input#", Abbrv: "iN", TknId: 132, Type: CmdType.cmd },
-            { Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: paramLet },
+            { Name: "let", Abbrv: "lE", TknId: 136, Type: CmdType.cmd, Param: { chr: this.PIPE, len: 2, type: [ParamType.var, ParamType.same] } },
             { Name: "list", Abbrv: "lI", TknId: 155, Type: CmdType.cmd },
             { Name: "load", Abbrv: "lO", TknId: 147, Type: CmdType.cmd },
             { Name: "new", Abbrv: "", TknId: 162, Type: CmdType.cmd },
             { Name: "next", Abbrv: "nE", TknId: 130, Type: CmdType.cmd },
             { Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
             { Name: "open", Abbrv: "oP", TknId: 159, Type: CmdType.cmd },
-            { Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: paramPoke },
+            { Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: { len: 2, type: [ParamType.adr, ParamType.byte] } },
             { Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd },
             { Name: "print#", Abbrv: "pR", TknId: 152, Type: CmdType.cmd },
             { Name: "read", Abbrv: "rE", TknId: 135, Type: CmdType.cmd },
@@ -398,6 +392,13 @@ class G64Basic {
             console.log("- fn:", match);
             return this.TokenizeItem(token, match[1], match[2]);
         }
+        match = this.regIsSeperator.exec(code);
+        if (match !== null) {
+            console.log("- sep:", match);
+            token = this.CreateToken(-1, Tokentype.link, 200, match[0]);
+            token.hint = match[0];
+            return token;
+        }
         console.log("-- no token or error '" + code + "'");
         token = this.SetError(token, ErrorCodes.SYNTAX, "no token found");
         token.Num = -1;
@@ -698,6 +699,9 @@ class G64Basic {
         else {
             token = this.SetError(token, ErrorCodes.SYNTAX, "malformed if");
         }
+        return token;
+    }
+    ParamPrint(token, cmd, code) {
         return token;
     }
     CheckType(token) {
