@@ -30,6 +30,8 @@ class G64Basic {
 	private m_lstOps: number[] = [];		// list of ops
 	private m_lstComp: number[] = [];		// list of comparers
 
+	private m_fnNames: string = "";
+
 	private m_mapDeAbbrev: Map<string, string> = new Map<string, string>();
 	private m_mapCmdId: Map<string, number> = new Map<string, number>();
 
@@ -160,7 +162,7 @@ class G64Basic {
 			{ Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
 			{ Name: "open", Abbrv: "oP", TknId: 159, Type: CmdType.cmd },
 			{ Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: { len: 2, type: [ParamType.adr, ParamType.byte] } },
-			{ Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd },
+			{ Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd, Param: { chr: this.PIPE, len: -1, type: [ParamType.any], fn: this.ParamPrint.bind(this) } },
 			{ Name: "print#", Abbrv: "pR", TknId: 152, Type: CmdType.cmd },
 			{ Name: "read", Abbrv: "rE", TknId: 135, Type: CmdType.cmd },
 			{ Name: "rem", Abbrv: "", TknId: 143, Type: CmdType.cmd },
@@ -337,6 +339,8 @@ class G64Basic {
 		this.regIsCmd = this.CreateListRegExp(aCmd);
 		this.regIsFn = this.CreateListRegExp(aFn);
 		this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+
+		this.m_fnNames = aFn.join("|").replace(/\(/g, "\\(");
 
 	}
 
@@ -635,7 +639,7 @@ class G64Basic {
 			token.hint = match[0];
 			return token;
 		}
-		
+
 
 		console.log("-- no token or error '" + code + "'");
 		token = this.SetError(token, ErrorCodes.SYNTAX, "no token found");
@@ -1137,7 +1141,150 @@ class G64Basic {
 		return token;
 	}
 
+	/**
+	 * Tokenizer for PRINT, modifies code string and uses default parameter tokenizer
+	 * @param			Token			token to add params to
+	 * @param			cmd				the command
+	 * @param			code			code containing params
+	 * @returns			Token
+	 **/
 	private ParamPrint(token: Token, cmd: BasicCmd, code: string): Token {
+
+		let i: number, j: number;
+		let aParts: string[] = [], aFirst: string[] = [], aSecond: string[] = [];
+		let match: RegExpMatchArray;
+		let hasMatch: boolean;
+
+		// check for ","
+		aFirst = CodeHelper.CodeSplitter(code, ",");
+		for (i = 0; i < aFirst.length; i++) {
+			aParts.push(aFirst[i]);
+			if (i < aFirst.length - 1) aParts.push(",");
+		}
+
+		// check for ";"
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			aSecond = CodeHelper.CodeSplitter(aFirst[i], ";");
+
+			// add back ";"
+			for (j = 0; j < aSecond.length; j++) {
+				aParts.push(aSecond[j].trim());
+				if (j < aSecond.length - 1) aParts.push(";");
+			}
+		}
+
+		// remove space between numbers
+		for (i = 0; i < aParts.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp(/(\d+)\s*(\d+)/).exec(aParts[i]);
+
+				if (match != null) {
+					aParts[i] = aParts[i].replace(match[0], match[1] + match[2]);
+				} else {
+					hasMatch = false;
+				}
+			}
+		}
+
+		// remove space between: numvar [spc] num
+		// so "a 2" becomes "a2"
+		for (i = 0; i < aParts.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp(/([_a-z]+[_a-z0-9]*)\s+(\d+)/).exec(aParts[i]);
+
+				if (match != null) {
+					aParts[i] = aParts[i].replace(match[0], match[1] + match[2]);
+				} else {
+					hasMatch = false;
+				}
+			}
+		}
+
+		// split literals
+		let strLit: string = "";
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp(/[^\=\<\>]?\s*(\{\d+\})/g).exec(aFirst[i]); // but not in compares
+
+				if (match != null) {
+					strLit = aFirst[i].substring(0, aFirst[i].indexOf(match[1]));
+
+					if (strLit !== "")
+						aParts.push(strLit);
+
+					aParts.push(match[1]);
+					aFirst[i] = aFirst[i].substring(strLit.length + match[1].length);
+
+				} else {
+
+					if (aFirst[i] !== "")
+						aParts.push(aFirst[i]);
+
+					hasMatch = false;
+				}
+			}
+		}
+
+		// split between functions
+		// sin(1) sin (1)
+		const strStart: string = "(\\)|]|\\d)";
+		const strEnd: string = "(\\(|" + this.m_fnNames + ")";
+
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			hasMatch = true;
+
+			while (hasMatch) {
+				match = new RegExp(strStart + "\\s*" + strEnd).exec(aFirst[i]);
+
+				if (match !== null) {
+					aParts.push(aFirst[i].substring(0, aFirst[i].indexOf(match[0]) + match[1].length));
+					aFirst[i] = aFirst[i].substring(aFirst[i].indexOf(match[0]) + match[1].length);
+
+				} else {
+					aParts.push(aFirst[i]);
+					hasMatch = false;
+				}
+			}
+		}
+
+		// split between functions and vars
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			hasMatch = true;
+
+			while (hasMatch) {
+				match = new RegExp("(\\)|])\\s*\\w+").exec(aFirst[i]);
+
+				if (match !== null) {
+					aParts.push(aFirst[i].substring(0, aFirst[i].indexOf(match[0]) + match[1].length));
+					aFirst[i] = aFirst[i].substring(aFirst[i].indexOf(match[0]) + match[1].length);
+
+				} else {
+					aParts.push(aFirst[i]);
+					hasMatch = false;
+				}
+			}
+		}
+
+		// remove empty parts and then join
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			if (aFirst[i] !== "")
+				aParts.push(aFirst[i]);
+		}
+
+		token = this.TokenizeParam(token, cmd, aParts.join(this.PIPE));
 
 		return token;
 	}

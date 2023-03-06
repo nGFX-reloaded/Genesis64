@@ -15,6 +15,7 @@ class G64Basic {
         this.m_lstFnOut = [];
         this.m_lstOps = [];
         this.m_lstComp = [];
+        this.m_fnNames = "";
         this.m_mapDeAbbrev = new Map();
         this.m_mapCmdId = new Map();
         this.regLineNr = /^\s*(\d*)\s*(.*)\s*/;
@@ -91,7 +92,7 @@ class G64Basic {
             { Name: "on", Abbrv: "", TknId: 145, Type: CmdType.cmd },
             { Name: "open", Abbrv: "oP", TknId: 159, Type: CmdType.cmd },
             { Name: "poke", Abbrv: "pO", TknId: 151, Type: CmdType.cmd, Param: { len: 2, type: [ParamType.adr, ParamType.byte] } },
-            { Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd },
+            { Name: "print", Abbrv: "?", TknId: 153, Type: CmdType.cmd, Param: { chr: this.PIPE, len: -1, type: [ParamType.any], fn: this.ParamPrint.bind(this) } },
             { Name: "print#", Abbrv: "pR", TknId: 152, Type: CmdType.cmd },
             { Name: "read", Abbrv: "rE", TknId: 135, Type: CmdType.cmd },
             { Name: "rem", Abbrv: "", TknId: 143, Type: CmdType.cmd },
@@ -214,6 +215,7 @@ class G64Basic {
         this.regIsCmd = this.CreateListRegExp(aCmd);
         this.regIsFn = this.CreateListRegExp(aFn);
         this.regIsAbbrv = new RegExp("(" + aAbbrv.join("|").replace(/(\?)/, "\\$1") + ")", "g");
+        this.m_fnNames = aFn.join("|").replace(/\(/g, "\\(");
     }
     CreateListRegExp(list) {
         return new RegExp("^(" + list.join("|").replace(/([\#\$\(\*\+\^])/g, "\\$1") + ")\\s*(.*)\\s*");
@@ -702,6 +704,112 @@ class G64Basic {
         return token;
     }
     ParamPrint(token, cmd, code) {
+        let i, j;
+        let aParts = [], aFirst = [], aSecond = [];
+        let match;
+        let hasMatch;
+        aFirst = CodeHelper.CodeSplitter(code, ",");
+        for (i = 0; i < aFirst.length; i++) {
+            aParts.push(aFirst[i]);
+            if (i < aFirst.length - 1)
+                aParts.push(",");
+        }
+        aFirst = aParts.slice();
+        aParts.length = 0;
+        for (i = 0; i < aFirst.length; i++) {
+            aSecond = CodeHelper.CodeSplitter(aFirst[i], ";");
+            for (j = 0; j < aSecond.length; j++) {
+                aParts.push(aSecond[j].trim());
+                if (j < aSecond.length - 1)
+                    aParts.push(";");
+            }
+        }
+        for (i = 0; i < aParts.length; i++) {
+            hasMatch = true;
+            while (hasMatch) {
+                match = new RegExp(/(\d+)\s*(\d+)/).exec(aParts[i]);
+                if (match != null) {
+                    aParts[i] = aParts[i].replace(match[0], match[1] + match[2]);
+                }
+                else {
+                    hasMatch = false;
+                }
+            }
+        }
+        for (i = 0; i < aParts.length; i++) {
+            hasMatch = true;
+            while (hasMatch) {
+                match = new RegExp(/([_a-z]+[_a-z0-9]*)\s+(\d+)/).exec(aParts[i]);
+                if (match != null) {
+                    aParts[i] = aParts[i].replace(match[0], match[1] + match[2]);
+                }
+                else {
+                    hasMatch = false;
+                }
+            }
+        }
+        let strLit = "";
+        aFirst = aParts.slice();
+        aParts.length = 0;
+        for (i = 0; i < aFirst.length; i++) {
+            hasMatch = true;
+            while (hasMatch) {
+                match = new RegExp(/[^\=\<\>]?\s*(\{\d+\})/g).exec(aFirst[i]);
+                if (match != null) {
+                    strLit = aFirst[i].substring(0, aFirst[i].indexOf(match[1]));
+                    if (strLit !== "")
+                        aParts.push(strLit);
+                    aParts.push(match[1]);
+                    aFirst[i] = aFirst[i].substring(strLit.length + match[1].length);
+                }
+                else {
+                    if (aFirst[i] !== "")
+                        aParts.push(aFirst[i]);
+                    hasMatch = false;
+                }
+            }
+        }
+        const strStart = "(\\)|]|\\d)";
+        const strEnd = "(\\(|" + this.m_fnNames + ")";
+        aFirst = aParts.slice();
+        aParts.length = 0;
+        for (i = 0; i < aFirst.length; i++) {
+            hasMatch = true;
+            while (hasMatch) {
+                match = new RegExp(strStart + "\\s*" + strEnd).exec(aFirst[i]);
+                if (match !== null) {
+                    aParts.push(aFirst[i].substring(0, aFirst[i].indexOf(match[0]) + match[1].length));
+                    aFirst[i] = aFirst[i].substring(aFirst[i].indexOf(match[0]) + match[1].length);
+                }
+                else {
+                    aParts.push(aFirst[i]);
+                    hasMatch = false;
+                }
+            }
+        }
+        aFirst = aParts.slice();
+        aParts.length = 0;
+        for (i = 0; i < aFirst.length; i++) {
+            hasMatch = true;
+            while (hasMatch) {
+                match = new RegExp("(\\)|])\\s*\\w+").exec(aFirst[i]);
+                if (match !== null) {
+                    aParts.push(aFirst[i].substring(0, aFirst[i].indexOf(match[0]) + match[1].length));
+                    aFirst[i] = aFirst[i].substring(aFirst[i].indexOf(match[0]) + match[1].length);
+                }
+                else {
+                    aParts.push(aFirst[i]);
+                    hasMatch = false;
+                }
+            }
+        }
+        aFirst = aParts.slice();
+        aParts.length = 0;
+        for (i = 0; i < aFirst.length; i++) {
+            if (aFirst[i] !== "")
+                aParts.push(aFirst[i]);
+        }
+        token = this.TokenizeParam(token, cmd, aParts.join(this.PIPE));
         return token;
     }
     CheckType(token) {
