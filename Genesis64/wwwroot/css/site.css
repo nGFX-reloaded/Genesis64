@@ -1,3 +1,59 @@
-body {
-background-color: #333333;
+﻿/*
+File: Main Css File
+	Genesis64 Main SCSS file
+*/
+@font-face {
+  font-display: swap;
+  font-family: "Asap Condensed";
+  font-style: normal;
+  font-weight: 200;
+  src: url("../../Sources/fonts/asap-condensed-v17-latin-200.woff2") format("woff2");
+}
+@font-face {
+  font-display: swap;
+  font-family: "Asap Condensed";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../../Sources/fonts/asap-condensed-v17-latin-regular.woff2") format("woff2");
+}
+@font-face {
+  font-display: swap;
+  font-family: "Asap Condensed";
+  font-style: normal;
+  font-weight: 700;
+  src: url("../../Sources/fonts/asap-condensed-v17-latin-700.woff2") format("woff2");
+}
+:root {
+  /* 
+  	set the default c64 colors 
+  */
+  --Black: #000000; /* 144, 0 */
+  --White: #ffffff; /* 5, 1 */
+  --Red: #68372b; /* 28, 2 */
+  --Cyan: #70a4b2; /* 159, 3 */
+  --Purple: #6f3d86; /* 156, 4 */
+  --Green: #588d43; /* 30, 5 */
+  --Blue: #352879; /* 31, 6 */
+  --Yellow: #B8C76F; /* 158, 7 */
+  --Orange: #6F4F25; /* 129, 8 */
+  --Brown: #433900; /* 149, 9 */
+  --Lightred: #9A6759; /* 150, 10 */
+  --Darkgrey: #444444; /* 151, 11 */
+  --Grey: #6C6C6C; /* 152, 12 */
+  --Lightgreen: #9AD284; /* 153, 13 */
+  --Lightblue: #6C5EB5; /* 154, 14 */
+  --Lightgrey: #959595; /* 155, 15 */
+  /* 
+  	some UI settings
+  */
+}
+
+html, body {
+  color: var(--Darkgrey);
+  font-family: "Asap Condensed", sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  padding: 0;
+  margin: 0;
+  background-color: var(--Grey);
 }
