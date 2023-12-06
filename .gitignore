@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/Genesis64/wwwroot/css/site.min.css
+/Genesis64/wwwroot/css/site.css
+/Genesis64/wwwroot/js/Genesis64.js
+/Genesis64/wwwroot/js/Genesis64.js.map
