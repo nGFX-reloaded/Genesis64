@@ -1,8 +1,8 @@
 
 // C64 Pro Mono/Style
 @font-face {
-	font-family: 'C64 Pro Mono/Style';
+	font-family: 'C64 Pro Mono';
 	font-style: normal;
 	font-weight: normal;
-	src: url('../fonts/C64_Pro_Mono-STYLE.woff2') format('woff2');
+	src: url('/fonts/C64_Pro_Mono-STYLE.woff2') format('woff2'); // Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+
 }
