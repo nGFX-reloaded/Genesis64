@@ -47,7 +47,12 @@ class Genesis64 {
 		let b: G64Basic = new G64Basic();
 		b.InitBasicV2();
 
-
+		// split into lines
+		// transpile = to ==, array () into array[], literals 123 or "abc" into {id} and store as token
+		// first transpile literals
+		// -> 10 print 123, "abc" -> 10 print {0}, {1}
+		// -> 10 print 123 + 456 -> 10 print {0} + {1}
+	
 	}
 
 }
