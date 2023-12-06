@@ -9,13 +9,13 @@ builder.Services.AddWebOptimizer(
 	pipeline => {
 		// see: https://github.com/ligershark/WebOptimizer/blob/master/sample/Startup.cs
 
-		//if (builder.Environment.IsDevelopment()) {
+		if (builder.Environment.IsDevelopment()) {
 			// This will minify any JS and CSS file that isn't part of any bundle
 			pipeline.MinifyCssFiles();
 			pipeline.MinifyJsFiles();
-		//}
+		}
 
-		//// IMPORTANT: bundles go without wwwroot and leading /, files without / as well
+		// IMPORTANT: bundles go without wwwroot and leading /, files without / as well
 		//pipeline.AddJavaScriptBundle("js/jquery.validate.js",
 		//	"AppSources/Jquery-validate/jquery.validate.js",
 		//	"AppSources/Jquery-validate/additional-methods.js",
