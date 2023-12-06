@@ -39,4 +39,15 @@ class Genesis64 {
 
 	}
 
+	public Temp(): void {
+		const code = document.getElementById("code").textContent;
+
+		console.log(code);
+
+		let b: G64Basic = new G64Basic();
+		b.InitBasicV2();
+
+
+	}
+
 }
