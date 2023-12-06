@@ -26,4 +26,8 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Genesis64\Tools\" />
+  </ItemGroup>
+
 </Project>
