@@ -1,2 +1,0 @@
-﻿10 print "abc"
-20 print 123

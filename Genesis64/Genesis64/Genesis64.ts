@@ -43,9 +43,8 @@ class Genesis64 {
 		const code = document.getElementById("code").textContent;
 
 		console.log(code);
+		
 
-		let b: G64Basic = new G64Basic();
-		b.InitBasicV2();
 
 		// split into lines
 		// transpile = to ==, array () into array[], literals 123 or "abc" into {id} and store as token
