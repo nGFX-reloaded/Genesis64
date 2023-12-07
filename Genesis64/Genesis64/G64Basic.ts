@@ -120,4 +120,38 @@ class G64Basic {
 		console.log("AddCommand: ", name, short,code, "->", Tokentype[type]);
 	}
 
+
+	//#region " ----- Helper ----- "
+
+	public ConvertArray(code: string): string {
+
+		const regStart: RegExp = /([a-z]+\d*[\%\$]*\s*\()/g;
+
+		let match: RegExpMatchArray = code.match(regStart);
+
+		if (match == null) return code;
+
+		for (let i: number = 0; i<match.length; i++) {
+			let start = code.indexOf(match[i]);
+			let m: Matching = Helper.GetMatching(code, start);
+
+			if (m.Has) {
+				const name: string = code.substring(start, m.Start);
+
+				// if name is not a reserved word, replace brackets with square brackets
+				let brackets = "[" + m.Match.substring(1, m.Match.length - 1) + "]";
+
+				// if m.Match contains brackets, run this part again
+				if (brackets.indexOf("(") != -1 && brackets.indexOf(")") != -1) {
+					brackets = this.ConvertArray(brackets);
+				}
+
+				code = code.replace(name + m.Match, name + brackets);
+			}
+		}
+		
+		return code;
+	}
+
+	//#endregion
 }
