@@ -123,9 +123,10 @@ class G64Basic {
 
 	//#region " ----- Helper ----- "
 
-	public ConvertArray(code: string): string {
+	public EncodeArray(code: string): string {
 
-		const regStart: RegExp = /([a-z]+\d*[\%\$]*\s*\()/g;
+		// regex that matches the start of a basic array, uncluding fn (to filter out fn definitions)
+		const regStart: RegExp = /((?:fn\s*)?[a-z]+\d*[\%\$]*\s*\()/g;
 
 		let match: RegExpMatchArray = code.match(regStart);
 
@@ -143,7 +144,7 @@ class G64Basic {
 
 				// if m.Match contains brackets, run this part again
 				if (brackets.indexOf("(") != -1 && brackets.indexOf(")") != -1) {
-					brackets = this.ConvertArray(brackets);
+					brackets = this.EncodeArray(brackets);
 				}
 
 				code = code.replace(name + m.Match, name + brackets);
