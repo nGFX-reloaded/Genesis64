@@ -22,7 +22,7 @@ class Genesis64 {
 	}
 
 	private Init(): void {
- 
+
 	}
 
 	//#endregion
@@ -44,16 +44,36 @@ class Genesis64 {
 
 		console.log(code);
 
-		const b: G64Basic = new G64Basic();
-		
-		console.log("->", b.EncodeArray(code));
+		const b: G64Basic = new G64Basic()
+		b.InitBasicV2();
+		const aLines: string[] = Helper.CodeSplitter(code, "\n");
 
-		// split into lines
-		// transpile = to ==, array () into array[], literals 123 or "abc" into {id} and store as token
-		// first transpile literals
-		// -> 10 print 123, "abc" -> 10 print {0}, {1}
-		// -> 10 print 123 + 456 -> 10 print {0} + {1}
-	
+		for (let i: number = 0; i < aLines.length; i++) {
+			const regLn: RegExp = /^(\d*)\s*(.*)/;
+			const Line: BasicLine = { Ln: -1, Literals: [], Parts: [], Code: aLines[i] };
+
+			let match: RegExpMatchArray = aLines[i].match(regLn);
+			if (match != null) {
+				if (match[1] != "")
+					Line.Ln = parseInt(match[1]);
+
+				Line.Code = match[2];
+				if (Line.Code == "" && Line.Ln >= 0) {
+					console.log("delete line:", Line.Ln);
+				} else {
+					const split: SplitItem = Helper.EncodeLiterals(Line.Code.replace("\r", ""));
+					Line.Literals = split.List;
+					Line.Parts = Helper.CodeSplitter(split.Source, ":");
+					Line.Code = split.Source;
+
+					for (let j = 0; j < Line.Parts.length; j++) {
+						Line.Parts[j] = Helper.RestoreLiterals(b.EncodeArray(Line.Parts[j]), Line.Literals);
+					}
+
+					console.log(i, Line.Parts.join(":"));
+				}
+			}
+		}
 	}
 
 }

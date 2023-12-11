@@ -1,8 +1,14 @@
 ﻿
 class G64Basic {
 
+	//#region " ----- Privates ----- "
+
+	private m_Commands: BasicCmd[] = [];
+
+	//#endregion
+
 	public InitBasicV2(): void {
-		
+
 		//
 		// commands
 		//
@@ -117,7 +123,15 @@ class G64Basic {
 	}
 
 	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[]): void {
-		console.log("AddCommand: ", name, short,code, "->", Tokentype[type]);
+		// console.log("AddCommand: ", name, short, code, "->", Tokentype[type]);
+
+		this.m_Commands.push({
+			Name: name,
+			Abbrv: short,
+			TknId: (typeof code === "number") ? [code] : code,
+			Type: type
+		});
+
 	}
 
 
@@ -125,33 +139,42 @@ class G64Basic {
 
 	public EncodeArray(code: string): string {
 
+		if (code.trim().startsWith("dim"))
+			return code;
+
 		// regex that matches the start of a basic array, uncluding fn (to filter out fn definitions)
-		const regStart: RegExp = /((?:fn\s*)?[a-z]+\d*[\%\$]*\s*\()/g;
+		const regStart: RegExp = /((?:fn\s*)?([a-z]+\d*[\%\$]*)\s*\()/g;
 
-		let match: RegExpMatchArray = code.match(regStart);
+		const match: RegExpMatchArray = code.match(regStart);
 
-		if (match == null) return code;
+		if (match != null) {
+			for (let j = 0; j < match.length; j++) {
+				const start = code.indexOf(match[j]);
+				const m: Matching = Helper.FindMatching(code, start);
 
-		for (let i: number = 0; i<match.length; i++) {
-			let start = code.indexOf(match[i]);
-			let m: Matching = Helper.GetMatching(code, start);
+				if (m.Has) {
+					const name: string = code.substring(start, m.Start);
 
-			if (m.Has) {
-				const name: string = code.substring(start, m.Start);
-
-				// if name is not a reserved word, replace brackets with square brackets
-				let brackets = "[" + m.Match.substring(1, m.Match.length - 1) + "]";
-
-				// if m.Match contains brackets, run this part again
-				if (brackets.indexOf("(") != -1 && brackets.indexOf(")") != -1) {
-					brackets = this.EncodeArray(brackets);
+					if (!this.IsReservedWord(name))
+						code = code.replace(name + m.Match, name + "[" + m.Match.substring(1, m.Match.length - 1) + "]");
 				}
-
-				code = code.replace(name + m.Match, name + brackets);
 			}
 		}
-		
+
 		return code;
+	}
+
+	public IsReservedWord(word: string): boolean {
+		let result: boolean = false;
+
+		for (let i: number = 0; i < this.m_Commands.length; i++) {
+			if (word.trim().startsWith(this.m_Commands[i].Name)) {
+				result = true;
+				break;
+			}
+		}
+
+		return result;
 	}
 
 	//#endregion
