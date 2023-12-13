@@ -1,0 +1,5 @@
+﻿10 ?"hello world"
+20 gO10
+
+30  
+run

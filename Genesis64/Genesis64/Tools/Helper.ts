@@ -11,12 +11,7 @@ interface SplitItem {
 	List: Array<string>;
 }
 
-interface BasicLine {
-	Ln: number;
-	Literals: string[];
-	Parts: string[];
-	Code: string;
-}
+
 class Helper {
 
 	/**

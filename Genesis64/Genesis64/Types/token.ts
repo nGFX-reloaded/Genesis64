@@ -21,3 +21,15 @@
 	jmp     /* 19, jump (goto, gosub, etc) */,
 	end     /* 20, prg ends here */
 }
+
+interface G64Token {
+	Type: Tokentype;
+	Id: number;					// basic cmd/fn/error id
+	Name?: string;				// if var, stores var's name, if error, the error's name
+
+	Num?: number;				// number data
+	Str?: string;				// string data
+	Values?: G64Token[];		// ref to token array
+
+	Hint: string;				// error message, or other debug data
+}

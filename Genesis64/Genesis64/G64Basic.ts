@@ -1,11 +1,56 @@
 ﻿
+interface BasicLine {
+	Ln: number;
+	Code: string;
+	Token: G64Token[];
+}
+
+interface TokenizerData {
+	Code: string;			// encoded current line
+	Parts: string[];		// parts of the code separated by :
+	Literals: string[];		// literals, ie. everything inside ""
+	Tokens: G64Token[];		// tokens for the current part
+
+	Errors: string[];		// error messages
+}
+
 class G64Basic {
 
 	//#region " ----- Privates ----- "
 
 	private m_Commands: BasicCmd[] = [];
 
+	private m_mapCommands: Map<string, number> = new Map<string, number>();
+	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
+
+	private m_TokenizerData: TokenizerData = { Code: "", Parts: null, Literals: null, Tokens: null, Errors: [] };
+
 	//#endregion
+
+	public TokenizeLine(line: BasicLine): BasicLine {
+
+		const split: SplitItem = Helper.EncodeLiterals(line.Code);
+		const code: string = this.DeAbbreviate(split.Source);
+
+		this.m_TokenizerData = {
+			Code: code,
+			Parts: Helper.CodeSplitter(code, ":"),
+			Literals: split.List,
+			Tokens: [],
+			Errors: []
+		};
+
+		console.log("TokenizeLine: ", this.m_TokenizerData);
+
+
+
+		return line;
+	}
+
+
+
+
+	//#region " ----- BASIC ----- "
 
 	public InitBasicV2(): void {
 
@@ -102,7 +147,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.ops, "/", "", 47);
 		this.AddCommand(Tokentype.ops, "^", "", 94);
 
-		this.AddCommand(Tokentype.ops, "==", "", 61);
+		this.AddCommand(Tokentype.ops, "=", "", 61);
 		this.AddCommand(Tokentype.ops, "!=", "", [60, 62]);
 		this.AddCommand(Tokentype.ops, "<>", "", [60, 62]);
 		this.AddCommand(Tokentype.ops, "<=", "", [60, 61]);
@@ -120,46 +165,48 @@ class G64Basic {
 		// "ti$"
 		// "{pi}"
 
+		this.InitLists();
+
 	}
 
 	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[]): void {
-		// console.log("AddCommand: ", name, short, code, "->", Tokentype[type]);
-
 		this.m_Commands.push({
 			Name: name,
 			Abbrv: short,
 			TknId: (typeof code === "number") ? [code] : code,
 			Type: type
 		});
-
 	}
 
+	private InitLists(): void {
+
+		const aCommands: string[] = [];
+		const aAbbrv: string[] = [];
+
+		for (let i: number = 0; i < this.m_Commands.length; i++) {
+			if (this.m_Commands[i].Name.length > 0) {
+				aCommands.push(this.m_Commands[i].Name);
+				this.m_mapCommands.set(this.m_Commands[i].Name, i);
+			}
+
+			if (this.m_Commands[i].Abbrv.length > 0) {
+				aAbbrv.push(this.m_Commands[i].Abbrv);
+				this.m_mapAbbrv.set(this.m_Commands[i].Abbrv, i);
+			}
+
+		}
+
+		console.log(aCommands.join("|"));
+		console.log(aAbbrv.join("|"));
+
+	}
+	//#endregion
 
 	//#region " ----- Helper ----- "
 
-	public EncodeArray(code: string): string {
+	private DeAbbreviate(code: string): string {
 
-		if (code.trim().startsWith("dim"))
-			return code;
-
-		// regex that matches the start of a basic array, uncluding fn (to filter out fn definitions)
-		const regStart: RegExp = /((?:fn\s*)?([a-z]+\d*[\%\$]*)\s*\()/g;
-
-		const match: RegExpMatchArray = code.match(regStart);
-
-		if (match != null) {
-			for (let j = 0; j < match.length; j++) {
-				const start = code.indexOf(match[j]);
-				const m: Matching = Helper.FindMatching(code, start);
-
-				if (m.Has) {
-					const name: string = code.substring(start, m.Start);
-
-					if (!this.IsReservedWord(name))
-						code = code.replace(name + m.Match, name + "[" + m.Match.substring(1, m.Match.length - 1) + "]");
-				}
-			}
-		}
+		console.log(this.m_mapAbbrv);
 
 		return code;
 	}

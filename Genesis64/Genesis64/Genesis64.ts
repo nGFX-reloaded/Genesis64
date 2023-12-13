@@ -40,38 +40,43 @@ class Genesis64 {
 	}
 
 	public Temp(): void {
+		const basic: G64Basic = new G64Basic()
 		const code = document.getElementById("code").textContent;
+
+		basic.InitBasicV2();
+
+		const aLines: string[] = Helper.CodeSplitter(code, "\n");
 
 		console.log(code);
 
-		const b: G64Basic = new G64Basic()
-		b.InitBasicV2();
-		const aLines: string[] = Helper.CodeSplitter(code, "\n");
+		// note to self: g64 only parses one line at a time.
 
 		for (let i: number = 0; i < aLines.length; i++) {
-			const regLn: RegExp = /^(\d*)\s*(.*)/;
-			const Line: BasicLine = { Ln: -1, Literals: [], Parts: [], Code: aLines[i] };
+			const line: RegExpMatchArray = aLines[i].match(/^(\d*)\s*(.*)/);
 
-			let match: RegExpMatchArray = aLines[i].match(regLn);
-			if (match != null) {
-				if (match[1] != "")
-					Line.Ln = parseInt(match[1]);
+			if (line == null)
+				continue;
 
-				Line.Code = match[2];
-				if (Line.Code == "" && Line.Ln >= 0) {
-					console.log("delete line:", Line.Ln);
+			if (line[1].length == 0 && line[2].length == 0)
+				continue;
+
+
+			if (line[2].length > 0) {
+				const g64Line: BasicLine = {
+					Ln: -1,
+					Code: line[2],
+					Token: []
+				};
+
+				basic.TokenizeLine(g64Line);				
+
+				if (line[1].length == 0) {
+					console.log("direct:", g64Line.Code);
 				} else {
-					const split: SplitItem = Helper.EncodeLiterals(Line.Code.replace("\r", ""));
-					Line.Literals = split.List;
-					Line.Parts = Helper.CodeSplitter(split.Source, ":");
-					Line.Code = split.Source;
-
-					for (let j = 0; j < Line.Parts.length; j++) {
-						Line.Parts[j] = Helper.RestoreLiterals(b.EncodeArray(Line.Parts[j]), Line.Literals);
-					}
-
-					console.log(i, Line.Parts.join(":"));
+					console.log("line:", line[1], g64Line.Code);
 				}
+			} else {
+				console.log("delete line:", line[1]);
 			}
 		}
 	}
