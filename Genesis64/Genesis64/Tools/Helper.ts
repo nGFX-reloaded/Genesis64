@@ -157,4 +157,14 @@ class Helper {
 		return code;
 
 	}
+
+	/**
+	 * escapes a few special characters for regexes
+	 * @param			code			code to escape
+	 * @returns			string
+	 */
+	public static EscapeRegex(code: string): string {
+		return code.replace(/(\$|\(|\)|\+|\*|\/|\<|\>|\?)/g, "\\$1");
+	}
+
 }

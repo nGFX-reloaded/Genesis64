@@ -21,7 +21,12 @@ class G64Basic {
 	private m_Commands: BasicCmd[] = [];
 
 	private m_mapCommands: Map<string, number> = new Map<string, number>();
+	private m_mapFn: Map<string, number> = new Map<string, number>();
 	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
+
+	private m_regexCmd: RegExp = null;
+	private m_regexFn: RegExp = null;
+	private m_regexAbbrv: RegExp = null;
 
 	private m_TokenizerData: TokenizerData = { Code: "", Parts: null, Literals: null, Tokens: null, Errors: [] };
 
@@ -50,7 +55,7 @@ class G64Basic {
 
 
 
-	//#region " ----- BASIC ----- "
+	//#region " ----- BASIC V2 ----- "
 
 	public InitBasicV2(): void {
 
@@ -148,7 +153,6 @@ class G64Basic {
 		this.AddCommand(Tokentype.ops, "^", "", 94);
 
 		this.AddCommand(Tokentype.ops, "=", "", 61);
-		this.AddCommand(Tokentype.ops, "!=", "", [60, 62]);
 		this.AddCommand(Tokentype.ops, "<>", "", [60, 62]);
 		this.AddCommand(Tokentype.ops, "<=", "", [60, 61]);
 		this.AddCommand(Tokentype.ops, ">=", "", [62, 61]);
@@ -180,13 +184,20 @@ class G64Basic {
 
 	private InitLists(): void {
 
-		const aCommands: string[] = [];
+		const aCmd: string[] = [];
+		const aFn: string[] = [];
 		const aAbbrv: string[] = [];
 
+
 		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].Name.length > 0) {
-				aCommands.push(this.m_Commands[i].Name);
+			if (this.m_Commands[i].Type == Tokentype.cmd) {
+				aCmd.push(this.m_Commands[i].Name);
 				this.m_mapCommands.set(this.m_Commands[i].Name, i);
+			}
+
+			if (this.m_Commands[i].Type == Tokentype.fnnum || this.m_Commands[i].Type == Tokentype.fnstr || this.m_Commands[i].Type == Tokentype.fnout) {
+				aFn.push(this.m_Commands[i].Name);
+				this.m_mapFn.set(this.m_Commands[i].Name, i);
 			}
 
 			if (this.m_Commands[i].Abbrv.length > 0) {
@@ -196,17 +207,26 @@ class G64Basic {
 
 		}
 
-		console.log(aCommands.join("|"));
-		console.log(aAbbrv.join("|"));
+		this.m_regexCmd = new RegExp(Helper.EscapeRegex(aCmd.join("|")));
+		this.m_regexFn = new RegExp(Helper.EscapeRegex(aFn.join("|")));
+		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|")));
 
 	}
+
 	//#endregion
 
 	//#region " ----- Helper ----- "
 
 	private DeAbbreviate(code: string): string {
 
-		console.log(this.m_mapAbbrv);
+		this.m_regexAbbrv.lastIndex = -1;
+		const match: string[] = code.match(this.m_regexAbbrv);
+
+		if (match !== null) {
+			for (let i: number = 0; i < match.length; i++) {
+				code = code.replace(match[i], this.m_Commands[this.m_mapAbbrv.get(match[i])].Name);
+			}
+		}
 
 		return code;
 	}
@@ -223,6 +243,12 @@ class G64Basic {
 
 		return result;
 	}
+
+	//#endregion
+
+	//#region " ----- Type Testing ----- "
+
+
 
 	//#endregion
 }
