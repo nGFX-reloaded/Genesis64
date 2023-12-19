@@ -69,6 +69,7 @@ class Genesis64 {
 				};
 
 				basic.TokenizeLine(g64Line);				
+			aLines[i] = g64Line.Code;
 
 				if (line[1].length == 0) {
 					console.log("direct:", g64Line.Code);
@@ -78,8 +79,9 @@ class Genesis64 {
 			} else {
 				console.log("delete line:", line[1]);
 			}
-		}
+					}
 
+		document.getElementById("convert").textContent = aLines.join("\n");
 		
 	}
 
