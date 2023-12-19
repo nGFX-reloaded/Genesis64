@@ -79,6 +79,8 @@ class Genesis64 {
 				console.log("delete line:", line[1]);
 			}
 		}
+
+		
 	}
 
 }

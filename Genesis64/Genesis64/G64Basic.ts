@@ -47,7 +47,7 @@ class G64Basic {
 
 		console.log("TokenizeLine: ", this.m_TokenizerData);
 
-
+		line.Code = Helper.RestoreLiterals(this.m_TokenizerData.Code, this.m_TokenizerData.Literals);
 
 		return line;
 	}
@@ -209,7 +209,7 @@ class G64Basic {
 
 		this.m_regexCmd = new RegExp(Helper.EscapeRegex(aCmd.join("|")));
 		this.m_regexFn = new RegExp(Helper.EscapeRegex(aFn.join("|")));
-		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|")));
+		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|"))); 
 
 	}
 
@@ -229,19 +229,6 @@ class G64Basic {
 		}
 
 		return code;
-	}
-
-	public IsReservedWord(word: string): boolean {
-		let result: boolean = false;
-
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (word.trim().startsWith(this.m_Commands[i].Name)) {
-				result = true;
-				break;
-			}
-		}
-
-		return result;
 	}
 
 	//#endregion
