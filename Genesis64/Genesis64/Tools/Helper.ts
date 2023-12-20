@@ -167,4 +167,111 @@ class Helper {
 		return code.replace(/(\$|\(|\)|\+|\*|\/|\<|\>|\?)/g, "\\$1");
 	}
 
+	/**
+	 * Returns the name of an error 
+	 * @param	id			error id
+	 **/
+	public static ErrorName(id: number): string {
+
+		let error: string = "syntax error";
+
+		switch (id) {
+			case ErrorCodes.TOO_MANY_FILES:
+				error = "too many files";
+				break;
+			case ErrorCodes.FILE_OPEN:
+				error = "file open";
+				break;
+			case ErrorCodes.FILE_NOT_OPEN:
+				error = "file not open";
+				break;
+			case ErrorCodes.FILE_NOT_FOUND:
+				error = "file not found";
+				break;
+			case ErrorCodes.DEVICE_NOT_PRESENT:
+				error = "device not present";
+				break;
+			case ErrorCodes.NOT_INPUT_FILE:
+				error = "not input file";
+				break;
+			case ErrorCodes.NOT_OUTPUT_FILE:
+				error = "not output file";
+				break;
+			case ErrorCodes.MISSING_FILENAME:
+				error = "missing filename";
+				break;
+			case ErrorCodes.ILLEGAL_DEVICE_NUMBER:
+				error = "illegal device number";
+				break;
+			case ErrorCodes.NEXT_WITHOUT_FOR:
+				error = "next without for";
+				break;
+			case ErrorCodes.SYNTAX:
+				error = "syntax";
+				break;
+			case ErrorCodes.RETURN_WITHOUT_GOSUB:
+				error = "return without gosub";
+				break;
+			case ErrorCodes.OUT_OF_DATA:
+				error = "out of data";
+				break;
+			case ErrorCodes.ILLEGAL_QUANTITY:
+				error = "illegal quantity";
+				break;
+			case ErrorCodes.OVERFLOW:
+				error = "overflow";
+				break;
+			case ErrorCodes.OUT_OF_MEMORY:
+				error = "out of memory";
+				break;
+			case ErrorCodes.UNDEFD_STATEMENT:
+				error = "undefd statement";
+				break;
+			case ErrorCodes.BAD_SUBSCRIPT:
+				error = "bad subscript";
+				break;
+			case ErrorCodes.REDIMD_ARRAY:
+				error = "redimd array";
+				break;
+			case ErrorCodes.DIVISION_BY_ZERO:
+				error = "division by zero";
+				break;
+			case ErrorCodes.ILLEGAL_DIRECT:
+				error = "illegal direct";
+				break;
+			case ErrorCodes.TYPE_MISMATCH:
+				error = "type mismatch";
+				break;
+			case ErrorCodes.STRING_TOO_LONG:
+				error = "string too long";
+				break;
+			case ErrorCodes.FILE_DATA:
+				error = "file data";
+				break;
+			case ErrorCodes.FORMULA_TOO_COMPLEX:
+				error = "formula too complex";
+				break;
+			case ErrorCodes.CANT_CONTINUE:
+				error = "cant continue";
+				break;
+			case ErrorCodes.UNDEFD_FUNCTION:
+				error = "undefd function";
+				break;
+			case ErrorCodes.VERIFY:
+				error = "verify";
+				break;
+			case ErrorCodes.LOAD:
+				error = "load";
+				break;
+			case ErrorCodes.BREAK:
+				error = "break";
+				break;
+			case ErrorCodes.LINE_NOT_FOUND:
+				error = "line not found";
+				break;
+		}
+
+		return error;
+	}
+
 }

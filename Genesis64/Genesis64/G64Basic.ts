@@ -10,6 +10,7 @@ interface TokenizerData {
 	Parts: string[];		// parts of the code separated by :
 	Literals: string[];		// literals, ie. everything inside ""
 	Tokens: G64Token[];		// tokens for the current part
+	Level: number;			// current level
 
 	Errors: string[];		// error messages
 }
@@ -18,7 +19,7 @@ class G64Basic {
 
 	//#region " ----- Privates ----- "
 
-	private m_Commands: BasicCmd[] = [];
+	private m_BasicCmds: BasicCmd[] = [];
 
 	private m_mapCommands: Map<string, number> = new Map<string, number>();
 	private m_mapFn: Map<string, number> = new Map<string, number>();
@@ -29,7 +30,7 @@ class G64Basic {
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
 
-	private m_TokenizerData: TokenizerData = { Code: "", Parts: null, Literals: null, Tokens: null, Errors: [] };
+	private m_TokenizerData: TokenizerData = null;
 
 	//#endregion
 
@@ -43,13 +44,14 @@ class G64Basic {
 			Parts: Helper.CodeSplitter(code, ":"),
 			Literals: split.List,
 			Tokens: [],
+			Level: 0,
 			Errors: []
 		};
 
-		console.log("TokenizeLine: ", this.m_TokenizerData);
+		// console.log("TokenizeLine: ", this.m_TokenizerData);
 
 		for (let i: number = 0; i < this.m_TokenizerData.Parts.length; i++) {
-			this.TokenizePart(this.m_TokenizerData.Parts[i]);
+			this.TokenizePart(i);
 		}
 
 		line.Code = Helper.RestoreLiterals(this.m_TokenizerData.Code, this.m_TokenizerData.Literals);
@@ -57,10 +59,40 @@ class G64Basic {
 		return line;
 	}
 
-	private TokenizePart(part: string): void {
+	private TokenizePart(id: number): void {
 
-		console.log("TokenizePart: ", part);
-		
+		let part: string = this.m_TokenizerData.Parts[id];
+
+		// temp? fix LET
+		const match: string[] = part.match(/^(let\s*)?(\w+\d?[%$]?(?:\(.+\))?\s*=\s*)/);
+		if (match !== null) {
+			if (typeof match[1] === "undefined")
+				part = "let " + part;
+		}
+
+		this.Tokenizer(part);
+
+
+	}
+
+	private Tokenizer(code: string): G64Token {
+
+		const token: G64Token = this.CreateError(ErrorCodes.SYNTAX, "no valid code found.");
+		let match: string[] = [];
+
+
+		this.m_regexCmd.lastIndex = -1;
+
+		// commands
+		match = code.match(this.m_regexCmd);
+		if (match !== null) {
+		console.log(code, "tokenizer:", match);
+		}
+
+
+
+
+		return token;
 	}
 
 
@@ -68,6 +100,8 @@ class G64Basic {
 	//#region " ----- BASIC V2 ----- "
 
 	public InitBasicV2(): void {
+
+		let id: number = -1;
 
 		//
 		// commands
@@ -183,13 +217,22 @@ class G64Basic {
 
 	}
 
-	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[]): void {
-		this.m_Commands.push({
+	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[]): number {
+
+		const id: number = this.m_BasicCmds.length;
+
+		this.m_BasicCmds.push({
 			Name: name,
 			Abbrv: short,
 			TknId: (typeof code === "number") ? [code] : code,
 			Type: type
 		});
+
+		return id;
+	}
+
+	private GetCommand(name: string): number {
+		return this.m_mapCommands.get(name);
 	}
 
 	private InitLists(): void {
@@ -200,35 +243,51 @@ class G64Basic {
 		const aDeAbbrv: string[] = [];
 
 
-		for (let i: number = 0; i < this.m_Commands.length; i++) {
-			if (this.m_Commands[i].Type == Tokentype.cmd) {
-				aCmd.push(this.m_Commands[i].Name);
-				this.m_mapCommands.set(this.m_Commands[i].Name, i);
+		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
+			if (this.m_BasicCmds[i].Type == Tokentype.cmd) {
+
+				if (typeof this.m_BasicCmds[i].RegEx === "undefined") {
+					aCmd.push(Helper.EscapeRegex(this.m_BasicCmds[i].Name));
+				} else {
+					aCmd.push(this.m_BasicCmds[i].RegEx);
+				}
+				this.m_mapCommands.set(this.m_BasicCmds[i].Name, i);
 			}
 
-			if (this.m_Commands[i].Type == Tokentype.fnnum || this.m_Commands[i].Type == Tokentype.fnstr || this.m_Commands[i].Type == Tokentype.fnout) {
-				aFn.push(this.m_Commands[i].Name);
-				this.m_mapFn.set(this.m_Commands[i].Name, i);
+			if (this.m_BasicCmds[i].Type == Tokentype.fnnum || this.m_BasicCmds[i].Type == Tokentype.fnstr || this.m_BasicCmds[i].Type == Tokentype.fnout) {
+				aFn.push(this.m_BasicCmds[i].Name);
+				this.m_mapFn.set(this.m_BasicCmds[i].Name, i);
 			}
 
-			if (this.m_Commands[i].Abbrv.length > 0) {
-				aAbbrv.push(this.m_Commands[i].Abbrv);
-				aDeAbbrv.push(this.m_Commands[i].Name);
-				this.m_mapAbbrv.set(this.m_Commands[i].Abbrv, i);
+			if (this.m_BasicCmds[i].Abbrv.length > 0) {
+				aAbbrv.push(this.m_BasicCmds[i].Abbrv);
+				aDeAbbrv.push(this.m_BasicCmds[i].Name);
+				this.m_mapAbbrv.set(this.m_BasicCmds[i].Abbrv, i);
 			}
 
 		}
 
-		this.m_regexCmd = new RegExp(Helper.EscapeRegex(aCmd.join("|")));
+		this.m_regexCmd = new RegExp("^" + "(" + aCmd.join("|") + ")\\s*(.*)");
+		console.log(this.m_regexCmd);
+
 		this.m_regexFn = new RegExp(Helper.EscapeRegex(aFn.join("|")));
-		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|")));
-		this.m_regexDeAbbrv = new RegExp(Helper.EscapeRegex(aDeAbbrv.join("|")));
+		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|")), "g");
+		this.m_regexDeAbbrv = new RegExp(Helper.EscapeRegex(aDeAbbrv.join("|")), "g");
 
 	}
 
 	//#endregion
 
 	//#region " ----- Helper ----- "
+
+	private CreateError(id: number, hint: string): G64Token {
+		return {
+			Id: id,
+			Type: Tokentype.err,
+			Name: Helper.ErrorName(id),
+			Hint: hint
+		};
+	}
 
 	/**
 	 * de-abbreviates the BASIC code, ie. turns ? into print
@@ -241,11 +300,11 @@ class G64Basic {
 		const literals: SplitItem = Helper.EncodeLiterals(code);
 
 		this.m_regexAbbrv.lastIndex = -1;
-		const match: string[] = code.match(this.m_regexAbbrv);
+		const match: string[] = literals.Source.match(this.m_regexAbbrv);
 
 		if (match !== null) {
 			for (let i: number = 0; i < match.length; i++) {
-				code = code.replace(match[i], this.m_Commands[this.m_mapAbbrv.get(match[i])].Name);
+				code = code.replace(match[i], this.m_BasicCmds[this.m_mapAbbrv.get(match[i])].Name);
 			}
 		}
 
@@ -257,16 +316,21 @@ class G64Basic {
 		return code;
 	}
 
+	/**
+	 * abbreviates the BASIC code, ie. turns print into ?
+	 * @param		code		the code to abbreviate
+	 * @returns		the abbreviated code
+	 */
 	public Abbreviate(code: string): string {
 
 		const literals: SplitItem = Helper.EncodeLiterals(code);
 
 		this.m_regexDeAbbrv.lastIndex = -1;
-		const match: string[] = code.match(this.m_regexDeAbbrv);
+		const match: string[] = literals.Source.match(this.m_regexDeAbbrv);
 
 		if (match !== null) {
 			for (let i: number = 0; i < match.length; i++) {
-				code = code.replace(match[i], this.m_Commands[this.m_mapCommands.get(match[i])].Abbrv);
+				code = code.replace(match[i], this.m_BasicCmds[this.m_mapCommands.get(match[i])].Abbrv);
 			}
 		}
 

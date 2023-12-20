@@ -52,7 +52,7 @@ class Genesis64 {
 		// note to self: g64 only parses one line at a time.
 
 		for (let i: number = 0; i < aLines.length; i++) {
-			const line: RegExpMatchArray = aLines[i].match(/^(\d*)\s*(.*)/);
+			const line: string[] = aLines[i].match(/^(\d*)\s*(.*)/);
 
 			if (line == null)
 				continue;
@@ -68,8 +68,8 @@ class Genesis64 {
 					Token: []
 				};
 
-				basic.TokenizeLine(g64Line);				
-			aLines[i] = g64Line.Code;
+				basic.TokenizeLine(g64Line);
+				aLines[i] = g64Line.Code;
 
 				if (line[1].length == 0) {
 					console.log("direct:", g64Line.Code);
@@ -79,10 +79,10 @@ class Genesis64 {
 			} else {
 				console.log("delete line:", line[1]);
 			}
-					}
+		}
 
 		document.getElementById("convert").textContent = aLines.join("\n");
-		
+
 	}
 
 }

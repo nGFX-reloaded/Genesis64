@@ -4,4 +4,5 @@ interface BasicCmd {
 	Abbrv: string;			// abbreviation, if any
 	TknId: number[];		// token id when saving, or -1, then use pet value
 	Type: Tokentype;		// type of token
+	RegEx?: string;			// regex for this command
 }
