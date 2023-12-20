@@ -36,13 +36,17 @@ File: Main Css File
 	*/
 }
 
-html, body {
+html {
+	background-color: var(--Darkgrey);
+	}
+
+body {
 	color: var(--Darkgrey);
 	font-family: 'Asap Condensed', sans-serif;
 	font-size: 16px;
 	line-height: 24px;
-	padding: 0;
-	margin: 0;
+	padding: 10px;
+	margin: 10px;
 	background-color: var(--Grey);
 }
 
