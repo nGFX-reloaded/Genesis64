@@ -19,7 +19,11 @@
 	eop     /* 17, token exec ok, end of part */,
 	eol     /* 18, token exec ok, end of line */,
 	jmp     /* 19, jump (goto, gosub, etc) */,
-	end     /* 20, prg ends here */
+	end     /* 20, prg ends here */,
+	any		/* 21, any token, used for error checking */,
+	var		/* 22, any var, used for error checking */,
+	adr		/* 23, any address, used for error checking */,
+	byte	/* 24, any byte, used for error checking */,
 }
 
 interface G64Token {
