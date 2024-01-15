@@ -98,19 +98,19 @@ class G64Basic {
 		//
 		// commands
 		//
-		const paramNum: CmdParam = this.AddParam(1, [Tokentype.num]);
+		const paramNum: CmdParam = this.CreateParam(1, [Tokentype.num]);
 
 		this.AddCommand(Tokentype.cmd, "close", "clO", 160, paramNum);
 		this.AddCommand(Tokentype.cmd, "clr", "cL", 156);
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
-		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157, this.AddParam(-1, [Tokentype.num, Tokentype.any])); // cmd splitter
-		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.AddParam(-1, [Tokentype.any])); // data splitter
+		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157, this.CreateParam(-1, [Tokentype.num, Tokentype.any])); // cmd splitter
+		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.CreateParam(-1, [Tokentype.any])); // data splitter
 		this.AddCommand(Tokentype.cmd, "def", "dE", 150); // def splitter
 		this.AddCommand(Tokentype.cmd, "dim", "dI", 134); // dim splitter
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
 		this.AddCommand(Tokentype.cmd, "for", "fO", 129); // for splitter
-		this.AddCommand(Tokentype.cmd, "get", "gE", 161, this.AddParam(-1, [Tokentype.var, Tokentype.var]));
-		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35], this.AddParam(-2, [Tokentype.num, Tokentype.var, Tokentype.var]));
+		this.AddCommand(Tokentype.cmd, "get", "gE", 161, this.CreateParam(-1, [Tokentype.var, Tokentype.var]));
+		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35], this.CreateParam(-2, [Tokentype.num, Tokentype.var, Tokentype.var]));
 		this.AddCommand(Tokentype.cmd, "gosub", "goS", 141, paramNum);
 		this.AddCommand(Tokentype.cmd, "goto", "gO", 137, paramNum);
 		this.AddCommand(Tokentype.cmd, "if", "", 139); // if splitter
@@ -118,27 +118,27 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132); // input# splitter
 		this.AddCommand(Tokentype.cmd, "let", "lE", 136); // let splitter
 		this.AddCommand(Tokentype.cmd, "list", "lI", 155); // list splitter
-		this.AddCommand(Tokentype.cmd, "load", "lA", 147, this.AddParam( 0,  [Tokentype.str, Tokentype.num, Tokentype.num] ));
+		this.AddCommand(Tokentype.cmd, "load", "lA", 147, this.CreateParam( 0,  [Tokentype.str, Tokentype.num, Tokentype.num] ));
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
-		this.AddCommand(Tokentype.cmd, "next", "nE", 130, this.AddParam( 0, [Tokentype.var]));
+		this.AddCommand(Tokentype.cmd, "next", "nE", 130, this.CreateParam( 0, [Tokentype.var]));
 		this.AddCommand(Tokentype.cmd, "on", "", 145); // on splitter
-		this.AddCommand(Tokentype.cmd, "open", "oP", 159, this.AddParam(1,[Tokentype.num, Tokentype.num, Tokentype.num, Tokentype.str]));
-		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.AddParam(2, [Tokentype.adr, Tokentype.byte]));
+		this.AddCommand(Tokentype.cmd, "open", "oP", 159, this.CreateParam(1,[Tokentype.num, Tokentype.num, Tokentype.num, Tokentype.str]));
+		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.CreateParam(2, [Tokentype.adr, Tokentype.byte]));
 		this.AddCommand(Tokentype.cmd, "print", "?", 153); // print splitter
 		this.AddCommand(Tokentype.cmd, "print#", "pR", 152); // print# splitter
-		this.AddCommand(Tokentype.cmd, "read", "rE", 135, this.AddParam(-1, [Tokentype.var]));
+		this.AddCommand(Tokentype.cmd, "read", "rE", 135, this.CreateParam(-1, [Tokentype.var]));
 		this.AddCommand(Tokentype.cmd, "rem", "", 143);
 		this.AddCommand(Tokentype.cmd, "restore", "reS", 140);
 		this.AddCommand(Tokentype.cmd, "return", "reT", 142);
-		this.AddCommand(Tokentype.cmd, "run", "rU", 138, this.AddParam(0, [Tokentype.num]));
-		this.AddCommand(Tokentype.cmd, "save", "sA", 148, this.AddParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
+		this.AddCommand(Tokentype.cmd, "run", "rU", 138, this.CreateParam(0, [Tokentype.num]));
+		this.AddCommand(Tokentype.cmd, "save", "sA", 148, this.CreateParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
 		this.AddCommand(Tokentype.cmd, "stop", "sT", 144);
 		this.AddCommand(Tokentype.cmd, "step", "stE", 169);
-		this.AddCommand(Tokentype.cmd, "sys", "sY", 158, this.AddParam(1, [Tokentype.adr]));
+		this.AddCommand(Tokentype.cmd, "sys", "sY", 158, this.CreateParam(1, [Tokentype.adr]));
 		this.AddCommand(Tokentype.cmd, "then", "tH", 167);
 		this.AddCommand(Tokentype.cmd, "to", "", 164);
-		this.AddCommand(Tokentype.cmd, "verify", "vE", 149, this.AddParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
-		this.AddCommand(Tokentype.cmd, "wait", "wA", 146, this.AddParam(2, [Tokentype.adr, Tokentype.byte, Tokentype.byte]));
+		this.AddCommand(Tokentype.cmd, "verify", "vE", 149, this.CreateParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
+		this.AddCommand(Tokentype.cmd, "wait", "wA", 146, this.CreateParam(2, [Tokentype.adr, Tokentype.byte, Tokentype.byte]));
 
 		//
 		// fn num
@@ -250,7 +250,7 @@ class G64Basic {
 		return id;
 	}
 
-	private AddParam(len: number, type: Tokentype[], fn?: Function): CmdParam {
+	private CreateParam(len: number, type: Tokentype[], fn?: Function): CmdParam {
 		const param: CmdParam = {
 			Len: len,
 			Type: type
