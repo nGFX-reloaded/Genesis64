@@ -1,3 +1,1 @@
 ﻿10 a=2
-20 if a=2 then print "a is 2"
-30 for i=0 to 10:print i:next i
