@@ -29,60 +29,26 @@ class Genesis64 {
 
 	//#region " ----- Privates ----- "
 
+	private m_Basic: G64Basic = new G64Basic();
+	private m_Memory: G64Memory = new G64Memory();
+
 	//#endregion
 
 	//#region " ----- Publics ----- "
 
+	get Basic(): G64Basic { return this.m_Basic; };
+	get Memory(): G64Memory { return this.m_Memory; };
+
 	//#endregion
 
-	public Setup(divContainer: HTMLDivElement): void {
+	public Test() {
+		const code = (document.getElementById("code") as HTMLPreElement).innerText;
 
+		this.m_Basic.Init(this.m_Memory);
+		this.m_Basic.InitBasicV2();
+
+		this.m_Basic.Parse(code);
+		
 	}
-
-	public Temp(): void {
-		const basic: G64Basic = new G64Basic()
-		const code = document.getElementById("code").textContent;
-
-		basic.InitBasicV2();
-
-		const aLines: string[] = Helper.CodeSplitter(code, "\n");
-
-		console.log(code);
-
-		// note to self: g64 only parses one line at a time.
-
-		for (let i: number = 0; i < aLines.length; i++) {
-			const line: string[] = aLines[i].match(/^(\d*)\s*(.*)/);
-
-			if (line == null)
-				continue;
-
-			if (line[1].length == 0 && line[2].length == 0)
-				continue;
-
-
-			if (line[2].length > 0) {
-				const g64Line: BasicLine = {
-					Ln: -1,
-					Code: line[2],
-					Token: []
-				};
-
-				basic.TokenizeLine(g64Line);
-				aLines[i] = g64Line.Code;
-
-				if (line[1].length == 0) {
-					console.log("direct:", g64Line.Code);
-				} else {
-					console.log("line:", line[1], g64Line.Code);
-				}
-			} else {
-				console.log("delete line:", line[1]);
-			}
-		}
-
-		document.getElementById("convert").textContent = aLines.join("\n");
-
-	}
-
+	
 }

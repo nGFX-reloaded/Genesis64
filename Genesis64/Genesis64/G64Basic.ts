@@ -1,144 +1,113 @@
-﻿
-interface BasicLine {
-	Ln: number;
-	Code: string;
-	Token: G64Token[];
+﻿/**
+ * G64Basic.ts
+ * deals with the BASIC V2 language
+ */
+
+interface BasicCmd {
+	Name: string;			// name of the command, ie. the command
+	Abbrv: string;			// abbreviation, if any
+	TknId: number[];		// token id when saving, or -1, then use pet value
+	Type: Tokentype;		// type of token
+	Param?: CmdParam;		// parameter for this command
 }
 
-interface TokenizerData {
-	Code: string;			// encoded current line
-	Parts: string[];		// parts of the code separated by :
-	Literals: string[];		// literals, ie. everything inside ""
-	Tokens: G64Token[];		// tokens for the current part
-	Level: number;			// current level
-
-	Errors: string[];		// error messages
+interface CmdParam {
+	Len: number;			// number of parameters, 0 for none or all optional, > 0 for fixed, < 0 for variable with fixed length (ie: -1: one fixed param, rest optional)
+	Type: Tokentype[];		// type of parameters
+	Fn?: Function;			// function to call when parsing
 }
+
+
 
 class G64Basic {
 
 	//#region " ----- Privates ----- "
 
+	private m_Memory: G64Memory = null;
+
+
 	private m_BasicCmds: BasicCmd[] = [];
 
-	private m_mapCmd: Map<string, number> = new Map<string, number>();
-	private m_mapFn: Map<string, number> = new Map<string, number>();
-	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
-
-	private m_regexCmd: RegExp = null;
-	private m_regexFn: RegExp = null;
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
 
-	private m_TokenizerData: TokenizerData = null;
+	private m_mapCmd: Map<string, number> = new Map<string, number>();
+	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
 
 	//#endregion
 
-	public TokenizeLine(line: BasicLine): BasicLine {
+	//#region " ----- Publics ----- "
 
-		const split: SplitItem = Helper.EncodeLiterals(line.Code);
-		const code: string = this.DeAbbreviate(split.Source);
+	//#endregion
 
-		this.m_TokenizerData = {
-			Code: code,
-			Parts: Helper.CodeSplitter(code, ":"),
-			Literals: split.List,
-			Tokens: [],
-			Level: 0,
-			Errors: []
-		};
+	public Init(memory: G64Memory) {
+		this.m_Memory = memory;
+	}
 
-		// console.log("TokenizeLine: ", this.m_TokenizerData);
+	public Parse(code: string): void {
 
-		for (let i: number = 0; i < this.m_TokenizerData.Parts.length; i++) {
-			this.TokenizePart(i);
+		let lines: string[] = Helper.CodeSplitter(code, "\n");
+
+		console.log(code);
+		for (let i = 0; i < lines.length; i++) {
+			let linenr: number = -1;
+			let parts: string[];
+
+			let isDirect: boolean = false;
+
+			let match: string[] = lines[i].match(/^(\d+)?(.*)/);
+			console.log(match);
 		}
 
-		line.Code = Helper.RestoreLiterals(this.m_TokenizerData.Code, this.m_TokenizerData.Literals);
-
-		return line;
 	}
-
-	private TokenizePart(id: number): void {
-
-		let part: string = this.FixLet(this.m_TokenizerData.Parts[id]);
-
-		this.Tokenizer(part);
-
-	}
-
-	private Tokenizer(code: string): G64Token {
-
-		const token: G64Token = this.CreateError(ErrorCodes.SYNTAX, "no valid code found.");
-		let match: string[] = [];
-
-
-		this.m_regexCmd.lastIndex = -1;
-
-		// commands
-		match = code.match(this.m_regexCmd);
-		if (match !== null) {
-			console.log(code, "tokenizer:", match);
-		}
-
-
-
-
-		return token;
-	}
-
 
 
 	//#region " ----- BASIC V2 ----- "
 
 	public InitBasicV2(): void {
 
-		let id: number = -1;
-
 		//
 		// commands
 		//
-		const paramNum: CmdParam = this.CreateParam(1, [Tokentype.num]);
-
-		this.AddCommand(Tokentype.cmd, "close", "clO", 160, paramNum);
+		this.AddCommand(Tokentype.cmd, "close", "clO", 160);
 		this.AddCommand(Tokentype.cmd, "clr", "cL", 156);
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
-		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157, this.CreateParam(-1, [Tokentype.num, Tokentype.any])); // cmd splitter
-		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.CreateParam(-1, [Tokentype.any])); // data splitter
-		this.AddCommand(Tokentype.cmd, "def", "dE", 150); // def splitter
-		this.AddCommand(Tokentype.cmd, "dim", "dI", 134); // dim splitter
+		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157);
+		this.AddCommand(Tokentype.cmd, "data", "dA", 131);
+		this.AddCommand(Tokentype.cmd, "def", "dE", 150);
+		this.AddCommand(Tokentype.cmd, "dim", "dI", 134);
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
-		this.AddCommand(Tokentype.cmd, "for", "fO", 129); // for splitter
-		this.AddCommand(Tokentype.cmd, "get", "gE", 161, this.CreateParam(-1, [Tokentype.var, Tokentype.var]));
-		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35], this.CreateParam(-2, [Tokentype.num, Tokentype.var, Tokentype.var]));
-		this.AddCommand(Tokentype.cmd, "gosub", "goS", 141, paramNum);
-		this.AddCommand(Tokentype.cmd, "goto", "gO", 137, paramNum);
-		this.AddCommand(Tokentype.cmd, "if", "", 139); // if splitter
-		this.AddCommand(Tokentype.cmd, "input", "", 133); // input splitter
-		this.AddCommand(Tokentype.cmd, "input#", "iN", 132); // input# splitter
-		this.AddCommand(Tokentype.cmd, "let", "lE", 136); // let splitter
-		this.AddCommand(Tokentype.cmd, "list", "lI", 155); // list splitter
-		this.AddCommand(Tokentype.cmd, "load", "lA", 147, this.CreateParam( 0,  [Tokentype.str, Tokentype.num, Tokentype.num] ));
+		this.AddCommand(Tokentype.cmd, "for", "fO", 129);
+		this.AddCommand(Tokentype.cmd, "get", "gE", 161);
+		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35]);
+		this.AddCommand(Tokentype.cmd, "gosub", "goS", 141);
+		this.AddCommand(Tokentype.cmd, "goto", "gO", 137);
+		this.AddCommand(Tokentype.cmd, "if", "", 139);
+		this.AddCommand(Tokentype.cmd, "input", "", 133);
+		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
+		this.AddCommand(Tokentype.cmd, "let", "lE", 136);
+		this.AddCommand(Tokentype.cmd, "list", "lI", 155);
+		this.AddCommand(Tokentype.cmd, "load", "lA", 147);
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
-		this.AddCommand(Tokentype.cmd, "next", "nE", 130, this.CreateParam( 0, [Tokentype.var]));
-		this.AddCommand(Tokentype.cmd, "on", "", 145); // on splitter
-		this.AddCommand(Tokentype.cmd, "open", "oP", 159, this.CreateParam(1,[Tokentype.num, Tokentype.num, Tokentype.num, Tokentype.str]));
-		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.CreateParam(2, [Tokentype.adr, Tokentype.byte]));
-		this.AddCommand(Tokentype.cmd, "print", "?", 153); // print splitter
-		this.AddCommand(Tokentype.cmd, "print#", "pR", 152); // print# splitter
-		this.AddCommand(Tokentype.cmd, "read", "rE", 135, this.CreateParam(-1, [Tokentype.var]));
+		this.AddCommand(Tokentype.cmd, "next", "nE", 130);
+		this.AddCommand(Tokentype.cmd, "on", "", 145);
+		this.AddCommand(Tokentype.cmd, "open", "oP", 159);
+		this.AddCommand(Tokentype.cmd, "poke", "pO", 151);
+		this.AddCommand(Tokentype.cmd, "print", "?", 153);
+		this.AddCommand(Tokentype.cmd, "print#", "pR", 152);
+		this.AddCommand(Tokentype.cmd, "read", "rE", 135);
 		this.AddCommand(Tokentype.cmd, "rem", "", 143);
 		this.AddCommand(Tokentype.cmd, "restore", "reS", 140);
 		this.AddCommand(Tokentype.cmd, "return", "reT", 142);
-		this.AddCommand(Tokentype.cmd, "run", "rU", 138, this.CreateParam(0, [Tokentype.num]));
-		this.AddCommand(Tokentype.cmd, "save", "sA", 148, this.CreateParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
+		this.AddCommand(Tokentype.cmd, "run", "rU", 138);
+		this.AddCommand(Tokentype.cmd, "save", "sA", 148);
 		this.AddCommand(Tokentype.cmd, "stop", "sT", 144);
 		this.AddCommand(Tokentype.cmd, "step", "stE", 169);
-		this.AddCommand(Tokentype.cmd, "sys", "sY", 158, this.CreateParam(1, [Tokentype.adr]));
+		this.AddCommand(Tokentype.cmd, "sys", "sY", 158);
 		this.AddCommand(Tokentype.cmd, "then", "tH", 167);
 		this.AddCommand(Tokentype.cmd, "to", "", 164);
-		this.AddCommand(Tokentype.cmd, "verify", "vE", 149, this.CreateParam(0, [Tokentype.str, Tokentype.num, Tokentype.num]));
-		this.AddCommand(Tokentype.cmd, "wait", "wA", 146, this.CreateParam(2, [Tokentype.adr, Tokentype.byte, Tokentype.byte]));
+		this.AddCommand(Tokentype.cmd, "verify", "vE", 149);
+		this.AddCommand(Tokentype.cmd, "wait", "wA", 146);
 
 		//
 		// fn num
@@ -161,15 +130,15 @@ class G64Basic {
 		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186);
 		this.AddCommand(Tokentype.fnnum, "tan", "", 192);
 		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183);
-		this.AddCommand(Tokentype.fnnum, "val", "vA", 197, { Len: 2, Type: [Tokentype.str], Fn: this.SplitFn.bind(this) });
+		this.AddCommand(Tokentype.fnnum, "val", "vA", 197);
 
 		//
 		// fn str
 		//
 		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199);
-		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200, { Len: 2, Type: [Tokentype.str, Tokentype.num], Fn: this.SplitFn.bind(this) });
-		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202, { Len: 2, Type: [Tokentype.str, Tokentype.num, Tokentype.num], Fn: this.SplitFn.bind(this) });
-		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201, { Len: 2, Type: [Tokentype.str, Tokentype.num], Fn: this.SplitFn.bind(this) });
+		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200);
+		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202);
+		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201);
 		this.AddCommand(Tokentype.fnstr, "str$", "stR", 196);
 
 		//
@@ -207,114 +176,28 @@ class G64Basic {
 		// "ti$"
 		// "{pi}"
 
-		this.InitLists();
 
 	}
 
 	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[], param?: CmdParam | Function): number {
 
 		const id: number = this.m_BasicCmds.length;
-		const cmd: BasicCmd = {
+
+		let cmd: BasicCmd = {
+			Type: type,
 			Name: name,
 			Abbrv: short,
 			TknId: (typeof code === "number") ? [code] : code,
-			Type: type
-		}
-
-		// aply default CmdParam
-		switch (type) {
-			case Tokentype.cmd:
-				cmd.Param = { Len: 0, Type: [], Fn: this.SplitParam.bind(this) };
-				break;
-
-			case Tokentype.fnnum:
-			case Tokentype.fnout:
-				cmd.Param = { Len: 1, Type: [Tokentype.num], Fn: this.SplitFn.bind(this) };
-				break;
-
-			case Tokentype.fnstr:
-				cmd.Param = { Len: 1, Type: [Tokentype.num], Fn: this.SplitFn.bind(this) };
-				break;
-		}
-
-		if (typeof param !== "undefined") {
-			if (typeof param === "function") {
-				cmd.Param.Fn = param;
-			} else {
-				cmd.Param = param;
-			}
+			Param: null
 		}
 
 		this.m_BasicCmds.push(cmd);
+		this.m_mapCmd.set(name, id);
+		this.m_mapAbbrv.set(short, id);
 
 		return id;
 	}
 
-	private CreateParam(len: number, type: Tokentype[], fn?: Function): CmdParam {
-		const param: CmdParam = {
-			Len: len,
-			Type: type
-		}
-
-		if (typeof fn !== "undefined") {
-			param.Fn = fn;
-		} else {
-			param.Fn = this.SplitParam.bind(this);
-		}
-
-		return param;
-	}
-
-	private GetCommand(name: string): number {
-		return this.m_mapCmd.get(name);
-	}
-
-	private InitLists(): void {
-
-		const aCmd: string[] = [];
-		const aFn: string[] = [];
-		const aAbbrv: string[] = [];
-		const aDeAbbrv: string[] = [];
-
-
-		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
-			if (this.m_BasicCmds[i].Type == Tokentype.cmd) {
-				aCmd.push(Helper.EscapeRegex(this.m_BasicCmds[i].Name));
-				this.m_mapCmd.set(this.m_BasicCmds[i].Name, i);
-			}
-
-			if (this.m_BasicCmds[i].Type == Tokentype.fnnum || this.m_BasicCmds[i].Type == Tokentype.fnstr || this.m_BasicCmds[i].Type == Tokentype.fnout) {
-				aFn.push(this.m_BasicCmds[i].Name);
-				this.m_mapFn.set(this.m_BasicCmds[i].Name, i);
-			}
-
-			if (this.m_BasicCmds[i].Abbrv.length > 0) {
-				aAbbrv.push(this.m_BasicCmds[i].Abbrv);
-				aDeAbbrv.push(this.m_BasicCmds[i].Name);
-				this.m_mapAbbrv.set(this.m_BasicCmds[i].Abbrv, i);
-			}
-
-		}
-
-		this.m_regexCmd = new RegExp("^" + "(" + aCmd.join("|") + ")\\s*(.*)");
-		this.m_regexFn = new RegExp(Helper.EscapeRegex(aFn.join("|")));
-
-		this.m_regexAbbrv = new RegExp(Helper.EscapeRegex(aAbbrv.join("|")), "g");
-		this.m_regexDeAbbrv = new RegExp(Helper.EscapeRegex(aDeAbbrv.join("|")), "g");
-
-	}
-
-	// -----splitter -----
-
-	private SplitParam(code: string): string[] {
-		return [code];
-	}
-
-	private SplitFn(code: string): string[] {
-		return [code];
-	}
-
-	//#endregion
 
 	//#region " ----- Helper ----- "
 
@@ -333,21 +216,6 @@ class G64Basic {
 		}
 
 		return code;
-	}
-
-	/**
-	 * creates an error token
-	 * @param		id			the error id
-	 * @param		hint		the error hint
-	 * @returns		the error token
-	 */
-	private CreateError(id: number, hint: string): G64Token {
-		return {
-			Id: id,
-			Type: Tokentype.err,
-			Name: Helper.ErrorName(id),
-			Hint: hint
-		};
 	}
 
 	/**
@@ -405,9 +273,4 @@ class G64Basic {
 
 	//#endregion
 
-	//#region " ----- Type Testing ----- "
-
-
-
-	//#endregion
 }

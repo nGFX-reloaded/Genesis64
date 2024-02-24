@@ -12,6 +12,5 @@ function Ready(fn) {
 
 Ready(function () {
 	g64 = Genesis64.Instance;
-	g64.Setup(document.getElementById("genesis64"));
-	g64.Temp();
+	g64.Test();
 });
