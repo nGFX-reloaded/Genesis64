@@ -17,6 +17,9 @@ interface CmdParam {
 	Fn?: Function;			// function to call when parsing
 }
 
+enum BasicVersion {
+	v2, hires, simnons
+}
 
 
 class G64Basic {
@@ -40,27 +43,28 @@ class G64Basic {
 
 	//#endregion
 
-	public Init(memory: G64Memory) {
+	public Init(memory: G64Memory, version:BasicVersion) {
+
 		this.m_Memory = memory;
-	}
 
-	public Parse(code: string): void {
-
-		let lines: string[] = Helper.CodeSplitter(code, "\n");
-
-		console.log(code);
-		for (let i = 0; i < lines.length; i++) {
-			let linenr: number = -1;
-			let parts: string[];
-
-			let isDirect: boolean = false;
-
-			let match: string[] = lines[i].match(/^(\d+)?(.*)/);
-			console.log(match);
+		switch (version) {
+			case BasicVersion.v2:
+				this.InitBasicV2();
+				break;
 		}
-
+		
 	}
 
+	public ParseLine(line: string): G64Token {
+
+		let tkn: G64Token = this.CreateToken(Tokentype.line);
+
+		line = this.DeAbbreviate(line);
+
+		console.log("line:", line);
+
+		return tkn;
+	}
 
 	//#region " ----- BASIC V2 ----- "
 
@@ -198,6 +202,7 @@ class G64Basic {
 		return id;
 	}
 
+	//#endregion
 
 	//#region " ----- Helper ----- "
 
@@ -226,7 +231,7 @@ class G64Basic {
 	public DeAbbreviate(code: string): string {
 
 		// if there are literals, we encode them first
-		const literals: SplitItem = Helper.EncodeLiterals(code);
+		const literals: SplitItem = Tools.EncodeLiterals(code);
 
 		this.m_regexAbbrv.lastIndex = -1;
 		const match: string[] = literals.Source.match(this.m_regexAbbrv);
@@ -239,7 +244,7 @@ class G64Basic {
 
 		// if there were literals, we restore them
 		if (literals.List.length > 0) {
-			code = Helper.RestoreLiterals(code, literals.List);
+			code = Tools.RestoreLiterals(code, literals.List);
 		}
 
 		return code;
@@ -252,7 +257,7 @@ class G64Basic {
 	 */
 	public Abbreviate(code: string): string {
 
-		const literals: SplitItem = Helper.EncodeLiterals(code);
+		const literals: SplitItem = Tools.EncodeLiterals(code);
 
 		this.m_regexDeAbbrv.lastIndex = -1;
 		const match: string[] = literals.Source.match(this.m_regexDeAbbrv);
@@ -265,10 +270,24 @@ class G64Basic {
 
 		// if there were literals, we restore them
 		if (literals.List.length > 0) {
-			code = Helper.RestoreLiterals(code, literals.List);
+			code = Tools.RestoreLiterals(code, literals.List);
 		}
 
 		return code;
+	}
+
+	private CreateToken(type: Tokentype): G64Token {
+
+		let tkn: G64Token = { Type: Tokentype.nop };
+
+		switch (type) {
+			case Tokentype.line:
+				tkn = { Type: Tokentype.line, Values: [] };
+				break;
+		}
+
+
+		return tkn;
 	}
 
 	//#endregion

@@ -27,6 +27,12 @@ class Genesis64 {
 
 	//#endregion
 
+	//#region " ----- Statics ----- "
+
+	private static RegLineNr: RegExp = /^\s*(\d+)(.*)/;
+
+	//#endregion
+
 	//#region " ----- Privates ----- "
 
 	private m_Basic: G64Basic = new G64Basic();
@@ -44,11 +50,40 @@ class Genesis64 {
 	public Test() {
 		const code = (document.getElementById("code") as HTMLPreElement).innerText;
 
-		this.m_Basic.Init(this.m_Memory);
-		this.m_Basic.InitBasicV2();
+		this.m_Basic.Init(this.m_Memory, BasicVersion.v2);
 
-		this.m_Basic.Parse(code);
-		
+		this.CommitCode(code);
+
 	}
-	
+
+	public CommitCode(code: string): void {
+
+		let lines: string[] = Tools.CodeSplitter(code, "\n");
+
+		for (let i = 0; i < lines.length; i++) {
+			const match: string[] = lines[i].match(Genesis64.RegLineNr);
+			let lineNr: number = -1;
+			let line: string = lines[i].trim();
+
+			if (match !== null) {
+				lineNr = parseInt(match[1]);
+				line = match[2].trim();
+			}
+
+			console.log(lineNr, line);
+
+			if (line !== "") {
+				if (lineNr >= 0) console.log("remove line:", lineNr);
+			} else {
+				// add line to prg
+				// parse in basic and store line token in memory
+				this.m_Basic.ParseLine(line);
+			}
+
+
+		}
+
+
+	}
+
 }

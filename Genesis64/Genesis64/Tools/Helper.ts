@@ -12,7 +12,7 @@ interface SplitItem {
 }
 
 
-class Helper {
+class Tools {
 
 	/**
 	 * Splits a piece of code with a given split string/char, except when in (), [] or {}, "" and ''

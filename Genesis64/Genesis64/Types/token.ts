@@ -24,16 +24,17 @@
 	var		/* 22, any var, used for error checking */,
 	adr		/* 23, any address, used for error checking */,
 	byte	/* 24, any byte, used for error checking */,
+	line	/* 25, a line, stores line tokens */,
 }
 
 interface G64Token {
 	Type: Tokentype;
-	Id: number;					// basic cmd/fn/error id
+	Id?: number;					// basic cmd/fn/error id
 	Name?: string;				// if var, stores var's name, if error, the error's name
 
 	Num?: number;				// number data
 	Str?: string;				// string data
 	Values?: G64Token[];		// ref to token array
 
-	Hint: string;				// error message, or other debug data
+	Hint?: string;				// error message, or other debug data
 }
