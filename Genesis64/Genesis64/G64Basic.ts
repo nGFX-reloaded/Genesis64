@@ -59,7 +59,7 @@ class G64Basic {
 
 		let tkn: G64Token = this.CreateToken(Tokentype.line);
 
-		line = this.DeAbbreviate(line);
+		//line = this.DeAbbreviate(line);
 
 		console.log("line:", line);
 

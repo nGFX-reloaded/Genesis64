@@ -65,6 +65,8 @@ class Genesis64 {
 			let lineNr: number = -1;
 			let line: string = lines[i].trim();
 
+			console.log(match);
+
 			if (match !== null) {
 				lineNr = parseInt(match[1]);
 				line = match[2].trim();
@@ -72,7 +74,7 @@ class Genesis64 {
 
 			console.log(lineNr, line);
 
-			if (line !== "") {
+			if (line === "") {
 				if (lineNr >= 0) console.log("remove line:", lineNr);
 			} else {
 				// add line to prg
