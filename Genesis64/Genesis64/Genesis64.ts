@@ -62,24 +62,19 @@ class Genesis64 {
 
 		for (let i = 0; i < lines.length; i++) {
 			const match: string[] = lines[i].match(Genesis64.RegLineNr);
-			let lineNr: number = -1;
-			let line: string = lines[i].trim();
-
-			console.log(match);
+			const lineTkn: G64Token = Tools.CreateToken(Tokentype.line);
 
 			if (match !== null) {
-				lineNr = parseInt(match[1]);
-				line = match[2].trim();
+				lineTkn.Num = parseInt(match[1]);
+				lineTkn.Str = this.m_Basic.DeAbbreviate(match[2].trim()); ;
 			}
 
-			console.log(lineNr, line);
-
-			if (line === "") {
-				if (lineNr >= 0) console.log("remove line:", lineNr);
+			if (lineTkn.Str === "") {
+				if (lineTkn.Num >= 0) console.log("remove line:", lineTkn.Num);
 			} else {
 				// add line to prg
 				// parse in basic and store line token in memory
-				this.m_Basic.ParseLine(line);
+				this.m_Basic.ParseLine(lineTkn);
 			}
 
 

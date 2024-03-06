@@ -274,4 +274,21 @@ class Tools {
 		return error;
 	}
 
+	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
+		let tkn: G64Token = { Type: type };
+
+		switch (type) {
+			case Tokentype.line:
+				tkn = {
+					Type: Tokentype.line,
+					Values: [],
+					Str: (typeof str !== "undefined") ? str : "",
+					Num: (typeof num !== "undefined") ? num : -1
+				};
+				break;
+		}
+
+		return tkn;
+	}
+
 }
