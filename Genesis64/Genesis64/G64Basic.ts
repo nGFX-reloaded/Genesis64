@@ -30,6 +30,8 @@ class G64Basic {
 
 	private m_Memory: G64Memory = null;
 
+	private m_Literals: SplitItem = null;
+
 
 	private m_BasicCmds: BasicCmd[] = [];
 
@@ -37,6 +39,8 @@ class G64Basic {
 	private m_regexFnNum: RegExp = null;
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
+
+	private m_lstCmd: number[] = [];
 
 	private m_mapCmd: Map<string, number> = new Map<string, number>();
 	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
@@ -62,14 +66,14 @@ class G64Basic {
 	public ParseLine(lineTkn: G64Token): G64Token {
 
 		const tknParts: G64Token = Tools.CreateToken(Tokentype.line);
-		const parts: string[] = Tools.CodeSplitter(lineTkn.Str, ":");
-		
+		this.m_Literals = Tools.EncodeLiterals(lineTkn.Str);
+
+		const parts: string[] = Tools.CodeSplitter(this.m_Literals.Source, ":");
+
 		console.log(">", lineTkn);
 
 		for (let i: number = 0; i < parts.length; i++) {
-			const split: SplitItem = Tools.EncodeLiterals(parts[i]);
-			const code: string = split.Source;
-			const tkn: G64Token = this.Tokenizer(Tools.CreateToken(Tokentype.line, code));
+			const tkn: G64Token = this.Tokenizer(parts[i]);
 
 			console.log(">>", tkn);
 
@@ -80,17 +84,29 @@ class G64Basic {
 		return lineTkn;
 	}
 
-	private Tokenizer(tkn: G64Token): G64Token {
+	private Tokenizer(code: string): G64Token {
 
-		const code: string = tkn.Str;
+		let tkn: G64Token = Tools.CreateToken(Tokentype.err);
+		let cmd: BasicCmd = null;
+		let match: string[] = null;
+		let i: number = 0;
 
-		this.m_regexCmd.lastIndex = -1;
+		// get numbers
+		// get literals
+		// get fns
 		this.m_regexFnNum.lastIndex = -1;
 
-		let match: string[] = tkn.Str.match(this.m_regexCmd);
-		console.log("-->", match);
-
-
+		// get commands
+		for (i = 0; i < this.m_lstCmd.length; i++) {
+			cmd = this.m_BasicCmds[this.m_lstCmd[i]];
+			cmd.Regex.lastIndex = -1;
+			match = code.match(cmd.Regex);
+			if (match !== null) {
+				console.log(">>>>", match);
+				break;
+			}
+		}
+		
 
 		return tkn;
 	}
@@ -249,7 +265,10 @@ class G64Basic {
 		cmd.Regex = (typeof regex !== "undefined") ? regex : new RegExp("^\\s*" + Tools.EscapeRegex(cmd.Name) + "\\s*(.*)");
 
 		this.m_BasicCmds.push(cmd);
+
 		this.m_mapCmd.set(name, id);
+		this.m_lstCmd.push(id);
+
 		this.m_mapAbbrv.set(short, id);
 
 		return id;

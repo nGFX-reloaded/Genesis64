@@ -274,6 +274,13 @@ class Tools {
 		return error;
 	}
 
+	/**
+	 * Creates a token
+	 * @param	type		token type
+	 * @param	str			[optional] string value
+	 * @param	num			[optional] number value
+	 * @returns			G64Token
+	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
 		let tkn: G64Token = { Type: type };
 
@@ -284,6 +291,15 @@ class Tools {
 					Values: [],
 					Str: (typeof str !== "undefined") ? str : "",
 					Num: (typeof num !== "undefined") ? num : -1
+				};
+				break;
+
+			case Tokentype.err:
+				tkn = {
+					Type: Tokentype.err,
+					Id: (typeof num !== "undefined") ? num : ErrorCodes.SYNTAX,
+					Str: (typeof str !== "undefined") ? str : Tools.ErrorName(ErrorCodes.SYNTAX),
+					Hint: ""
 				};
 				break;
 		}
