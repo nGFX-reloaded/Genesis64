@@ -25,6 +25,7 @@
 	adr		/* 23, any address, used for error checking */,
 	byte	/* 24, any byte, used for error checking */,
 	line	/* 25, a line, stores line tokens */,
+	sysvar	/* 26, system var, like ti and ti$ */,
 }
 
 interface G64Token {
