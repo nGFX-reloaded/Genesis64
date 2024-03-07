@@ -102,7 +102,7 @@ class G64Basic {
 		// get literals
 		// get fns
 		this.m_regexFnNum.lastIndex = -1;
-
+		this.m_regexCmd.lastIndex = -1;
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
@@ -114,19 +114,25 @@ class G64Basic {
 
 	private TokenizeCmd(tkn: G64Token, code: string): G64Token {
 
-		//for (let i: number = 0; i < this.m_lstCmd.length; i++) {
-		//	const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
-		//	const match: string[] = code.match(cmd.Regex);
+		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
+			const match: string[] = code.match(cmd.Param.Regex);
 
-		//	if (match !== null) {
-		//		tkn.Id = this.m_lstCmd[i];
-		//		tkn.Name = cmd.Name;
-		//		tkn.Type = Tokentype.cmd;
-		//		tkn.Str = match[1];
-		//		console.log(">>", cmd.Name, match);
-		//		break;
-		//	}
-		//}
+
+			if (match !== null) {
+
+				// remove first item from match, as it is the whole match
+				match.shift();
+			console.log(">>", cmd.Name, match);
+				
+				tkn.Id = this.m_lstCmd[i];
+				tkn.Name = cmd.Name;
+				tkn.Type = Tokentype.cmd;
+				tkn.Str = "";
+				tkn.Num = 0;
+				break;
+			}
+		}
 
 		return tkn;
 	}
@@ -276,11 +282,19 @@ class G64Basic {
 
 		//
 		// if there is a parameter, we store it
-		if (typeof param !== "undefined" || param !== null) {
-			cmd.Param = (typeof param === "function") ? { Len: -1, Type: null, Fn: param } : param;
-		} else {
-			cmd.Param = { Len: 0, Type: null };
+		if (typeof param === "undefined" || param === null) {
+			cmd.Param = this.CreateParam(0, [ParamType.any],
+				(code: string) => {
+					console.log(code);
+				},
+				new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"));
 
+		} else {
+			if (typeof param === "function") {
+				cmd.Param = this.CreateParam(0, [ParamType.any], param, new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"))
+			} else {
+				cmd.Param = param;
+			}
 		}
 
 		// for param: new RegExp("^\\s*" + Tools.EscapeRegex(cmd.Name) + "\\s*(.*)");
