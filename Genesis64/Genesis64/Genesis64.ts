@@ -77,7 +77,7 @@ class Genesis64 {
 				this.m_Basic.ParseLine(lineTkn);
 			}
 
-
+			break;
 		}
 
 

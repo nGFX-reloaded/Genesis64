@@ -6,17 +6,28 @@
 interface BasicCmd {
 	Name: string;			// name of the command, ie. the command
 	Abbrv: string;			// abbreviation, if any
-	TknId: number[];		// token id when saving, or -1, then use pet value
+	TknId: number[];		// token id(s) when saving, or -1, then use pet values
 	Type: Tokentype;		// type of token
 	Param?: CmdParam;		// parameter for this command
-
-	Regex?: RegExp;			// regex to match this command
 }
 
 interface CmdParam {
 	Len: number;			// number of parameters, 0 for none or all optional, > 0 for fixed, < 0 for variable with fixed length (ie: -1: one fixed param, rest optional)
-	Type: Tokentype[];		// type of parameters
+	Type: ParamType[];		// type of parameters
 	Fn?: Function;			// function to call when parsing
+
+	Regex?: RegExp;			// regex to match this command
+}
+
+enum ParamType {
+	var			/* 0: any var */,
+	num			/* 1: any number,ical value */,
+	str			/* any string value */,
+	same		/* 3: same type as previous */,
+	any			/* 4: any type */,
+
+	byte		/* 5: byte */,
+	adr			/* 6: address (0-65536) */,
 }
 
 enum BasicVersion {
@@ -65,7 +76,6 @@ class G64Basic {
 
 	public ParseLine(lineTkn: G64Token): G64Token {
 
-		const tknParts: G64Token = Tools.CreateToken(Tokentype.line);
 		this.m_Literals = Tools.EncodeLiterals(lineTkn.Str);
 
 		const parts: string[] = Tools.CodeSplitter(this.m_Literals.Source, ":");
@@ -74,10 +84,7 @@ class G64Basic {
 
 		for (let i: number = 0; i < parts.length; i++) {
 			const tkn: G64Token = this.Tokenizer(parts[i]);
-
-			console.log(">>", tkn);
-
-			tknParts.Values.push(tkn);
+			console.log(">>>", tkn);
 		}
 
 
@@ -96,17 +103,30 @@ class G64Basic {
 		// get fns
 		this.m_regexFnNum.lastIndex = -1;
 
+
 		// get commands
-		for (i = 0; i < this.m_lstCmd.length; i++) {
-			cmd = this.m_BasicCmds[this.m_lstCmd[i]];
-			cmd.Regex.lastIndex = -1;
-			match = code.match(cmd.Regex);
-			if (match !== null) {
-				console.log(">>>>", match);
-				break;
-			}
+		if (this.m_regexCmd.test(code)) {
+			tkn = this.TokenizeCmd(tkn, code);
 		}
-		
+
+		return tkn;
+	}
+
+	private TokenizeCmd(tkn: G64Token, code: string): G64Token {
+
+		//for (let i: number = 0; i < this.m_lstCmd.length; i++) {
+		//	const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
+		//	const match: string[] = code.match(cmd.Regex);
+
+		//	if (match !== null) {
+		//		tkn.Id = this.m_lstCmd[i];
+		//		tkn.Name = cmd.Name;
+		//		tkn.Type = Tokentype.cmd;
+		//		tkn.Str = match[1];
+		//		console.log(">>", cmd.Name, match);
+		//		break;
+		//	}
+		//}
 
 		return tkn;
 	}
@@ -137,7 +157,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "if", "", 139);
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
-		this.AddCommand(Tokentype.cmd, "let", "lE", 136, null, /^(?:let\s*)?(\w+\d?[%$]?(?:\(.+\))?\s*=\s*.*)/);
+		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, /^(?:let\s*)?(\w+\d?[%$]?(?:\(.+\))?)\s*=\s*(.*)/));
 		this.AddCommand(Tokentype.cmd, "list", "lI", 155);
 		this.AddCommand(Tokentype.cmd, "load", "lA", 147);
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
@@ -242,7 +262,7 @@ class G64Basic {
 	 * @param		regex		the regex to match the command
 	 * @returns		the id of the command
 	 */
-	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[], param?: CmdParam | Function, regex?: RegExp): number {
+	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[], param?: CmdParam | Function): number {
 
 		const id: number = this.m_BasicCmds.length;
 
@@ -258,11 +278,12 @@ class G64Basic {
 		// if there is a parameter, we store it
 		if (typeof param !== "undefined" || param !== null) {
 			cmd.Param = (typeof param === "function") ? { Len: -1, Type: null, Fn: param } : param;
+		} else {
+			cmd.Param = { Len: 0, Type: null };
+
 		}
 
-		//
-		// if there is a regex, we store it
-		cmd.Regex = (typeof regex !== "undefined") ? regex : new RegExp("^\\s*" + Tools.EscapeRegex(cmd.Name) + "\\s*(.*)");
+		// for param: new RegExp("^\\s*" + Tools.EscapeRegex(cmd.Name) + "\\s*(.*)");
 
 		this.m_BasicCmds.push(cmd);
 
@@ -274,49 +295,67 @@ class G64Basic {
 		return id;
 	}
 
+	private CreateParam(len: number, type: ParamType[], fn?: Function, regex?: RegExp): CmdParam {
+
+		const param: CmdParam = {
+			Len: len,
+			Type: type
+		}
+
+		if (typeof fn !== "undefined" && fn !== null) {
+			param.Fn = fn;
+		}
+
+		if (typeof regex !== "undefined") {
+			param.Regex = regex;
+		}
+
+		return param;
+	}
+
 	/**
 	 * built regexes for all commands
 	 */
 	private BuiltRegex(): void {
 
 		//
-		// built regex of all commands commands
+		// built regex of all commands / fns
 		let cmd: string[] = [];
-		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
-			if (this.m_BasicCmds[i].Type === Tokentype.cmd) {
-				cmd.push(Tools.EscapeRegex(this.m_BasicCmds[i].Name));
-			}
-		}
-		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
-
-		//
-		// built regex of all numerical functions
 		let fnnum: string[] = [];
-		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
-			if (this.m_BasicCmds[i].Type === Tokentype.fnnum) {
-				fnnum.push(Tools.EscapeRegex(this.m_BasicCmds[i].Name));
-			}
-		}
-		this.m_regexFnNum = new RegExp("(" + fnnum.join("|") + ")", "g");
 
-		//
-		// built regex of all abbreviations
 		let abbrv: string[] = [];
+		let deabbrv: string[] = [];
+
+
 		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
+
+			const name: string = Tools.EscapeRegex(this.m_BasicCmds[i].Name);
+
+			switch (this.m_BasicCmds[i].Type) {
+				case Tokentype.cmd:
+					cmd.push(name);
+					break;
+
+				case Tokentype.fnnum:
+					fnnum.push(name);
+					break;
+			}
+
 			if (this.m_BasicCmds[i].Abbrv !== "") {
 				abbrv.push(Tools.EscapeRegex(this.m_BasicCmds[i].Abbrv));
+				deabbrv.push(name);
 			}
-		}
-		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 
-		//
-		// built regex of all de-abbreviations
-		let deabbrv: string[] = [];
-		for (let i: number = 0; i < this.m_BasicCmds.length; i++) {
-			if (this.m_BasicCmds[i].Abbrv !== "") {
-				deabbrv.push(Tools.EscapeRegex(this.m_BasicCmds[i].Name));
-			}
 		}
+
+		// let is an extra ugly special case, temp add it here
+		cmd.push("(?:let\\s*)?(?:\\w+\\d?[%$]?(?:\\(.+\\))?\\s*=.*)");
+
+
+		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
+		this.m_regexFnNum = new RegExp("(" + fnnum.join("|") + ")", "g");
+
+		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");
 
 	}
