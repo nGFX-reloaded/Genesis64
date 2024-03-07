@@ -20,17 +20,13 @@
 	eol     /* 18, token exec ok, end of line */,
 	jmp     /* 19, jump (goto, gosub, etc) */,
 	end     /* 20, prg ends here */,
-	any		/* 21, any token, used for error checking */,
-	var		/* 22, any var, used for error checking */,
-	adr		/* 23, any address, used for error checking */,
-	byte	/* 24, any byte, used for error checking */,
-	line	/* 25, a line, stores line tokens */,
-	sysvar	/* 26, system var, like ti and ti$ */,
+	line	/* 21, a line, stores line tokens */,
+	sysvar	/* 22, system var, like ti and ti$ */,
 }
 
 interface G64Token {
 	Type: Tokentype;
-	Id?: number;					// basic cmd/fn/error id
+	Id?: number;				// basic cmd/fn/error id
 	Name?: string;				// if var, stores var's name, if error, the error's name
 
 	Num?: number;				// number data
