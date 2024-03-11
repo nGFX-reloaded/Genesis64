@@ -34,4 +34,5 @@ interface G64Token {
 	Values?: G64Token[];		// ref to token array
 
 	Hint?: string;				// error message, or other debug data
+	Level?: number;				// order of execution
 }

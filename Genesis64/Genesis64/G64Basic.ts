@@ -14,9 +14,10 @@ interface BasicCmd {
 interface CmdParam {
 	Len: number;			// number of parameters, 0 for none or all optional, > 0 for fixed, < 0 for variable with fixed length (ie: -1: one fixed param, rest optional)
 	Type: ParamType[];		// type of parameters
-	Fn?: Function;			// function to call when parsing
+	Fn?: Function;			// splitter function to call when parsing
 
 	Regex?: RegExp;			// regex to match this command
+	Split?: string;			// split chr, if any
 }
 
 enum ParamType {
@@ -41,6 +42,8 @@ class G64Basic {
 
 	private m_Memory: G64Memory = null;
 
+	private m_Level: number = 0;			// stores the current parsing level
+	private m_Token: G64Token[] = [];		// stores tokens for the current part
 	private m_Literals: SplitItem = null;
 
 
@@ -48,6 +51,7 @@ class G64Basic {
 
 	private m_regexCmd: RegExp = null;
 	private m_regexFnNum: RegExp = null;
+	private m_regexNum: RegExp = null;
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
 
@@ -83,7 +87,7 @@ class G64Basic {
 		console.log(">", lineTkn);
 
 		for (let i: number = 0; i < parts.length; i++) {
-			const tkn: G64Token = this.Tokenizer(parts[i]);
+			const tkn: G64Token = this.Tokenizer(parts[i].trim());
 			console.log(">>>", tkn);
 		}
 
@@ -98,16 +102,33 @@ class G64Basic {
 		let match: string[] = null;
 		let i: number = 0;
 
-		// get numbers
-		// get literals
-		// get fns
 		this.m_regexFnNum.lastIndex = -1;
 		this.m_regexCmd.lastIndex = -1;
+		this.m_regexNum.lastIndex = -1;
+
+		// fix numbers
+		code = code; // todo: fix numbers
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
-			tkn = this.TokenizeCmd(tkn, code);
+
+			// clear current parser stack
+			this.m_Level = 0;
+			this.m_Token = [];
+
+			return this.TokenizeCmd(tkn, code);
 		}
+
+		// get numbers
+		if (this.m_regexNum.test(code)) {
+			console.log("---", code, code.match(this.m_regexNum));
+			return this.TokenizeNum(tkn, code);
+		}
+
+		// get literals
+		// get vars
+		// get fns
+
 
 		return tkn;
 	}
@@ -118,22 +139,60 @@ class G64Basic {
 			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
 			const match: string[] = code.match(cmd.Param.Regex);
 
-
 			if (match !== null) {
 
 				// remove first item from match, as it is the whole match
 				match.shift();
-			console.log(">>", cmd.Name, match);
-				
+				console.log(">>", cmd.Name, match);
+
 				tkn.Id = this.m_lstCmd[i];
 				tkn.Name = cmd.Name;
 				tkn.Type = Tokentype.cmd;
 				tkn.Str = "";
 				tkn.Num = 0;
+				tkn.Level = 0;
+
+				if (cmd.Param.Split === "") { // already split by regex
+					tkn.Values = [];
+					for (let j: number = 0; j < match.length; j++) {
+						this.m_Level++;
+						let tknParam: G64Token = this.Tokenizer(match[j]);
+
+						console.log("-->>", match[j], tknParam);
+					}
+				} else {
+					// later
+				}
+
+
 				break;
 			}
 		}
 
+		return tkn;
+	}
+
+	private TokenizeNum(tkn: G64Token, code: string): G64Token {
+
+		const num = parseFloat(code);
+
+		if (!isNaN(num)) {
+			tkn.Id = -1;
+			tkn.Name = "";
+			tkn.Type = Tokentype.num;
+			tkn.Str = "";
+			tkn.Num = num;
+			tkn.Level = -9999;
+		} else {
+			tkn.Id = ErrorCodes.TYPE_MISMATCH;
+			tkn.Name = Tools.ErrorName(tkn.Id);
+			tkn.Type = Tokentype.err;
+			tkn.Str = code;
+			tkn.Num = 0;
+			tkn.Level = this.m_Level;
+			tkn.Hint = "Invalid number";
+		}
+		
 		return tkn;
 	}
 
@@ -309,20 +368,29 @@ class G64Basic {
 		return id;
 	}
 
-	private CreateParam(len: number, type: ParamType[], fn?: Function, regex?: RegExp): CmdParam {
+	private CreateParam(len: number, type: ParamType[], fn?: Function, regex?: RegExp, split?: string): CmdParam {
 
 		const param: CmdParam = {
 			Len: len,
-			Type: type
+			Type: type,
+			Split : "",
 		}
 
 		if (typeof fn !== "undefined" && fn !== null) {
 			param.Fn = fn;
+		} else {
+			// later
 		}
 
 		if (typeof regex !== "undefined") {
 			param.Regex = regex;
+		} else {
+			// later
 		}
+
+
+		if (typeof split !== "undefined")
+			param.Split = split;
 
 		return param;
 	}
@@ -368,6 +436,8 @@ class G64Basic {
 
 		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
 		this.m_regexFnNum = new RegExp("(" + fnnum.join("|") + ")", "g");
+
+		this.m_regexNum = /^[-\+]?\d*\.?\d*(?:e[-\+]?\d+)?$/;
 
 		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");
