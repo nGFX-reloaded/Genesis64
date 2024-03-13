@@ -38,6 +38,9 @@ enum BasicVersion {
 
 class G64Basic {
 
+	private static TKNVAR = 9999; // variables, which should be run first in order to be created before used
+	private static TKNLITERAL = -9999; // litarals like text or numbers
+
 	//#region " ----- Privates ----- "
 
 	private m_Memory: G64Memory = null;
@@ -51,7 +54,11 @@ class G64Basic {
 
 	private m_regexCmd: RegExp = null;
 	private m_regexFnNum: RegExp = null;
+
 	private m_regexNum: RegExp = null;
+	private m_regexVar: RegExp = null;
+	private m_regexLit: RegExp = null;
+
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
 
@@ -105,6 +112,8 @@ class G64Basic {
 		this.m_regexFnNum.lastIndex = -1;
 		this.m_regexCmd.lastIndex = -1;
 		this.m_regexNum.lastIndex = -1;
+		this.m_regexLit.lastIndex = -1;
+		this.m_regexVar.lastIndex = -1;
 
 		// fix numbers
 		code = code; // todo: fix numbers
@@ -121,12 +130,21 @@ class G64Basic {
 
 		// get numbers
 		if (this.m_regexNum.test(code)) {
-			console.log("---", code, code.match(this.m_regexNum));
+			console.log("num >", code, code.match(this.m_regexNum));
 			return this.TokenizeNum(tkn, code);
 		}
 
 		// get literals
+		if (this.m_regexLit.test(code)) {
+			console.log("lit >", code, code.match(this.m_regexLit));
+		}
+
 		// get vars
+		if (this.m_regexVar.test(code)) {
+			console.log("var >", code, code.match(this.m_regexVar));
+			return this.TokenizeVar(tkn, code);
+		}
+
 		// get fns
 
 
@@ -174,25 +192,61 @@ class G64Basic {
 
 	private TokenizeNum(tkn: G64Token, code: string): G64Token {
 
-		const num = parseFloat(code);
+		let num = parseFloat(code);
+
+		if (code.startsWith("$")) {
+			num = parseInt("0x" + code.substring(1));
+		} else {
+			if (code.startsWith("%")) {
+				num = parseInt(code.substring(1), 2);
+			}
+		}
 
 		if (!isNaN(num)) {
-			tkn.Id = -1;
-			tkn.Name = "";
-			tkn.Type = Tokentype.num;
-			tkn.Str = "";
-			tkn.Num = num;
-			tkn.Level = -9999;
+			tkn = Tools.CreateToken(Tokentype.num, null, num);
+			tkn.Level = G64Basic.TKNLITERAL;
 		} else {
-			tkn.Id = ErrorCodes.TYPE_MISMATCH;
-			tkn.Name = Tools.ErrorName(tkn.Id);
-			tkn.Type = Tokentype.err;
+			tkn = Tools.CreateToken(Tokentype.err, null, ErrorCodes.TYPE_MISMATCH);
 			tkn.Str = code;
-			tkn.Num = 0;
 			tkn.Level = this.m_Level;
 			tkn.Hint = "Invalid number";
 		}
-		
+
+		return tkn;
+	}
+
+	private TokenizeVar(tkn: G64Token, code: string): G64Token {
+
+		const match: string[] = code.match(this.m_regexVar);
+
+		console.log("tvar ->", match);
+
+		if (match !== null) {
+			match.shift();
+
+			const isVar: boolean = (match.length === 1);
+
+			let type: Tokentype = (isVar) ? Tokentype.vnum : Tokentype.anum;
+			switch (match[0].slice(-1)) {
+				case "$":
+					type = (isVar) ? Tokentype.vstr : Tokentype.astr;
+					break;
+				case "%":
+					type = (isVar) ? Tokentype.vint : Tokentype.aint;
+					break;
+			}
+
+			if (isVar) {
+				tkn = Tools.CreateToken(type, match[0]);
+				tkn.Level = G64Basic.TKNVAR;
+
+			} else {
+				//const index:string[] = Tools.CodeSplitter(match[1].substring(1, match[1].length - 1), ",");
+				//console.log("arr:", index);
+			}
+
+		}
+
 		return tkn;
 	}
 
@@ -373,7 +427,7 @@ class G64Basic {
 		const param: CmdParam = {
 			Len: len,
 			Type: type,
-			Split : "",
+			Split: "",
 		}
 
 		if (typeof fn !== "undefined" && fn !== null) {
@@ -437,7 +491,9 @@ class G64Basic {
 		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
 		this.m_regexFnNum = new RegExp("(" + fnnum.join("|") + ")", "g");
 
-		this.m_regexNum = /^[-\+]?\d*\.?\d*(?:e[-\+]?\d+)?$/;
+		this.m_regexNum = /^(?:[-\+]?(?:\d*\.)?\d+(?:e[-\+]?\d+)?|\$[0-9a-f]+|\%[01]+)$/; // numbers, inc. hex $xx and $xxxx, bin %xxxxxxxx
+		this.m_regexVar = /^([a-zA-Z]+\d*[$%]?)(\(.+\))?$/; // variables, inc. arrays
+		this.m_regexLit = /^{\d+}$/; // literals
 
 		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");

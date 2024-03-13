@@ -298,8 +298,15 @@ class Tools {
 				tkn = {
 					Type: Tokentype.err,
 					Id: (typeof num !== "undefined") ? num : ErrorCodes.SYNTAX,
-					Str: (typeof str !== "undefined") ? str : Tools.ErrorName(ErrorCodes.SYNTAX),
+					Str: (typeof str !== "undefined" || str === null) ? str : Tools.ErrorName(ErrorCodes.SYNTAX),
 					Hint: ""
+				};
+				break;
+
+			case Tokentype.num:
+				tkn = {
+					Type: Tokentype.num,
+					Num: (typeof num !== "undefined") ? num : 0
 				};
 				break;
 		}
