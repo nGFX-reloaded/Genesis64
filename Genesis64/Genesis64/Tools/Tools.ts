@@ -282,12 +282,12 @@ class Tools {
 	 * @returns			G64Token
 	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
-		let tkn: G64Token = { Type: type };
+		let tkn: G64Token = { Type: type, Values: [] };
 
 		switch (type) {
 			case Tokentype.line:
 				tkn = {
-					Type: Tokentype.line,
+					Type: type,
 					Values: [],
 					Str: (typeof str !== "undefined") ? str : "",
 					Num: (typeof num !== "undefined") ? num : -1
@@ -296,7 +296,7 @@ class Tools {
 
 			case Tokentype.err:
 				tkn = {
-					Type: Tokentype.err,
+					Type: type,
 					Id: (typeof num !== "undefined") ? num : ErrorCodes.SYNTAX,
 					Str: (typeof str !== "undefined" || str === null) ? str : Tools.ErrorName(ErrorCodes.SYNTAX),
 					Hint: ""
@@ -308,6 +308,50 @@ class Tools {
 					Type: Tokentype.num,
 					Num: (typeof num !== "undefined") ? num : 0
 				};
+				break;
+
+			case Tokentype.str:
+				tkn = {
+					Type: type,
+					Str: (typeof str !== "undefined") ? str : ""
+				};
+				break;
+
+			case Tokentype.vnum:
+			case Tokentype.vint:
+				tkn = {
+					Type: type,
+					Name: (typeof str !== "undefined") ? str : "",
+					Num: 0
+				};
+				break;
+
+			case Tokentype.anum:
+			case Tokentype.aint:
+				tkn = {
+					Type: type,
+					Name: (typeof str !== "undefined") ? str : "",
+					Num: 0,
+					Values: []
+				};
+				break;
+
+			case Tokentype.vstr:
+				tkn = {
+					Type: type,
+					Name: (typeof str !== "undefined") ? str : "",
+					Str: ""
+				};
+				break;
+
+			case Tokentype.astr:
+				tkn = {
+					Type: type,
+					Name: (typeof str !== "undefined") ? str : "",
+					Str: "",
+					Values: []
+				};
+
 				break;
 		}
 

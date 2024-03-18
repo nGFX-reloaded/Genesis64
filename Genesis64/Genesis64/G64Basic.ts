@@ -47,13 +47,13 @@ class G64Basic {
 
 	private m_Level: number = 0;			// stores the current parsing level
 	private m_Token: G64Token[] = [];		// stores tokens for the current part
-	private m_Literals: SplitItem = null;
+	private m_Literals: string[] = [];
 
 
 	private m_BasicCmds: BasicCmd[] = [];
 
 	private m_regexCmd: RegExp = null;
-	private m_regexFnNum: RegExp = null;
+	private m_regexFn: RegExp = null;
 
 	private m_regexNum: RegExp = null;
 	private m_regexVar: RegExp = null;
@@ -87,16 +87,32 @@ class G64Basic {
 
 	public ParseLine(lineTkn: G64Token): G64Token {
 
-		this.m_Literals = Tools.EncodeLiterals(lineTkn.Str);
+		const literals = Tools.EncodeLiterals(lineTkn.Str);
+		const parts: string[] = Tools.CodeSplitter(literals.Source, ":");
 
-		const parts: string[] = Tools.CodeSplitter(this.m_Literals.Source, ":");
-
+		this.m_Literals = literals.List;
+		
 		console.log(">", lineTkn);
 
 		for (let i: number = 0; i < parts.length; i++) {
+
+			// clear current parser stack
+			this.m_Level = 0;
+			this.m_Token = [];
+
+
+			console.log("---", parts[i].trim(), "---");
 			const tkn: G64Token = this.Tokenizer(parts[i].trim());
-			console.log(">>>", tkn);
+
+			// sort m_Token by level
+			this.m_Token.sort((a, b) => a.Level - b.Level).reverse();
+
+			console.log("----------");
+			console.log(this.m_Token);
+
 		}
+
+		
 
 
 		return lineTkn;
@@ -109,48 +125,55 @@ class G64Basic {
 		let match: string[] = null;
 		let i: number = 0;
 
-		this.m_regexFnNum.lastIndex = -1;
 		this.m_regexCmd.lastIndex = -1;
+		this.m_regexFn.lastIndex = -1;
 		this.m_regexNum.lastIndex = -1;
 		this.m_regexLit.lastIndex = -1;
 		this.m_regexVar.lastIndex = -1;
+
+		if (this.m_Token.length > 0)
+			this.m_Level++;
 
 		// fix numbers
 		code = code; // todo: fix numbers
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
-
-			// clear current parser stack
-			this.m_Level = 0;
-			this.m_Token = [];
-
 			return this.TokenizeCmd(tkn, code);
+		}
+
+		// get fns
+		if (this.m_regexFn.test(code)) {
+			console.log("-> FN:", code);
+			return tkn;
 		}
 
 		// get numbers
 		if (this.m_regexNum.test(code)) {
-			console.log("num >", code, code.match(this.m_regexNum));
 			return this.TokenizeNum(tkn, code);
 		}
 
 		// get literals
 		if (this.m_regexLit.test(code)) {
-			console.log("lit >", code, code.match(this.m_regexLit));
+			return this.TokenizeLit(tkn, code);
 		}
 
 		// get vars
 		if (this.m_regexVar.test(code)) {
-			console.log("var >", code, code.match(this.m_regexVar));
 			return this.TokenizeVar(tkn, code);
 		}
 
-		// get fns
 
 
 		return tkn;
 	}
 
+	/**
+	 * Tokenize a BASIC command
+	 * @param		tkn		default token passed from Tokenizer
+	 * @param		code	the code to tokenize
+	 * @returns		the tokenized command
+	 */
 	private TokenizeCmd(tkn: G64Token, code: string): G64Token {
 
 		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
@@ -173,15 +196,27 @@ class G64Basic {
 				if (cmd.Param.Split === "") { // already split by regex
 					tkn.Values = [];
 					for (let j: number = 0; j < match.length; j++) {
-						this.m_Level++;
 						let tknParam: G64Token = this.Tokenizer(match[j]);
+
+						// add to token's parameter list
+						tkn.Values.push(tknParam);
+
+						// non literal tokens are also added to the stack
+						if (tknParam.Level !== G64Basic.TKNLITERAL) {
+							this.m_Token.push(tknParam);
+						}
 
 						console.log("-->>", match[j], tknParam);
 					}
 				} else {
-					// later
+					// use a special splitter
+					console.log("->>>", match);
 				}
 
+				// do error checking here
+
+				// add cmd itself to the stack
+				this.m_Token.push(tkn);
 
 				break;
 			}
@@ -190,6 +225,12 @@ class G64Basic {
 		return tkn;
 	}
 
+	/**
+	 * Tokenize a BASIC number
+	 * @param		tkn		default token passed from Tokenizer
+	 * @param		code	the code to tokenize
+	 * @returns		the tokenized number
+	 */
 	private TokenizeNum(tkn: G64Token, code: string): G64Token {
 
 		let num = parseFloat(code);
@@ -205,6 +246,7 @@ class G64Basic {
 		if (!isNaN(num)) {
 			tkn = Tools.CreateToken(Tokentype.num, null, num);
 			tkn.Level = G64Basic.TKNLITERAL;
+
 		} else {
 			tkn = Tools.CreateToken(Tokentype.err, null, ErrorCodes.TYPE_MISMATCH);
 			tkn.Str = code;
@@ -215,16 +257,30 @@ class G64Basic {
 		return tkn;
 	}
 
+	/**
+	 * Tokenize a BASIC literal
+	 * @param		tkn		default token passed from Tokenizer
+	 * @param		code	the code to tokenize
+	 * @returns		the tokenized literal
+	 */
+	private TokenizeLit(tkn: G64Token, code: string): G64Token {
+		return Tools.CreateToken(Tokentype.str, this.m_Literals[parseInt(code.substring(1, code.length - 1))]);
+	}
+
+	/**
+	 * Tokenize a BASIC variable
+	 * @param		tkn		default token passed from Tokenizer
+	 * @param		code	the code to tokenize
+	 * @returns		the tokenized variable
+	 */
 	private TokenizeVar(tkn: G64Token, code: string): G64Token {
 
 		const match: string[] = code.match(this.m_regexVar);
 
-		console.log("tvar ->", match);
-
 		if (match !== null) {
 			match.shift();
 
-			const isVar: boolean = (match.length === 1);
+			const isVar: boolean = (typeof match[1] === "undefined");
 
 			let type: Tokentype = (isVar) ? Tokentype.vnum : Tokentype.anum;
 			switch (match[0].slice(-1)) {
@@ -236,13 +292,26 @@ class G64Basic {
 					break;
 			}
 
-			if (isVar) {
-				tkn = Tools.CreateToken(type, match[0]);
-				tkn.Level = G64Basic.TKNVAR;
+			// create var token
+			tkn = Tools.CreateToken(type, match[0]);
+			tkn.Level = G64Basic.TKNVAR;
 
-			} else {
-				//const index:string[] = Tools.CodeSplitter(match[1].substring(1, match[1].length - 1), ",");
-				//console.log("arr:", index);
+			if (!isVar) { // array
+				console.log(">>> arr >>>", match[0]);
+				const index: string[] = Tools.CodeSplitter(match[1].substring(1, match[1].length - 1), ",");
+
+				console.log(">>> ar -->", index);
+
+				for (let i: number = 0; i < index.length; i++) {
+					const tknIndex: G64Token = this.Tokenizer(index[i]);
+
+					tkn.Values.push(tknIndex);
+
+					if (tknIndex.Level !== G64Basic.TKNLITERAL) {
+						this.m_Token.push(tknIndex);
+					}
+				}
+
 			}
 
 		}
@@ -457,7 +526,7 @@ class G64Basic {
 		//
 		// built regex of all commands / fns
 		let cmd: string[] = [];
-		let fnnum: string[] = [];
+		let fn: string[] = [];
 
 		let abbrv: string[] = [];
 		let deabbrv: string[] = [];
@@ -473,7 +542,9 @@ class G64Basic {
 					break;
 
 				case Tokentype.fnnum:
-					fnnum.push(name);
+				case Tokentype.fnstr:
+				case Tokentype.fnout:
+					fn.push(name);
 					break;
 			}
 
@@ -487,9 +558,8 @@ class G64Basic {
 		// let is an extra ugly special case, temp add it here
 		cmd.push("(?:let\\s*)?(?:\\w+\\d?[%$]?(?:\\(.+\\))?\\s*=.*)");
 
-
 		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
-		this.m_regexFnNum = new RegExp("(" + fnnum.join("|") + ")", "g");
+		this.m_regexFn = new RegExp("^(" + fn.join("|") + ")", "g");
 
 		this.m_regexNum = /^(?:[-\+]?(?:\d*\.)?\d+(?:e[-\+]?\d+)?|\$[0-9a-f]+|\%[01]+)$/; // numbers, inc. hex $xx and $xxxx, bin %xxxxxxxx
 		this.m_regexVar = /^([a-zA-Z]+\d*[$%]?)(\(.+\))?$/; // variables, inc. arrays
