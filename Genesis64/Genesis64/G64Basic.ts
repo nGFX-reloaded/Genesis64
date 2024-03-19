@@ -91,7 +91,7 @@ class G64Basic {
 		const parts: string[] = Tools.CodeSplitter(literals.Source, ":");
 
 		this.m_Literals = literals.List;
-		
+
 		console.log(">", lineTkn);
 
 		for (let i: number = 0; i < parts.length; i++) {
@@ -112,15 +112,20 @@ class G64Basic {
 
 		}
 
-		
+
 
 
 		return lineTkn;
 	}
 
+	/**
+	 * Tokenizes a piece of code
+	 * @param		code	the code to tokenize
+	 * @returns		the tokenized code
+	 */
 	private Tokenizer(code: string): G64Token {
 
-		let tkn: G64Token = Tools.CreateToken(Tokentype.err);
+		let tkn: G64Token = Tools.CreateToken(Tokentype.err, "cannot parse: \"" + code + "\"", ErrorCodes.SYNTAX);
 		let cmd: BasicCmd = null;
 		let match: string[] = null;
 		let i: number = 0;
@@ -280,15 +285,15 @@ class G64Basic {
 		if (match !== null) {
 			match.shift();
 
-			const isVar: boolean = (typeof match[1] === "undefined");
+			const isArray: boolean = (typeof match[1] !== "undefined");
 
-			let type: Tokentype = (isVar) ? Tokentype.vnum : Tokentype.anum;
+			let type: Tokentype = (isArray) ? Tokentype.anum : Tokentype.vnum;
 			switch (match[0].slice(-1)) {
 				case "$":
-					type = (isVar) ? Tokentype.vstr : Tokentype.astr;
+					type = (isArray) ? Tokentype.astr : Tokentype.vstr;
 					break;
 				case "%":
-					type = (isVar) ? Tokentype.vint : Tokentype.aint;
+					type = (isArray) ? Tokentype.aint : Tokentype.vint;
 					break;
 			}
 
@@ -296,7 +301,7 @@ class G64Basic {
 			tkn = Tools.CreateToken(type, match[0]);
 			tkn.Level = G64Basic.TKNVAR;
 
-			if (!isVar) { // array
+			if (isArray) { // array
 				console.log(">>> arr >>>", match[0]);
 				const index: string[] = Tools.CodeSplitter(match[1].substring(1, match[1].length - 1), ",");
 
@@ -304,6 +309,16 @@ class G64Basic {
 
 				for (let i: number = 0; i < index.length; i++) {
 					const tknIndex: G64Token = this.Tokenizer(index[i]);
+
+					if (tknIndex.Type === Tokentype.err) {
+						tkn = tknIndex;
+						break;
+					}
+
+					if (!Check.IsNum(tknIndex)) {
+						tkn = Tools.CreateToken(Tokentype.err, "index #" + (i + 1).toString() + " is not a number.", ErrorCodes.TYPE_MISMATCH);
+						break;
+					}
 
 					tkn.Values.push(tknIndex);
 

@@ -298,8 +298,8 @@ class Tools {
 				tkn = {
 					Type: type,
 					Id: (typeof num !== "undefined") ? num : ErrorCodes.SYNTAX,
-					Str: (typeof str !== "undefined" || str === null) ? str : Tools.ErrorName(ErrorCodes.SYNTAX),
-					Hint: ""
+					Str: Tools.ErrorName((typeof num !== "undefined") ? num : ErrorCodes.SYNTAX),
+					Hint: (typeof str !== "undefined" || str === null) ? str : ""
 				};
 				break;
 
@@ -357,5 +357,6 @@ class Tools {
 
 		return tkn;
 	}
+
 
 }
