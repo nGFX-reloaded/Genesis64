@@ -109,5 +109,8 @@ class Check {
 		return this.IsNum(tkn) && (tkn.Num >= 0 && tkn.Num <= 255);
 	}
 
+	public static IsSame(tkn1: G64Token, tkn2: G64Token): boolean {
+		return (this.GetBaseType(tkn1) == this.GetBaseType(tkn2));
+	}
 
 }

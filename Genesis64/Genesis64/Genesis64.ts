@@ -70,16 +70,38 @@ class Genesis64 {
 			}
 
 			if (lineTkn.Str === "") {
-				if (lineTkn.Num >= 0) console.log("remove line:", lineTkn.Num);
+				if (lineTkn.Num >= 0) console.log(">> remove line:", lineTkn.Num);
 			} else {
 				// add line to prg
 				// parse in basic and store line token in memory
-				this.m_Basic.ParseLine(lineTkn);
+				const tknLine: G64Token = this.m_Basic.ParseLine(lineTkn);
+				this.Run(tknLine);
 			}
 
 			break;
 		}
 
+
+	}
+
+	private Run(tknLine: G64Token): void {
+
+		for (let i: number = 0; i < tknLine.Values.length; i++) {
+			let tkn: G64Token = tknLine.Values[i];
+
+			if (Check.IsVar(tkn)) {
+				const tknVar: G64Token = this.m_Memory.Variable(tkn);
+				tkn.Num = tknVar.Num;
+				tkn.Str = tknVar.Str;
+				console.log("r:", tkn);
+			} else {
+				if (tkn.Type == Tokentype.cmd) {
+					console.log(i, "-->", this.m_Basic.ExecToken(tkn));
+				}
+			}
+		}
+
+		console.log("|>", this.m_Memory.Variables);
 
 	}
 

@@ -8,7 +8,8 @@ interface BasicCmd {
 	Abbrv: string;			// abbreviation, if any
 	TknId: number[];		// token id(s) when saving, or -1, then use pet values
 	Type: Tokentype;		// type of token
-	Param?: CmdParam;		// parameter for this command
+	Param?: CmdParam;		// parameter for this 
+	Fn?: Function;			// function to call when executing
 }
 
 interface CmdParam {
@@ -108,14 +109,29 @@ class G64Basic {
 			this.m_Token.sort((a, b) => a.Level - b.Level).reverse();
 
 			console.log("----------");
-			console.log(this.m_Token);
+			console.log("p:", this.m_Token);
 
+			for (let j: number = 0; j < this.m_Token.length; j++) {
+				lineTkn.Values.push(this.m_Token[j]);
+			}
 		}
 
-
-
+		// remove last token from lineTkn.Values and add eol
+		lineTkn.Values.push(Tools.CreateToken(Tokentype.eol));
 
 		return lineTkn;
+	}
+
+	public ExecToken(tkn: G64Token): G64Token {
+
+		if (tkn.Type == Tokentype.cmd) {
+			const cmd: BasicCmd = this.m_BasicCmds[tkn.Id];
+
+			if (cmd.Fn !== null) {
+				return cmd.Fn(tkn);
+			}
+		}
+		 return Tools.CreateToken(Tokentype.err, "unknown command", ErrorCodes.SYNTAX);
 	}
 
 	/**
@@ -195,6 +211,7 @@ class G64Basic {
 				tkn.Name = cmd.Name;
 				tkn.Type = Tokentype.cmd;
 				tkn.Str = "";
+				tkn.Hint = "";
 				tkn.Num = 0;
 				tkn.Level = 0;
 
@@ -360,7 +377,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "if", "", 139);
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
-		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, /^(?:let\s*)?(\w+\d?[%$]?(?:\(.+\))?)\s*=\s*(.*)/));
+		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, /^(?:let\s*)?(\w+\d?[%$]?(?:\(.+\))?)\s*=\s*(.*)/), this.Cmd_Let.bind(this));
 		this.AddCommand(Tokentype.cmd, "list", "lI", 155);
 		this.AddCommand(Tokentype.cmd, "load", "lA", 147);
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
@@ -368,7 +385,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "on", "", 145);
 		this.AddCommand(Tokentype.cmd, "open", "oP", 159);
 		this.AddCommand(Tokentype.cmd, "poke", "pO", 151);
-		this.AddCommand(Tokentype.cmd, "print", "?", 153);
+		this.AddCommand(Tokentype.cmd, "print", "?", 153, null, this.Cmd_Print.bind(this));
 		this.AddCommand(Tokentype.cmd, "print#", "pR", 152);
 		this.AddCommand(Tokentype.cmd, "read", "rE", 135);
 		this.AddCommand(Tokentype.cmd, "rem", "", 143);
@@ -465,7 +482,7 @@ class G64Basic {
 	 * @param		regex		the regex to match the command
 	 * @returns		the id of the command
 	 */
-	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[], param?: CmdParam | Function): number {
+	private AddCommand(type: Tokentype, name: string, short: string, code: number | number[], param?: CmdParam | Function, fn?: Function): number {
 
 		const id: number = this.m_BasicCmds.length;
 
@@ -491,6 +508,14 @@ class G64Basic {
 				cmd.Param = this.CreateParam(0, [ParamType.any], param, new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"))
 			} else {
 				cmd.Param = param;
+			}
+		}
+
+		if (type == Tokentype.cmd) {
+			if (typeof fn !== "undefined") {
+				cmd.Fn = fn;
+			} else {
+				cmd.Fn = (tkn: G64Token) => { return Tools.CreateToken(Tokentype.nop, "nop"); }
 			}
 		}
 
@@ -585,6 +610,62 @@ class G64Basic {
 
 	}
 
+
+	//#endregion
+
+	//#region " ----- BASIC V2 Commands ----- "
+
+	/**
+	 * clears all variables and stacks
+	 * see: https://www.c64-wiki.de/wiki/CLR
+	 */
+	public Cmd_Clr(tkn: G64Token): G64Token {
+		this.m_Memory.Clear();
+		return Tools.CreateToken(Tokentype.nop);
+	}
+
+	/**
+	 * let command, ie. assign a value to a variable
+	 * see: https://www.c64-wiki.de/wiki/LET
+	 */
+	public Cmd_Let(tkn: G64Token): G64Token {
+
+		let tknReturn: G64Token = Tools.CreateToken(Tokentype.nop);
+
+		if (Check.IsSame(tkn.Values[0], tkn.Values[1])) {
+
+			if (Check.IsStr(tkn.Values[0])) {
+				tkn.Values[0].Str = tkn.Values[1].Str;
+			} else {
+				tkn.Values[0].Num = (tkn.Values[0].Type == Tokentype.vnum) ? tkn.Values[1].Num : Math.floor(tkn.Values[1].Num);
+			}
+
+			this.m_Memory.Variables.set(tkn.Values[0].Name, tkn.Values[0]);
+
+		} else {
+			tknReturn = Tools.CreateToken(Tokentype.err, "[Cmd_Let: add better error hint]", ErrorCodes.TYPE_MISMATCH);
+		}
+
+		return tknReturn;
+	}
+
+	public Cmd_Print(tkn: G64Token): G64Token {
+
+		let tknReturn: G64Token = Tools.CreateToken(Tokentype.nop);
+		let strOut = "";
+
+		for (let i: number = 0; i < tkn.Values.length; i++) {
+			if (Check.IsStr(tkn.Values[i])) {
+				strOut += tkn.Values[i].Str;
+			} else {
+				strOut += tkn.Values[i].Num.toString();
+			}
+		}
+
+		console.log("PRINT:", strOut);
+
+		return tknReturn;
+	}
 
 	//#endregion
 
