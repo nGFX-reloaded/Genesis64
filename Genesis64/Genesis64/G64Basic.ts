@@ -45,8 +45,6 @@ class G64Basic {
 
 	private m_Memory: G64Memory = null;
 
-	private m_ParserLevel: number = 0;			// stores the current parsing level
-	private m_ParserToken: G64Token[] = [];		// stores tokens for the current part
 	private m_ParserLiterals: string[] = [];	// stores literals for the current part
 	private m_ParserVars: Map<string, G64Token> = new Map<string, G64Token>();
 
@@ -99,24 +97,8 @@ class G64Basic {
 		console.log(">", lineTkn);
 
 		for (let i: number = 0; i < parts.length; i++) {
-
-			// clear current parser stack
-			this.m_ParserLevel = 0;
-			this.m_ParserToken = [];
-
-
 			console.log("---", parts[i].trim(), "---");
-			const tkn: G64Token = this.Tokenizer(parts[i].trim());
-
-			// sort m_Token by level
-			this.m_ParserToken.sort((a, b) => a.Level - b.Level).reverse();
-
-			console.log("--- --- ---");
-			console.log("p:", this.m_ParserToken);
-
-			for (let j: number = 0; j < this.m_ParserToken.length; j++) {
-				lineTkn.Values.push(this.m_ParserToken[j]);
-			}
+			lineTkn.Values.push(this.Tokenizer(parts[i].trim()));
 		}
 
 		// remove last token from lineTkn.Values and add eol
@@ -159,9 +141,6 @@ class G64Basic {
 		this.m_regexLit.lastIndex = -1;
 		this.m_regexVar.lastIndex = -1;
 
-		//if (this.m_ParserToken.length > 0)
-			this.m_ParserLevel++;
-
 		// fix numbers
 		code = code; // todo: fix numbers
 
@@ -196,8 +175,6 @@ class G64Basic {
 			return this.TokenizeVar(tkn, code);
 		}
 
-
-
 		return tkn;
 	}
 
@@ -219,7 +196,6 @@ class G64Basic {
 				tkn.Str = "";
 				tkn.Hint = "";
 				tkn.Num = 0;
-				tkn.Level = this.m_ParserLevel;
 
 				if (cmd.Param.Split === "") { // already split by regex
 					tkn.Values = [];
@@ -228,11 +204,6 @@ class G64Basic {
 
 						// add to token's parameter list
 						tkn.Values.push(tknParam);
-
-						// non literal tokens are also added to the stack
-						if (tknParam.Level !== G64Basic.TKNDATA) {
-							//this.m_ParserToken.push(tknParam);
-						}
 					}
 
 				} else {
@@ -241,11 +212,7 @@ class G64Basic {
 				}
 
 				// do error checking here
-
-				// add cmd itself to the stack
-				if (tkn.Type == Tokentype.cmd)
-				this.m_ParserToken.push(tkn);
-
+				//CheckParam(tkn, cmd.Param);
 				break;
 
 			}
@@ -274,12 +241,10 @@ class G64Basic {
 
 		if (!isNaN(num)) {
 			tkn = Tools.CreateToken(Tokentype.num, null, num);
-			tkn.Level = G64Basic.TKNDATA;
 
 		} else {
 			tkn = Tools.CreateToken(Tokentype.err, null, ErrorCodes.TYPE_MISMATCH);
 			tkn.Str = code;
-			tkn.Level = this.m_ParserLevel;
 			tkn.Hint = "Invalid number";
 		}
 
@@ -323,7 +288,6 @@ class G64Basic {
 
 			// create var token
 			tkn = Tools.CreateToken(type, match[0]);
-			tkn.Level = G64Basic.TKNDATA;
 
 			if (isArray) { // array
 				console.log(">>> arr >>>", match[0]);
@@ -345,10 +309,6 @@ class G64Basic {
 					}
 
 					tkn.Values.push(tknIndex);
-
-					if (tknIndex.Level !== G64Basic.TKNDATA) {
-						this.m_ParserToken.push(tknIndex);
-					}
 				}
 
 			}
@@ -654,9 +614,9 @@ class G64Basic {
 		const tknVar: G64Token = this.ExecToken(tkn.Values[0]);
 		const tknVal: G64Token = this.ExecToken(tkn.Values[1]);
 
-		console.log("LET:",tkn);
-		console.log("     v1:",tknVar);
-		console.log("     v2:",tknVal);
+		console.log("LET:", tkn);
+		console.log("     v1:", tknVar);
+		console.log("     v2:", tknVal);
 
 		if (Check.IsSame(tknVar, tknVal)) {
 
@@ -705,7 +665,15 @@ class G64Basic {
 
 		switch (tkn.Name) {
 			case "+":
-				tkn.Num = tknValA.Num + tknValB.Num;
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = tknValA.Num + tknValB.Num;
+				} else {
+					tkn.Str = tknValA.Str + tknValB.Str;
+				}
+				break;
+
+			case "*":
+				tkn.Num = tknValA.Num * tknValB.Num;
 				break;
 		}
 		console.log("OPS:", tkn.Num);
