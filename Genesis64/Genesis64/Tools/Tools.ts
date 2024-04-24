@@ -164,7 +164,7 @@ class Tools {
 	 * @returns			string
 	 */
 	public static EscapeRegex(code: string): string {
-		return code.replace(/(\$|\(|\)|\+|\*|\/|\<|\>|\?)/g, "\\$1");
+		return code.replace(/(\$|\(|\)|\+|\*|\/|\<|\>|\?|\^)/g, "\\$1");
 	}
 
 	/**

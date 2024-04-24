@@ -66,7 +66,7 @@ class Genesis64 {
 
 			if (match !== null) {
 				lineTkn.Num = parseInt(match[1]);
-				lineTkn.Str = this.m_Basic.DeAbbreviate(match[2].trim()); ;
+				lineTkn.Str = this.m_Basic.DeAbbreviate(match[2].trim());;
 			}
 
 			if (lineTkn.Str === "") {
@@ -86,17 +86,20 @@ class Genesis64 {
 
 	private Run(tknLine: G64Token): void {
 
-		for (let i: number = 0; i < tknLine.Values.length; i++) {
-			let tkn: G64Token = tknLine.Values[i];
+		console.log("---------- RUN ----------");
 
-			if (Check.IsVar(tkn)) {
-				const tknVar: G64Token = this.m_Memory.Variable(tkn);
-				tkn.Num = tknVar.Num;
-				tkn.Str = tknVar.Str;
-				console.log("r:", tkn);
+		for (let i: number = 0; i < tknLine.Values.length; i++) {
+			const tkn: G64Token = tknLine.Values[i];
+
+			if (tkn.Type == Tokentype.err) {
+				console.log("?", tkn.Str, "\n", tkn.Hint);
+				break;
 			} else {
-				if (tkn.Type == Tokentype.cmd) {
-					console.log(i, "-->", this.m_Basic.ExecToken(tkn));
+				if (tkn.Type !== Tokentype.eol) {
+					console.log("---------- PART " + i + " ----------");
+					console.log("-->", tkn.Name, this.m_Basic.ExecToken(tkn));
+				} else {
+					console.log("--- END ---");
 				}
 			}
 		}

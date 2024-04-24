@@ -26,7 +26,8 @@ class Check {
 		return (tkn.Type == Tokentype.cmd ||
 			tkn.Type == Tokentype.fnnum ||
 			tkn.Type == Tokentype.fnstr ||
-			tkn.Type == Tokentype.fnout);
+			tkn.Type == Tokentype.fnout ||
+			tkn.Type == Tokentype.ops);
 	}
 
 	/**
@@ -89,6 +90,15 @@ class Check {
 	 */
 	public static IsArray(tkn: G64Token): boolean {
 		return (tkn.Type == Tokentype.anum || tkn.Type == Tokentype.aint || tkn.Type == Tokentype.astr);
+	}
+
+	/**
+	 * Checks if the given token is an int number
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 */
+	public static IsInt(tkn: G64Token): boolean {
+		return (tkn.Type == Tokentype.vint || tkn.Type == Tokentype.aint);
 	}
 
 	/**
