@@ -144,6 +144,14 @@ class G64Basic {
 		// fix numbers
 		code = code; // todo: fix numbers
 
+		// remove brackets
+		if (code.startsWith("(") && code.endsWith(")")) {
+			const result: Matching = Tools.FindMatching(code);
+			if (result.Has) {
+				code = code.substring(1, code.length - 1);
+			}
+		}
+
 		// get commands
 		if (this.m_regexCmd.test(code)) {
 			return this.TokenizeItem(tkn, code, this.m_lstCmd);
@@ -157,7 +165,7 @@ class G64Basic {
 
 		// get ops
 		if (this.m_regexOps.test(code)) {
-			return this.TokenizeItem(tkn, code, this.m_lstOps);
+			return this.TokenizeOps(tkn, code, this.m_lstOps);
 		}
 
 		// get numbers
@@ -178,10 +186,10 @@ class G64Basic {
 		return tkn;
 	}
 
-	private TokenizeItem(tkn: G64Token, code: string, group: number[]): G64Token {
+	private TokenizeItem(tkn: G64Token, code: string, listCmd: number[]): G64Token {
 
-		for (let i: number = 0; i < group.length; i++) {
-			const cmd: BasicCmd = this.m_BasicCmds[group[i]];
+		for (let i: number = 0; i < listCmd.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[listCmd[i]];
 			const match: string[] = code.match(cmd.Param.Regex);
 
 			if (match !== null) {
@@ -190,7 +198,7 @@ class G64Basic {
 				match.shift();
 				console.log("tki >>", code, match);
 
-				tkn.Id = group[i];
+				tkn.Id = listCmd[i];
 				tkn.Name = cmd.Name;
 				tkn.Type = cmd.Type;
 				tkn.Str = "";
@@ -215,6 +223,54 @@ class G64Basic {
 				//CheckParam(tkn, cmd.Param);
 				break;
 
+			}
+		}
+
+		return tkn;
+	}
+
+	private TokenizeOps(tkn: G64Token, code: string, listCmd: number[]): G64Token {
+
+		while (/[\+\-]\s*[\+\-]/.test(code))
+			code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
+
+		for (let i: number = 0; i < listCmd.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[listCmd[i]];
+			let split: string[] = Tools.CodeSplitter(code, cmd.Name);
+
+			if (split.length > 1) {
+
+				// if split is empty, chances are high that we have something like x*-y
+				// as variables can't be negative we cheat and turn this into x*0-y
+				// or code like b=<>-1
+
+				if (split[0].trim() === "") {
+					if (!isNaN(parseFloat(split[1].trim()))) {
+						return this.TokenizeNum(tkn, cmd.Name + split[1].trim());
+					}
+				}
+
+				// we do not chain ops/comps so we grab the first and join the rest again
+				if (split.length > 2) {
+					const tmpA: string = split.shift();
+					const tmpB: string = split.join(cmd.Name);
+					split = [tmpA, tmpB];
+				}
+
+				tkn.Id = listCmd[i];
+				tkn.Name = cmd.Name;
+				tkn.Type = cmd.Type;
+				tkn.Str = "";
+				tkn.Hint = "";
+				tkn.Num = 0;
+
+				tkn.Values = [];
+				for (let j: number = 0; j < split.length; j++) {
+					let tknParam: G64Token = this.Tokenizer(split[j]);
+
+					// add to token's parameter list
+					tkn.Values.push(tknParam);
+				}
 			}
 		}
 

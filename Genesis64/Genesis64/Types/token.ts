@@ -16,7 +16,7 @@
 	aint    /* 14, int array, A%[x] */,
 	astr    /* 15, string array, A$[x] */,
 	link    /* 16, print links: spc, "," and ";" */,
-	eop     /* 17, token exec ok, end of part */,
+	grp     /* 17, group, ie: ( and ) */,
 	eol     /* 18, token exec ok, end of line */,
 	jmp     /* 19, jump (goto, gosub, etc) */,
 	end     /* 20, prg ends here */,
