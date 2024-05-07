@@ -91,16 +91,18 @@ class Genesis64 {
 		for (let i: number = 0; i < tknLine.Values.length; i++) {
 			const tkn: G64Token = tknLine.Values[i];
 
-			if (tkn.Type == Tokentype.err) {
-				console.log("?", tkn.Str, "\n", tkn.Hint);
-				break;
-			} else {
-				if (tkn.Type !== Tokentype.eol) {
-					console.log("---------- PART " + i + " ----------");
-					console.log("-->", tkn.Name, this.m_Basic.ExecToken(tkn));
-				} else {
-					console.log("--- END ---");
+			if (tkn.Type !== Tokentype.eol) {
+				let tknResult: G64Token = this.m_Basic.ExecToken(tkn);
+
+				if (tknResult.Type == Tokentype.err) {
+					console.log("?", tknResult.Str, "\n", tknResult.Hint);
+					break;
 				}
+
+				console.log("---------- PART " + i + " ----------");
+				console.log("-->", tkn.Name, this.m_Basic.ExecToken(tkn));
+			} else {
+				console.log("--- END ---");
 			}
 		}
 

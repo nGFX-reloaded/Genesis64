@@ -123,4 +123,8 @@ class Check {
 		return (this.GetBaseType(tkn1) == this.GetBaseType(tkn2));
 	}
 
+	public static IsError(tkn: G64Token): boolean {
+		return (tkn.Type == Tokentype.err);
+	}
+
 }

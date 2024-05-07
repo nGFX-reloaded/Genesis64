@@ -111,6 +111,9 @@ class G64Basic {
 
 		let tknReturn: G64Token = tkn;
 
+		if (Check.IsError(tkn))
+			return tkn;
+
 		if (Check.IsVar(tkn)) {
 			tknReturn = this.m_Memory.Variable(tkn);
 		} else {
@@ -465,21 +468,21 @@ class G64Basic {
 		//
 		// ops
 		//
-		this.AddCommand(Tokentype.ops, "and", "aN", 175, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(?:and)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "or", "", 176, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(or)\\s*(.+)")), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "and", "aN", 175, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "or", "", 176, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
 
-		this.AddCommand(Tokentype.ops, "=", "", 61, this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:=)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<>", "", [60, 62], this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\<\\>)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<=", "", [60, 61], this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\<=)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, ">=", "", [62, 61], this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\>=)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<", "", 60, this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\<)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, ">", "", 62, this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\>)\\s*(.+)")), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "=", "", 61, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<>", "", [60, 62], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<=", "", [60, 61], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, ">=", "", [62, 61], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<", "", 60, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, ">", "", 62, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
 
-		this.AddCommand(Tokentype.ops, "+", "", 43, this.CreateParam(2, [ParamType.any, ParamType.same], null, new RegExp("^(.+)\\s*(?:\\+)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "-", "", 45, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(?:-)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "*", "", 42, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(?:\\*)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "/", "", 47, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(?:\\/)\\s*(.+)")), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "^", "", 94, this.CreateParam(2, [ParamType.num, ParamType.num], null, new RegExp("^(.+)\\s*(?:\\^)\\s*(.+)")), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "+", "", 43, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "-", "", 45, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "*", "", 42, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "/", "", 47, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "^", "", 94, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
 
 		this.AddCommand(Tokentype.not, "not", "nO", 168);
 
