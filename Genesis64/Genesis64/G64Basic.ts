@@ -67,6 +67,7 @@ class G64Basic {
 
 	private m_mapCmd: Map<string, number> = new Map<string, number>();
 	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
+	private m_mapVar: Map<Tokentype, number> = new Map<Tokentype, number>();
 
 	//#endregion
 
@@ -101,9 +102,6 @@ class G64Basic {
 			lineTkn.Values.push(this.Tokenizer(parts[i].trim()));
 		}
 
-		// remove last token from lineTkn.Values and add eol
-		lineTkn.Values.push(Tools.CreateToken(Tokentype.eol));
-
 		return lineTkn;
 	}
 
@@ -114,13 +112,8 @@ class G64Basic {
 		if (Check.IsError(tkn))
 			return tkn;
 
-		if (Check.IsVar(tkn)) {
-			tknReturn = this.m_Memory.Variable(tkn);
-		} else {
-			if (Check.IsCmd(tkn)) {
-				tknReturn = this.m_BasicCmds[tkn.Id].Fn(tkn);
-			}
-		}
+		if (Check.IsCmd(tkn))
+			tknReturn = this.m_BasicCmds[tkn.Id].Fn(tkn);
 
 		return tknReturn;
 	}
@@ -133,9 +126,6 @@ class G64Basic {
 	private Tokenizer(code: string): G64Token {
 
 		let tkn: G64Token = Tools.CreateToken(Tokentype.err, "cannot parse: \"" + code + "\"", ErrorCodes.SYNTAX);
-		let cmd: BasicCmd = null;
-		let match: string[] = null;
-		let i: number = 0;
 
 		this.m_regexCmd.lastIndex = -1;
 		this.m_regexFn.lastIndex = -1;
@@ -168,7 +158,7 @@ class G64Basic {
 
 		// get ops
 		if (this.m_regexOps.test(code)) {
-			return this.TokenizeOps(tkn, code, this.m_lstOps);
+			return this.TokenizeOps(tkn, code);
 		}
 
 		// get numbers
@@ -232,13 +222,13 @@ class G64Basic {
 		return tkn;
 	}
 
-	private TokenizeOps(tkn: G64Token, code: string, listCmd: number[]): G64Token {
+	private TokenizeOps(tkn: G64Token, code: string): G64Token {
 
 		while (/[\+\-]\s*[\+\-]/.test(code))
 			code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
 
-		for (let i: number = 0; i < listCmd.length; i++) {
-			const cmd: BasicCmd = this.m_BasicCmds[listCmd[i]];
+		for (let i: number = 0; i < this.m_lstOps.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstOps[i]];
 			let split: string[] = Tools.CodeSplitter(code, cmd.Name);
 
 			if (split.length > 1) {
@@ -260,7 +250,7 @@ class G64Basic {
 					split = [tmpA, tmpB];
 				}
 
-				tkn.Id = listCmd[i];
+				tkn.Id = this.m_lstOps[i];
 				tkn.Name = cmd.Name;
 				tkn.Type = cmd.Type;
 				tkn.Str = "";
@@ -274,6 +264,11 @@ class G64Basic {
 					// add to token's parameter list
 					tkn.Values.push(tknParam);
 				}
+
+				// todo: run error checking here
+				tkn = Check.CheckParameter(tkn, cmd);
+
+				break;
 			}
 		}
 
@@ -347,6 +342,9 @@ class G64Basic {
 
 			// create var token
 			tkn = Tools.CreateToken(type, match[0]);
+			tkn.Id = this.m_mapVar.get(type);
+
+			return tkn;
 
 			if (isArray) { // array
 				console.log(">>> arr >>>", match[0]);
@@ -484,7 +482,10 @@ class G64Basic {
 		this.AddCommand(Tokentype.ops, "/", "", 47, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
 		this.AddCommand(Tokentype.ops, "^", "", 94, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
 
+		//
+		// unary ops
 		this.AddCommand(Tokentype.not, "not", "nO", 168);
+		// todo add "-"
 
 		//
 		// sysvar / const
@@ -493,6 +494,17 @@ class G64Basic {
 		this.AddCommand(Tokentype.sysvar, "st", "", -1);
 		this.AddCommand(Tokentype.sysvar, "ti", "", -1);
 		this.AddCommand(Tokentype.sysvar, "ti$", "", -1);
+
+		//
+		// variables
+		//
+		this.AddCommand(Tokentype.vnum, "", "", -1, null, this.GetVar.bind(this));
+		this.AddCommand(Tokentype.vint, "", "", -1, null, this.GetVar.bind(this));
+		this.AddCommand(Tokentype.vstr, "", "", -1, null, this.GetVar.bind(this));
+		this.AddCommand(Tokentype.anum, "", "", -1, null, this.GetVar.bind(this));
+		this.AddCommand(Tokentype.aint, "", "", -1, null, this.GetVar.bind(this));
+		this.AddCommand(Tokentype.astr, "", "", -1, null, this.GetVar.bind(this));
+
 
 		this.BuiltRegex();
 
@@ -552,6 +564,15 @@ class G64Basic {
 
 			case Tokentype.ops:
 				this.m_lstOps.push(id);
+				break;
+
+			case Tokentype.vnum:
+			case Tokentype.vint:
+			case Tokentype.vstr:
+			case Tokentype.anum:
+			case Tokentype.aint:
+			case Tokentype.astr:
+				this.m_mapVar.set(type, id);
 				break;
 		}
 
@@ -688,7 +709,15 @@ class G64Basic {
 			return tknVar;
 		}
 
-		return Tools.CreateToken(Tokentype.err, "[Cmd_Let: add better error hint]", ErrorCodes.TYPE_MISMATCH);
+		const tknError: G64Token = Tools.CreateToken(Tokentype.err, "", ErrorCodes.TYPE_MISMATCH);
+
+		if (Check.IsNum(tknVar) && Check.IsStr(tknVal)) {
+			tknError.Hint = "Variable is numeric, value is string";
+		} else {
+			tknError.Hint = "Variable is string, value is numeric";
+		}
+
+		return tknError;
 	}
 
 	/**
@@ -739,6 +768,13 @@ class G64Basic {
 
 
 		return tkn;
+	}
+
+	//
+	// --- vars / sysvars ---
+	//
+	private GetVar(tkn: G64Token): G64Token {
+		return this.m_Memory.Variable(tkn);
 	}
 
 	//#endregion

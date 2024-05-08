@@ -1,6 +1,57 @@
 ﻿
 class Check {
 
+	public static CheckParameter(tkn: G64Token, cmd: BasicCmd): G64Token {
+
+
+		console.log(" ----- ----- -----\n Check param:", tkn, cmd);
+
+		// check parameter count
+		if (cmd.Param.Len === 0) {
+
+		} else if (cmd.Param.Len > 0) {
+			if (tkn.Values.length !== cmd.Param.Len) {
+				tkn.Id = ErrorCodes.SYNTAX;
+				tkn.Type = Tokentype.err;
+				tkn.Hint = "Parameter count mismatch, expected: " + cmd.Param.Len.toString() + ", got: " + tkn.Values.length.toString() + ".";
+				return tkn;
+			}
+
+			for (let i: number = 0; i < cmd.Param.Type.length; i++) {
+				switch (cmd.Param.Type[i]) {
+					case ParamType.num:
+					case ParamType.adr:
+					case ParamType.byte:
+						console.log("->", i, "num", this.IsNum(tkn.Values[i]));
+						break;
+
+					case ParamType.str:
+						console.log("->", i, "str", this.IsStr(tkn.Values[i]));
+						break;
+
+					case ParamType.var:
+						console.log("->", i, "var", this.IsVar(tkn.Values[i]));
+						break;
+
+					case ParamType.any:
+						console.log("->", i, "any", this.GetBaseType(tkn.Values[i]));
+						break;
+
+					case ParamType.same:
+						console.log("->", i, "same", this.GetBaseType(tkn.Values[0]), this.GetBaseType(tkn.Values[i]));
+						break;
+				}
+			}
+
+
+		} else {
+
+		}
+
+		return tkn;
+	}
+
+
 	/**
 	 * Returns the base type of a token, ie: aint -> number
 	 * @param			tkn			Token to get the type from
@@ -17,17 +68,24 @@ class Check {
 		return tkn.Type;
 	}
 
+	public static GetBaseVarType(tkn: G64Token): Tokentype {
+
+		if (tkn.Type == Tokentype.vnum || tkn.Type == Tokentype.anum || tkn.Type == Tokentype.vint || tkn.Type == Tokentype.aint)
+			return Tokentype.vnum;
+
+		if (tkn.Type == Tokentype.vstr || tkn.Type == Tokentype.astr)
+			return Tokentype.vstr;
+
+		return Tokentype.err;
+	}
+
 	/**
 	 * Checks if the given token can be executed
 	 * @param			tkn			Token to check
 	 * @returns			boolean
 	 */
 	public static IsCmd(tkn: G64Token): boolean {
-		return (tkn.Type == Tokentype.cmd ||
-			tkn.Type == Tokentype.fnnum ||
-			tkn.Type == Tokentype.fnstr ||
-			tkn.Type == Tokentype.fnout ||
-			tkn.Type == Tokentype.ops);
+		return (tkn.Id > 0 && tkn.Type != Tokentype.err);
 	}
 
 	/**
@@ -103,7 +161,7 @@ class Check {
 
 	/**
 	 * Checks if the given token is a number between 0 and 65535
-	 * @param tkn
+	 * @param			tkn			Token to check
 	 * @returns
 	 */
 	public static IsAdr(tkn: G64Token): boolean {
@@ -112,17 +170,28 @@ class Check {
 
 	/**
 	 * Checks if the given token is a number between 0 and 255
-	 * @param tkn
-	 * @returns
+	 * @param			tkn 		Token to check
+	 * @returns			boolean
 	 */
 	public static IsByte(tkn: G64Token): boolean {
 		return this.IsNum(tkn) && (tkn.Num >= 0 && tkn.Num <= 255);
 	}
 
+	/**
+	 * Checks if tkn1 and tkn2 are the same base type (string, num)
+	 * @param			tkn1		first token to compare
+	 * @param			tkn2		token to compare type with
+	 * @returns			boolean
+	 */
 	public static IsSame(tkn1: G64Token, tkn2: G64Token): boolean {
 		return (this.GetBaseType(tkn1) == this.GetBaseType(tkn2));
 	}
 
+	/**
+	 * Checks if the given token is an error
+	 * @param			tkn			Token to check
+	 * @returns			boolean
+	 */
 	public static IsError(tkn: G64Token): boolean {
 		return (tkn.Type == Tokentype.err);
 	}
