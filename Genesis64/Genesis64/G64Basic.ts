@@ -146,12 +146,12 @@ class G64Basic {
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
-			return this.TokenizeItem(tkn, code);
+			return this.TokenizeItem(tkn, code, this.m_lstCmd);
 		}
 
 		// get fns
 		if (this.m_regexFn.test(code)) {
-			return this.TokenizeFn(tkn, code);
+			return this.TokenizeItem(tkn, code, this.m_lstFn);
 			return tkn;
 		}
 
@@ -178,10 +178,10 @@ class G64Basic {
 		return tkn;
 	}
 
-	private TokenizeItem(tkn: G64Token, code: string): G64Token {
+	private TokenizeItem(tkn: G64Token, code: string, lstCmd: number[]): G64Token {
 
-		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
-			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
+		for (let i: number = 0; i < lstCmd.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[lstCmd[i]];
 			const match: string[] = code.match(cmd.Param.Regex);
 
 			if (match !== null) {
@@ -190,7 +190,7 @@ class G64Basic {
 				match.shift();
 				console.log("tki >>", code, match);
 
-				tkn.Id = this.m_lstCmd[i];
+				tkn.Id = lstCmd[i];
 				tkn.Name = cmd.Name;
 				tkn.Type = cmd.Type;
 				tkn.Str = "";
@@ -202,6 +202,9 @@ class G64Basic {
 					for (let j: number = 0; j < match.length; j++) {
 						let tknParam: G64Token = this.Tokenizer(match[j]);
 
+						if (tknParam.Type === Tokentype.err)
+							return tknParam;
+
 						// add to token's parameter list
 						tkn.Values.push(tknParam);
 					}
@@ -211,29 +214,10 @@ class G64Basic {
 					console.log("->>> use splitter", match);
 				}
 
-				// do error checking here
-				//CheckParam(tkn, cmd.Param);
+				// run parameter checking
+				tkn = Check.CheckType(tkn, cmd);
 				break;
 
-			}
-		}
-
-		return tkn;
-	}
-
-	private TokenizeFn(tkn: G64Token, code: string): G64Token {
-
-		for (let i: number = 0; i < this.m_lstFn.length; i++) {
-			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstFn[i]];
-			const match: string[] = code.match(cmd.Param.Regex);
-
-			if (match !== null) {
-
-				// remove first item from match, as it is the whole match
-				match.shift();
-				console.log("tkFN >>", cmd.Name, match);
-
-				break;
 			}
 		}
 
@@ -283,7 +267,7 @@ class G64Basic {
 					tkn.Values.push(tknParam);
 				}
 
-				// todo: run error checking here
+				// run parameter checking
 				tkn = Check.CheckType(tkn, cmd);
 
 				break;
@@ -447,7 +431,7 @@ class G64Basic {
 		// fn num
 		//
 		const paramFnNum: CmdParam = this.CreateParam(1, [ParamType.num]);
-		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramFnNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "cos", "", 190, paramFnNum);
@@ -461,7 +445,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.fnnum, "pos", "", 185, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "rnd", "rN", 187, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "sgn", "sG", 180, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191, paramFnNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "tan", "", 192, paramFnNum);
 		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183, paramFnNum);
@@ -778,6 +762,67 @@ class G64Basic {
 	//
 	// --- fns, ops ---
 	//
+
+	private FnNum(tkn: G64Token): G64Token {
+
+		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
+
+		if (tknVal.Type === Tokentype.err)
+			return tknVal;
+
+		const cmd = this.m_BasicCmds[tkn.Id];
+
+		switch (tkn.Name) {
+			case "abs":
+				tkn.Num = Math.abs(tknVal.Num);
+				break;
+			case "asc":
+				break;
+			case "atn":
+				break;
+			case "cos":
+				break;
+			case "exp":
+				break;
+			case "fn":
+				break;
+			case "fre":
+				break;
+			case "int":
+				break;
+			case "len":
+				break;
+			case "log":
+				break;
+			case "peek":
+				break;
+			case "pos":
+				break;
+			case "rnd":
+				break;
+			case "sgn":
+				break;
+			case "sin":
+				tkn.Num = Math.sin(tknVal.Num);
+				break;
+			case "sqr":
+				break;
+			case "tan":
+				break;
+			case "usr":
+				break;
+			case "val":
+				break;
+
+		}
+
+		return tkn;
+	}
+
+	/**
+	 * ops, ie. +, -, *, /, etc.
+	 * see: https://www.c64-wiki.de/wiki/Operatoren
+	 */
 	private Ops(tkn: G64Token): G64Token {
 
 		const tknValA: G64Token = this.ExecToken(tkn.Values[0]);

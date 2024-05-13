@@ -32,7 +32,7 @@ class Check {
 						if (!this.IsNum(tkn.Values[i])) {
 							tkn.Id = ErrorCodes.TYPE_MISMATCH;
 							tkn.Type = Tokentype.err;
-							tkn.Hint = "Parameter #" + (i + 1).toString() + " type mismatch, expected: number, got: " + this.GetBaseType(tkn.Values[i]).toString() + ".";
+							tkn.Hint = name + "Parameter #" + (i + 1).toString() + ", expected: number, got: " + Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])) + ".";
 							hasError = true;
 						}
 						console.log("->", i, "num", this.IsNum(tkn.Values[i]));
