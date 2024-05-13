@@ -96,7 +96,7 @@ class Genesis64 {
 
 
 			if (tkn.Type == Tokentype.err) {
-				console.log("?", tkn.Str, "\n", tkn.Hint);
+				console.log("?" + tkn.Str + "  error\n " + tkn.Hint);
 				break;
 			}
 

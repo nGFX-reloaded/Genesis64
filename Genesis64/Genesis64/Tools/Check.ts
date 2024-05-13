@@ -1,7 +1,7 @@
 ﻿
 class Check {
 
-	public static CheckParameter(tkn: G64Token, cmd: BasicCmd): G64Token {
+	public static CheckType(tkn: G64Token, cmd: BasicCmd): G64Token {
 
 
 		console.log(" ----- ----- -----\n Check param:", tkn, cmd);
@@ -17,11 +17,24 @@ class Check {
 				return tkn;
 			}
 
+			let hasError: boolean = false;
+			let typeLast: Tokentype = Tokentype.err;
+			const name = "'" + cmd.Name + "' ";
+
 			for (let i: number = 0; i < cmd.Param.Type.length; i++) {
+
+				const type: Tokentype = this.GetBaseType(tkn.Values[i]);
+
 				switch (cmd.Param.Type[i]) {
 					case ParamType.num:
 					case ParamType.adr:
 					case ParamType.byte:
+						if (!this.IsNum(tkn.Values[i])) {
+							tkn.Id = ErrorCodes.TYPE_MISMATCH;
+							tkn.Type = Tokentype.err;
+							tkn.Hint = "Parameter #" + (i + 1).toString() + " type mismatch, expected: number, got: " + this.GetBaseType(tkn.Values[i]).toString() + ".";
+							hasError = true;
+						}
 						console.log("->", i, "num", this.IsNum(tkn.Values[i]));
 						break;
 
@@ -34,13 +47,22 @@ class Check {
 						break;
 
 					case ParamType.any:
-						console.log("->", i, "any", this.GetBaseType(tkn.Values[i]));
+						typeLast = this.GetBaseType(tkn.Values[i]);
+						console.log("->", i, "any", Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])));
 						break;
 
 					case ParamType.same:
-						console.log("->", i, "same", this.GetBaseType(tkn.Values[0]), this.GetBaseType(tkn.Values[i]));
+						if (typeLast !== this.GetBaseType(tkn.Values[i])) {
+							tkn = Tools.CreateToken(Tokentype.err, 
+								name + "parameter #" + (i + 1).toString() + ", expected: " + Tools.GetTokentypeName(typeLast) + ", got: " + Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])) + ".",
+								ErrorCodes.TYPE_MISMATCH);
+							hasError = true;
+						}
 						break;
 				}
+
+				if (hasError) break;
+
 			}
 
 

@@ -23,8 +23,8 @@ interface CmdParam {
 
 enum ParamType {
 	var			/* 0: any var */,
-	num			/* 1: any number,ical value */,
-	str			/* any string value */,
+	num			/* 1: any numberical value */,
+	str			/* 2: any string value */,
 	same		/* 3: same type as previous */,
 	any			/* 4: any type */,
 
@@ -38,8 +38,6 @@ enum BasicVersion {
 
 
 class G64Basic {
-
-	private static TKNDATA = -9999; // litarals that don't have an exec method
 
 	//#region " ----- Privates ----- "
 
@@ -63,6 +61,7 @@ class G64Basic {
 	private m_regexDeAbbrv: RegExp = null;
 
 	private m_lstCmd: number[] = [];
+	private m_lstFn: number[] = [];
 	private m_lstOps: number[] = [];
 
 	private m_mapCmd: Map<string, number> = new Map<string, number>();
@@ -147,12 +146,12 @@ class G64Basic {
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
-			return this.TokenizeItem(tkn, code, this.m_lstCmd);
+			return this.TokenizeItem(tkn, code);
 		}
 
 		// get fns
 		if (this.m_regexFn.test(code)) {
-			console.log("-> FN:", code);
+			return this.TokenizeFn(tkn, code);
 			return tkn;
 		}
 
@@ -179,10 +178,10 @@ class G64Basic {
 		return tkn;
 	}
 
-	private TokenizeItem(tkn: G64Token, code: string, listCmd: number[]): G64Token {
+	private TokenizeItem(tkn: G64Token, code: string): G64Token {
 
-		for (let i: number = 0; i < listCmd.length; i++) {
-			const cmd: BasicCmd = this.m_BasicCmds[listCmd[i]];
+		for (let i: number = 0; i < this.m_lstCmd.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstCmd[i]];
 			const match: string[] = code.match(cmd.Param.Regex);
 
 			if (match !== null) {
@@ -191,7 +190,7 @@ class G64Basic {
 				match.shift();
 				console.log("tki >>", code, match);
 
-				tkn.Id = listCmd[i];
+				tkn.Id = this.m_lstCmd[i];
 				tkn.Name = cmd.Name;
 				tkn.Type = cmd.Type;
 				tkn.Str = "";
@@ -216,6 +215,25 @@ class G64Basic {
 				//CheckParam(tkn, cmd.Param);
 				break;
 
+			}
+		}
+
+		return tkn;
+	}
+
+	private TokenizeFn(tkn: G64Token, code: string): G64Token {
+
+		for (let i: number = 0; i < this.m_lstFn.length; i++) {
+			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstFn[i]];
+			const match: string[] = code.match(cmd.Param.Regex);
+
+			if (match !== null) {
+
+				// remove first item from match, as it is the whole match
+				match.shift();
+				console.log("tkFN >>", cmd.Name, match);
+
+				break;
 			}
 		}
 
@@ -266,7 +284,7 @@ class G64Basic {
 				}
 
 				// todo: run error checking here
-				tkn = Check.CheckParameter(tkn, cmd);
+				tkn = Check.CheckType(tkn, cmd);
 
 				break;
 			}
@@ -428,25 +446,26 @@ class G64Basic {
 		//
 		// fn num
 		//
-		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182);
-		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198);
-		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193);
-		this.AddCommand(Tokentype.fnnum, "cos", "", 190);
-		this.AddCommand(Tokentype.fnnum, "exp", "eX", 189);
-		this.AddCommand(Tokentype.fnnum, "fn", "", 165);
-		this.AddCommand(Tokentype.fnnum, "fre", "fR", 184);
-		this.AddCommand(Tokentype.fnnum, "int", "", 181);
-		this.AddCommand(Tokentype.fnnum, "len", "", 195);
-		this.AddCommand(Tokentype.fnnum, "log", "", 188);
-		this.AddCommand(Tokentype.fnnum, "peek", "pE", 194);
-		this.AddCommand(Tokentype.fnnum, "pos", "", 185);
-		this.AddCommand(Tokentype.fnnum, "rnd", "rN", 187);
-		this.AddCommand(Tokentype.fnnum, "sgn", "sG", 180);
-		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191);
-		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186);
-		this.AddCommand(Tokentype.fnnum, "tan", "", 192);
-		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183);
-		this.AddCommand(Tokentype.fnnum, "val", "vA", 197);
+		const paramFnNum: CmdParam = this.CreateParam(1, [ParamType.num]);
+		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "cos", "", 190, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "exp", "eX", 189, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "fn", "", 165, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "fre", "fR", 184, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "int", "", 181, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "len", "", 195, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "log", "", 188, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "peek", "pE", 194, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "pos", "", 185, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "rnd", "rN", 187, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "sgn", "sG", 180, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "tan", "", 192, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183, paramFnNum);
+		this.AddCommand(Tokentype.fnnum, "val", "vA", 197, this.CreateParam(1, [ParamType.str]));
 
 		//
 		// fn str
@@ -466,21 +485,23 @@ class G64Basic {
 		//
 		// ops
 		//
-		this.AddCommand(Tokentype.ops, "and", "aN", 175, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "or", "", 176, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		const paramOpsNum: CmdParam = this.CreateParam(2, [ParamType.num, ParamType.num]);
+		const paramOpsAny: CmdParam = this.CreateParam(2, [ParamType.any, ParamType.same]);
+		this.AddCommand(Tokentype.ops, "and", "aN", 175, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "or", "", 176, paramOpsNum, this.Ops.bind(this));
 
-		this.AddCommand(Tokentype.ops, "=", "", 61, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<>", "", [60, 62], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<=", "", [60, 61], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, ">=", "", [62, 61], this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "<", "", 60, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, ">", "", 62, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "=", "", 61, paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<>", "", [60, 62], paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<=", "", [60, 61], paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, ">=", "", [62, 61], paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "<", "", 60, paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, ">", "", 62, paramOpsAny, this.Ops.bind(this));
 
-		this.AddCommand(Tokentype.ops, "+", "", 43, this.CreateParam(2, [ParamType.any, ParamType.same]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "-", "", 45, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "*", "", 42, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "/", "", 47, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "^", "", 94, this.CreateParam(2, [ParamType.num, ParamType.num]), this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "+", "", 43, paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "-", "", 45, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "*", "", 42, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "/", "", 47, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "^", "", 94, paramOpsNum, this.Ops.bind(this));
 
 		//
 		// unary ops
@@ -560,6 +581,13 @@ class G64Basic {
 		switch (type) {
 			case Tokentype.cmd:
 				this.m_lstCmd.push(id);
+				break;
+
+			case Tokentype.fnnum:
+			case Tokentype.fnstr:
+			case Tokentype.fnout:
+				cmd.Param = this.CreateParam(cmd.Param.Len, cmd.Param.Type, null, new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"));
+				this.m_lstFn.push(id);
 				break;
 
 			case Tokentype.ops:
@@ -694,7 +722,13 @@ class G64Basic {
 		const tknVar: G64Token = this.ExecToken(tkn.Values[0]);
 		const tknVal: G64Token = this.ExecToken(tkn.Values[1]);
 
-		console.log("LET:", tkn);
+		if (tknVar.Type === Tokentype.err)
+			return tknVar;
+
+		if (tknVal.Type === Tokentype.err)
+			return tknVal;
+
+		console.log("LET:");
 		console.log("     v1:", tknVar);
 		console.log("     v2:", tknVal);
 
@@ -709,15 +743,10 @@ class G64Basic {
 			return tknVar;
 		}
 
-		const tknError: G64Token = Tools.CreateToken(Tokentype.err, "", ErrorCodes.TYPE_MISMATCH);
+		return Tools.CreateToken(Tokentype.err,
+			"'let', value expected: " + Tools.GetTokentypeName(Check.GetBaseType(tknVar)) + ", got: " + Tools.GetTokentypeName(Check.GetBaseType(tknVal)) + ".",
+			ErrorCodes.TYPE_MISMATCH);
 
-		if (Check.IsNum(tknVar) && Check.IsStr(tknVal)) {
-			tknError.Hint = "Variable is numeric, value is string";
-		} else {
-			tknError.Hint = "Variable is string, value is numeric";
-		}
-
-		return tknError;
 	}
 
 	/**
@@ -730,6 +759,9 @@ class G64Basic {
 
 		for (let i: number = 0; i < tkn.Values.length; i++) {
 			const tknVal: G64Token = this.ExecToken(tkn.Values[i]);
+
+			if (tknVal.Type === Tokentype.err)
+				return tknVal;
 
 			if (Check.IsStr(tknVal)) {
 				tkn.Str += tknVal.Str;

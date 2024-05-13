@@ -6,7 +6,7 @@
 	fnstr   /*  4, string methods, LEFT$("", i) */,
 	fnout   /*  5, output methods, SPC(i) */,
 	ops     /*  6, operators, +, -, also: =,<,> ... */,
-	not     /*  7, NOT */,
+	not     /*  7, NOT, - */,
 	num     /*  8, a single number, 1.0 */,
 	str     /*  9, string, either {1} or "abc" */,
 	vnum    /* 10, num var, A */,

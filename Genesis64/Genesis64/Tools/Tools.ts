@@ -277,8 +277,8 @@ class Tools {
 	/**
 	 * Creates a token
 	 * @param	type		token type
-	 * @param	str			[optional] string value
-	 * @param	num			[optional] number value
+	 * @param	str			[optional] string value, on error: error message
+	 * @param	num			[optional] number value, on error: error id
 	 * @returns			G64Token
 	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
@@ -358,5 +358,26 @@ class Tools {
 		return tkn;
 	}
 
+	public static GetTokentypeName(type: Tokentype): string {
+
+		let typeName = "error, type has no name.";
+
+		switch (type) {
+			case Tokentype.num:
+				typeName = "number";
+				break;
+
+			case Tokentype.str:
+				typeName = "string";
+				break;
+
+			case Tokentype.err:
+				typeName = "error";
+				break;
+		}
+
+
+		return typeName;
+	}
 
 }
