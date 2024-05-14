@@ -145,6 +145,7 @@ class G64Basic {
 		}
 
 		// ToDo: rewrite to return if it found something at all and can pass the code on to the next part
+		// Todo: fn regex to include brackets, or write custom splitter
 
 		// get commands
 		if (this.m_regexCmd.test(code)) {
