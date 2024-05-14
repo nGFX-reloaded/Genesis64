@@ -144,6 +144,8 @@ class G64Basic {
 			}
 		}
 
+		// ToDo: rewrite to return if it found something at all and can pass the code on to the next part
+
 		// get commands
 		if (this.m_regexCmd.test(code)) {
 			return this.TokenizeItem(tkn, code, this.m_lstCmd);
