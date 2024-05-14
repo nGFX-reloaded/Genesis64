@@ -4,7 +4,7 @@ class Check {
 	public static CheckType(tkn: G64Token, cmd: BasicCmd): G64Token {
 
 
-		console.log(" ----- ----- -----\n Check param:", tkn, cmd);
+		// console.log(" ----- ----- -----\n Check param:", tkn, cmd);
 
 		// check parameter count
 		if (cmd.Param.Len === 0) {
@@ -35,20 +35,20 @@ class Check {
 							tkn.Hint = name + "Parameter #" + (i + 1).toString() + ", expected: number, got: " + Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])) + ".";
 							hasError = true;
 						}
-						console.log("->", i, "num", this.IsNum(tkn.Values[i]));
+						//console.log("->", i, "num", this.IsNum(tkn.Values[i]));
 						break;
 
 					case ParamType.str:
-						console.log("->", i, "str", this.IsStr(tkn.Values[i]));
+						//console.log("->", i, "str", this.IsStr(tkn.Values[i]));
 						break;
 
 					case ParamType.var:
-						console.log("->", i, "var", this.IsVar(tkn.Values[i]));
+						//console.log("->", i, "var", this.IsVar(tkn.Values[i]));
 						break;
 
 					case ParamType.any:
 						typeLast = this.GetBaseType(tkn.Values[i]);
-						console.log("->", i, "any", Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])));
+						//console.log("->", i, "any", Tools.GetTokentypeName(this.GetBaseType(tkn.Values[i])));
 						break;
 
 					case ParamType.same:
