@@ -282,7 +282,7 @@ class Tools {
 	 * @returns			G64Token
 	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
-		let tkn: G64Token = { Type: type, Values: [] };
+		let tkn: G64Token = { Type: type, Values: [], Str: "", Num: 0 };
 
 		switch (type) {
 			case Tokentype.line:

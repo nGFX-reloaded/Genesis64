@@ -17,7 +17,6 @@ interface CmdParam {
 	Type: ParamType[];		// type of parameters
 	Fn?: Function;			// splitter function to call when parsing
 
-	Regex?: RegExp;			// regex to match this command
 	Split?: string;			// split chr, if any
 }
 
@@ -44,8 +43,7 @@ class G64Basic {
 	private m_Memory: G64Memory = null;
 
 	private m_ParserLiterals: string[] = [];	// stores literals for the current part
-	private m_ParserVars: Map<string, G64Token> = new Map<string, G64Token>();
-
+	private m_ParserLevel = 0;
 
 	private m_BasicCmds: BasicCmd[] = [];
 
@@ -56,6 +54,8 @@ class G64Basic {
 	private m_regexNum: RegExp = null;
 	private m_regexVar: RegExp = null;
 	private m_regexLit: RegExp = null;
+
+	private m_regexLet: RegExp = null;
 
 	private m_regexAbbrv: RegExp = null;
 	private m_regexDeAbbrv: RegExp = null;
@@ -92,13 +92,29 @@ class G64Basic {
 		const parts: string[] = Tools.CodeSplitter(literals.Source, ":");
 
 		this.m_ParserLiterals = literals.List;
-		this.m_ParserVars.clear();
 
 		console.log(">", lineTkn);
+		console.log(">", parts);
 
 		for (let i: number = 0; i < parts.length; i++) {
-			console.log("---", parts[i].trim(), "---");
-			lineTkn.Values.push(this.Tokenizer(parts[i].trim()));
+			let part: string = parts[i].trim();
+
+			// remove --, +- and ++ and simplify
+			while (/[\+\-]\s*[\+\-]/.test(part))
+				part = part.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
+
+			// fix let
+			const matchLet: string[] = part.match(this.m_regexLet);
+			const matchCmd: string[] = part.match(this.m_regexCmd);
+			if (matchLet !== null && matchCmd !== null) {
+				if (matchLet[0] === matchCmd[0])
+					part = "let" + part;
+			}
+
+			this.m_ParserLevel = 0;
+
+			console.log("---", part, "---");
+			lineTkn.Values.push(this.Tokenizer(part));
 		}
 
 		return lineTkn;
@@ -124,11 +140,15 @@ class G64Basic {
 	 */
 	private Tokenizer(code: string): G64Token {
 
-		let tkn: G64Token = Tools.CreateToken(Tokentype.err, "cannot parse: \"" + code + "\"", ErrorCodes.SYNTAX);
+		let tkn: G64Token = Tools.CreateToken(Tokentype.nop);
+
+		console.log(">>>", this.m_ParserLevel++, ">", code);
 
 		this.m_regexCmd.lastIndex = -1;
 		this.m_regexFn.lastIndex = -1;
 		this.m_regexOps.lastIndex = -1;
+
+
 		this.m_regexNum.lastIndex = -1;
 		this.m_regexLit.lastIndex = -1;
 		this.m_regexVar.lastIndex = -1;
@@ -144,24 +164,23 @@ class G64Basic {
 			}
 		}
 
-		// ToDo: rewrite to return if it found something at all and can pass the code on to the next part
-		// Todo: fn regex to include brackets, or write custom splitter
-
 		// get commands
-		if (this.m_regexCmd.test(code)) {
-			return this.TokenizeItem(tkn, code, this.m_lstCmd);
-		}
-
-		// get fns
-		if (this.m_regexFn.test(code)) {
-			return this.TokenizeItem(tkn, code, this.m_lstFn);
+		// a line (or part) always starts with a command, everything else is an error
+		tkn = this.TokenizeItem(tkn, code, this.m_lstCmd);
+		if (tkn.Type !== Tokentype.nop)
 			return tkn;
-		}
 
 		// get ops
-		if (this.m_regexOps.test(code)) {
-			return this.TokenizeOps(tkn, code);
-		}
+		// ops are more important than fns, as they can be part of a command, so we run them right after the commands
+		// todo: merge with TokenizeItem, ie. find a way to detect x+y when there is no command to test startsWith against
+		tkn = this.TokenizeOps(tkn, code);
+		if (tkn.Type !== Tokentype.nop)
+			return tkn;
+
+		// get fns
+		tkn = this.TokenizeItem(tkn, code, this.m_lstFn);
+		if (tkn.Type !== Tokentype.nop)
+			return tkn;
 
 		// get numbers
 		if (this.m_regexNum.test(code)) {
@@ -178,20 +197,18 @@ class G64Basic {
 			return this.TokenizeVar(tkn, code);
 		}
 
-		return tkn;
+		return Tools.CreateToken(Tokentype.err, "cannot parse: '" + Tools.RestoreLiterals(code, this.m_ParserLiterals) + "'", ErrorCodes.SYNTAX);
 	}
 
 	private TokenizeItem(tkn: G64Token, code: string, lstCmd: number[]): G64Token {
 
 		for (let i: number = 0; i < lstCmd.length; i++) {
 			const cmd: BasicCmd = this.m_BasicCmds[lstCmd[i]];
-			const match: string[] = code.match(cmd.Param.Regex);
 
-			if (match !== null) {
+			if (code.startsWith(cmd.Name)) {
 
 				// remove first item from match, as it is the whole match
-				match.shift();
-				console.log("tki >>", code, match);
+				console.log("tki >>", cmd.Name, code);
 
 				tkn.Id = lstCmd[i];
 				tkn.Name = cmd.Name;
@@ -199,22 +216,19 @@ class G64Basic {
 				tkn.Str = "";
 				tkn.Hint = "";
 				tkn.Num = 0;
+				tkn.Values = [];
 
-				if (cmd.Param.Split === "") { // already split by regex
-					tkn.Values = [];
-					for (let j: number = 0; j < match.length; j++) {
-						let tknParam: G64Token = this.Tokenizer(match[j]);
+				// get parameters
+				const params: string[] = cmd.Param.Fn(cmd, code.substring(cmd.Name.length).trim());
+				for (let j: number = 0; j < params.length; j++) {
+					let tknParam: G64Token = this.Tokenizer(params[j]);
 
-						if (tknParam.Type === Tokentype.err)
-							return tknParam;
+					// if token contains an error, we return it in place of the original token
+					if (tknParam.Type === Tokentype.err)
+						return tknParam;
 
-						// add to token's parameter list
-						tkn.Values.push(tknParam);
-					}
-
-				} else {
-					// use a special splitter
-					console.log("->>> use splitter", match);
+					// add to token's parameter list
+					tkn.Values.push(tknParam);
 				}
 
 				// run parameter checking
@@ -229,19 +243,19 @@ class G64Basic {
 
 	private TokenizeOps(tkn: G64Token, code: string): G64Token {
 
-		while (/[\+\-]\s*[\+\-]/.test(code))
-			code = code.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
-
 		for (let i: number = 0; i < this.m_lstOps.length; i++) {
 			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstOps[i]];
 			let split: string[] = Tools.CodeSplitter(code, cmd.Name);
 
+
 			if (split.length > 1) {
+				console.log("ops >>", code, split);
 
 				// if split is empty, chances are high that we have something like x*-y
 				// as variables can't be negative we cheat and turn this into x*0-y
 				// or code like b=<>-1
 
+				// ToDo: add unary ops (ie: not)
 				if (split[0].trim() === "") {
 					if (!isNaN(parseFloat(split[1].trim()))) {
 						return this.TokenizeNum(tkn, cmd.Name + split[1].trim());
@@ -266,13 +280,16 @@ class G64Basic {
 				for (let j: number = 0; j < split.length; j++) {
 					let tknParam: G64Token = this.Tokenizer(split[j]);
 
+					// if token contains an error, we return it in place of the original token
+					if (tknParam.Type === Tokentype.err)
+						return tknParam;
+
 					// add to token's parameter list
 					tkn.Values.push(tknParam);
 				}
 
 				// run parameter checking
 				tkn = Check.CheckType(tkn, cmd);
-
 				break;
 			}
 		}
@@ -406,7 +423,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "if", "", 139);
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
-		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, /^(?:let\s*)?(\w+\d?[%$]?(?:\(.+\))?)\s*=\s*(.*)/), this.Cmd_Let.bind(this));
+		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, "="), this.Cmd_Let.bind(this));
 		this.AddCommand(Tokentype.cmd, "list", "lI", 155);
 		this.AddCommand(Tokentype.cmd, "load", "lA", 147);
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
@@ -541,17 +558,16 @@ class G64Basic {
 		}
 
 		//
-		// if there is a parameter, we store it
+		// no param or null, create it
 		if (typeof param === "undefined" || param === null) {
-			cmd.Param = this.CreateParam(0, [ParamType.any],
-				(code: string) => {
-					console.log("param: ", code);
-				},
-				new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"));
+			cmd.Param = this.CreateParam(0, [ParamType.any], null);
 
 		} else {
+
+			// param is a (splitter) function
 			if (typeof param === "function") {
-				cmd.Param = this.CreateParam(0, [ParamType.any], param, new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"))
+				cmd.Param = this.CreateParam(0, [ParamType.any], param);
+
 			} else {
 				cmd.Param = param;
 			}
@@ -562,9 +578,10 @@ class G64Basic {
 		if (typeof fn !== "undefined") {
 			cmd.Fn = fn;
 		} else {
-			cmd.Fn = (tkn: G64Token) => { return Tools.CreateToken(Tokentype.nop, "nop"); }
+			cmd.Fn = (tkn: G64Token) => { return Tools.CreateToken(Tokentype.err, "no runner", ErrorCodes.SYNTAX); }
 		}
 
+		// add to lists
 		switch (type) {
 			case Tokentype.cmd:
 				this.m_lstCmd.push(id);
@@ -573,7 +590,6 @@ class G64Basic {
 			case Tokentype.fnnum:
 			case Tokentype.fnstr:
 			case Tokentype.fnout:
-				cmd.Param = this.CreateParam(cmd.Param.Len, cmd.Param.Type, null, new RegExp("^" + Tools.EscapeRegex(name) + "\\s*(.*)"));
 				this.m_lstFn.push(id);
 				break;
 
@@ -591,8 +607,6 @@ class G64Basic {
 				break;
 		}
 
-		// for param: new RegExp("^\\s*" + Tools.EscapeRegex(cmd.Name) + "\\s*(.*)");
-
 		this.m_BasicCmds.push(cmd);
 		this.m_mapCmd.set(name, id);
 
@@ -601,7 +615,7 @@ class G64Basic {
 		return id;
 	}
 
-	private CreateParam(len: number, type: ParamType[], fn?: Function, regex?: RegExp, split?: string): CmdParam {
+	private CreateParam(len: number, type: ParamType[], fn?: Function, split?: string): CmdParam {
 
 		const param: CmdParam = {
 			Len: len,
@@ -612,18 +626,18 @@ class G64Basic {
 		if (typeof fn !== "undefined" && fn !== null) {
 			param.Fn = fn;
 		} else {
-			param.Fn = null;
+			param.Fn = (cmd: BasicCmd, param: string): string[] => {
+				if (cmd.Param.Split === "")
+					return [param];
+
+				return Tools.CodeSplitter(param, cmd.Param.Split);
+			};
 		}
 
-		if (typeof regex !== "undefined") {
-			param.Regex = regex;
-		} else {
-			// later
-		}
 
-
-		if (typeof split !== "undefined")
+		if (typeof split !== "undefined") {
 			param.Split = split;
+		}
 
 		return param;
 	}
@@ -671,7 +685,9 @@ class G64Basic {
 		}
 
 		// let is an extra ugly special case, temp add it here
-		cmd.push("(?:let\\s*)?(?:\\w+\\d?[%$]?(?:\\(.+\\))?\\s*=.*)");
+		const letRegexString: string = "(?:let\\s*)?(?:\\w+\\d?[%$]?(?:\\(.+\\))?\\s*=.*)";
+		this.m_regexLet = new RegExp("^" + letRegexString);
+		cmd.push(letRegexString);
 
 		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
 		this.m_regexFn = new RegExp("^(" + fn.join("|") + ")", "g");
@@ -685,6 +701,11 @@ class G64Basic {
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");
 
 	}
+
+
+	//#endregion
+
+	//#region " ----- Param Splitters ----- "
 
 
 	//#endregion
@@ -843,9 +864,15 @@ class G64Basic {
 			case "*":
 				tkn.Num = tknValA.Num * tknValB.Num;
 				break;
-		}
-		console.log("OPS:", tkn.Num);
 
+			case "=":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num === tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str === tknValB.Str) ? -1 : 0;
+				}
+
+		}
 
 		return tkn;
 	}

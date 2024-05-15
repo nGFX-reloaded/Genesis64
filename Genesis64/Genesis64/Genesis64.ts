@@ -92,7 +92,7 @@ class Genesis64 {
 			const tkn: G64Token = this.m_Basic.ExecToken(tknLine.Values[i]);
 
 			console.log("---------- PART " + i + " ----------");
-			console.log("-->", tknLine.Values[i].Name, tkn);
+			console.log("= >", tknLine.Values[i].Name, tkn);
 
 
 			if (tkn.Type == Tokentype.err) {
