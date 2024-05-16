@@ -29,6 +29,7 @@ enum ParamType {
 
 	byte		/* 5: byte */,
 	adr			/* 6: address (0-65536) */,
+	cmd 		/* 7: command */,
 }
 
 enum BasicVersion {
@@ -427,7 +428,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35]);
 		this.AddCommand(Tokentype.cmd, "gosub", "goS", 141);
 		this.AddCommand(Tokentype.cmd, "goto", "gO", 137);
-		this.AddCommand(Tokentype.cmd, "if", "", 139);
+		this.AddCommand(Tokentype.cmd, "if", "", 139, this.CreateParam(2,[ParamType.num, ParamType.cmd], this.Param_If.bind(this)), this.Cmd_If.bind(this));
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
 		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, "="), this.Cmd_Let.bind(this));
@@ -718,6 +719,29 @@ class G64Basic {
 
 	//#region " ----- Param Splitters ----- "
 
+	private Param_If(cmd: BasicCmd, param: string): string[] {
+
+		const match: string[] = param.match(/^\s*(.+)(?:then|goto)(.+)/);
+		let split: string[] = [];
+
+		console.log(cmd.Name, ">>>", match);
+
+		if (match !== null) {
+
+			// remove full match from array
+			match.shift();
+
+			if (/^\s*\d+$/.test(match[1])) {
+				split = [match[0].trim(), "goto " + parseInt(match[2]).toString()];
+			} else {
+				split = [match[0].trim(), match[1].trim()];
+			}
+		}
+		console.log(cmd.Name, "--->>>", match);
+
+		return split;
+	}
+
 
 	//#endregion
 
@@ -730,6 +754,10 @@ class G64Basic {
 	private Cmd_Clr(tkn: G64Token): G64Token {
 		this.m_Memory.Clear();
 		return Tools.CreateToken(Tokentype.nop);
+	}
+
+	private Cmd_If(tkn: G64Token): G64Token {
+		return tkn;
 	}
 
 	/**
