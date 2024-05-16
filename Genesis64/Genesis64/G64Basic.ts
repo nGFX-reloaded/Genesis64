@@ -63,6 +63,7 @@ class G64Basic {
 	private m_lstCmd: number[] = [];
 	private m_lstFn: number[] = [];
 	private m_lstOps: number[] = [];
+	private m_lstUnary: number[] = [];
 
 	private m_mapCmd: Map<string, number> = new Map<string, number>();
 	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
@@ -170,10 +171,16 @@ class G64Basic {
 		if (tkn.Type !== Tokentype.nop)
 			return tkn;
 
+
 		// get ops
 		// ops are more important than fns, as they can be part of a command, so we run them right after the commands
 		// todo: merge with TokenizeItem, ie. find a way to detect x+y when there is no command to test startsWith against
 		tkn = this.TokenizeOps(tkn, code);
+		if (tkn.Type !== Tokentype.nop)
+			return tkn;
+
+		// get unary ops
+		tkn = this.TokenizeItem(tkn, code, this.m_lstUnary);
 		if (tkn.Type !== Tokentype.nop)
 			return tkn;
 
@@ -208,7 +215,7 @@ class G64Basic {
 			if (code.startsWith(cmd.Name)) {
 
 				// remove first item from match, as it is the whole match
-				console.log("tki >>", cmd.Name, code);
+				console.log("tki", cmd.Name, ">>", code);
 
 				tkn.Id = lstCmd[i];
 				tkn.Name = cmd.Name;
@@ -249,18 +256,7 @@ class G64Basic {
 
 
 			if (split.length > 1) {
-				console.log("ops >>", code, split);
-
-				// if split is empty, chances are high that we have something like x*-y
-				// as variables can't be negative we cheat and turn this into x*0-y
-				// or code like b=<>-1
-
-				// ToDo: add unary ops (ie: not)
-				if (split[0].trim() === "") {
-					if (!isNaN(parseFloat(split[1].trim()))) {
-						return this.TokenizeNum(tkn, cmd.Name + split[1].trim());
-					}
-				}
+				console.log("ops", cmd.Name, ">>", code, split);
 
 				// we do not chain ops/comps so we grab the first and join the rest again
 				if (split.length > 2) {
@@ -268,6 +264,17 @@ class G64Basic {
 					const tmpB: string = split.join(cmd.Name);
 					split = [tmpA, tmpB];
 				}
+
+				// if the first split is empty, we have an unary opperator
+				// numbers are allowed, so we check if the second split is a number
+				if (split[0].trim() === "") {
+					if (!isNaN(parseFloat(split[1].trim()))) {
+						return this.TokenizeNum(tkn, cmd.Name + split[1].trim());
+					} else {
+						continue;
+					}
+				}
+
 
 				tkn.Id = this.m_lstOps[i];
 				tkn.Name = cmd.Name;
@@ -501,16 +508,16 @@ class G64Basic {
 		this.AddCommand(Tokentype.ops, "<", "", 60, paramOpsAny, this.Ops.bind(this));
 		this.AddCommand(Tokentype.ops, ">", "", 62, paramOpsAny, this.Ops.bind(this));
 
-		this.AddCommand(Tokentype.ops, "+", "", 43, paramOpsAny, this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "-", "", 45, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "^", "", 94, paramOpsNum, this.Ops.bind(this));
 		this.AddCommand(Tokentype.ops, "*", "", 42, paramOpsNum, this.Ops.bind(this));
 		this.AddCommand(Tokentype.ops, "/", "", 47, paramOpsNum, this.Ops.bind(this));
-		this.AddCommand(Tokentype.ops, "^", "", 94, paramOpsNum, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "+", "", 43, paramOpsAny, this.Ops.bind(this));
+		this.AddCommand(Tokentype.ops, "-", "", 45, paramOpsNum, this.Ops.bind(this));
 
 		//
 		// unary ops
-		this.AddCommand(Tokentype.not, "not", "nO", 168);
-		// todo add "-"
+		this.AddCommand(Tokentype.not, "not", "nO", 168, paramFnNum, this.UnaryOps.bind(this));
+		this.AddCommand(Tokentype.not, "-", "", 45, paramFnNum, this.UnaryOps.bind(this));
 
 		//
 		// sysvar / const
@@ -595,6 +602,10 @@ class G64Basic {
 
 			case Tokentype.ops:
 				this.m_lstOps.push(id);
+				break;
+
+			case Tokentype.not:
+				this.m_lstUnary.push(id);
 				break;
 
 			case Tokentype.vnum:
@@ -872,6 +883,23 @@ class G64Basic {
 					tkn.Num = (tknValA.Str === tknValB.Str) ? -1 : 0;
 				}
 
+		}
+
+		return tkn;
+	}
+
+	private UnaryOps(tkn: G64Token): G64Token {
+
+		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
+
+		switch (tkn.Name) {
+			case "not":
+				tkn.Num = -tknVal.Num - 1;
+				break;
+
+			case "-":
+				tkn.Num = -tknVal.Num;
+				break;
 		}
 
 		return tkn;

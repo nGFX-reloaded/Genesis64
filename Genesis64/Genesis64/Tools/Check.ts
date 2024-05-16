@@ -135,7 +135,8 @@ class Check {
 			|| tkn.Type == Tokentype.vint
 			|| tkn.Type == Tokentype.anum
 			|| tkn.Type == Tokentype.aint
-			|| tkn.Type == Tokentype.ops);
+			|| tkn.Type == Tokentype.ops
+			|| tkn.Type == Tokentype.not);
 	}
 
 	/**
