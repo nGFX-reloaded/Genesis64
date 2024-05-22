@@ -101,7 +101,7 @@ class G64Basic {
 		for (let i: number = 0; i < parts.length; i++) {
 			let part: string = parts[i].trim();
 
-			// remove --, +- and ++ and simplify
+			// convert --, +- to - and simplify ++ to +
 			while (/[\+\-]\s*[\+\-]/.test(part))
 				part = part.replace(/\-\s*\+/g, "-").replace(/\+\s*\-/g, "-").replace(/\-\s*\-/g, "+").replace(/\+\s*\+/g, "+");
 
@@ -144,7 +144,7 @@ class G64Basic {
 
 		let tkn: G64Token = Tools.CreateToken(Tokentype.nop);
 
-		console.log(">>>", this.m_ParserLevel++, ">", code);
+		console.log("            ".substring(0, this.m_ParserLevel + 1), "t >", this.m_ParserLevel++, ">", code);
 
 		this.m_regexCmd.lastIndex = -1;
 		this.m_regexFn.lastIndex = -1;
@@ -216,7 +216,7 @@ class G64Basic {
 			if (code.startsWith(cmd.Name)) {
 
 				// remove first item from match, as it is the whole match
-				console.log("tki", cmd.Name, ">>", code);
+				console.log("    tki >", cmd.Name, ">", code);
 
 				tkn.Id = lstCmd[i];
 				tkn.Name = cmd.Name;
@@ -255,6 +255,9 @@ class G64Basic {
 			const cmd: BasicCmd = this.m_BasicCmds[this.m_lstOps[i]];
 			let split: string[] = Tools.CodeSplitter(code, cmd.Name);
 
+			if (split[0].trim().startsWith("not") && split.length == 1) {
+				return tkn;
+			}
 
 			if (split.length > 1) {
 				console.log("ops", cmd.Name, ">>", code, split);
@@ -266,7 +269,8 @@ class G64Basic {
 					split = [tmpA, tmpB];
 				}
 
-				// if the first split is empty, we have an unary opperator
+
+				// if the first split is empty, we have an unary opperator (-)
 				// numbers are allowed, so we check if the second split is a number
 				if (split[0].trim() === "") {
 					if (!isNaN(parseFloat(split[1].trim()))) {
@@ -286,7 +290,7 @@ class G64Basic {
 
 				tkn.Values = [];
 				for (let j: number = 0; j < split.length; j++) {
-					let tknParam: G64Token = this.Tokenizer(split[j]);
+					let tknParam: G64Token = this.Tokenizer(split[j].trim());
 
 					// if token contains an error, we return it in place of the original token
 					if (tknParam.Type === Tokentype.err)
@@ -428,7 +432,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "get#", "", [161, 35]);
 		this.AddCommand(Tokentype.cmd, "gosub", "goS", 141);
 		this.AddCommand(Tokentype.cmd, "goto", "gO", 137);
-		this.AddCommand(Tokentype.cmd, "if", "", 139, this.CreateParam(2,[ParamType.num, ParamType.cmd], this.Param_If.bind(this)), this.Cmd_If.bind(this));
+		this.AddCommand(Tokentype.cmd, "if", "", 139, this.CreateParam(2, [ParamType.num, ParamType.cmd], this.Param_If.bind(this)), this.Cmd_If.bind(this));
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
 		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, "="), this.Cmd_Let.bind(this));
@@ -728,7 +732,7 @@ class G64Basic {
 
 		if (match !== null) {
 
-			// remove full match from array
+			// remove full match from array 
 			match.shift();
 
 			if (/^\s*\d+$/.test(match[1])) {
@@ -757,7 +761,23 @@ class G64Basic {
 	}
 
 	private Cmd_If(tkn: G64Token): G64Token {
-		return tkn;
+
+		const tknComp: G64Token = this.ExecToken(tkn.Values[0]);
+
+		console.log("IF:", tknComp);
+
+
+		if (tknComp.Type === Tokentype.err)
+			return tknComp;
+
+		if (tknComp.Num != 0) {
+			// result is true, excute next command
+			return this.ExecToken(tkn.Values[1]);
+		}
+
+		// result is false, return an EOL
+
+		return Tools.CreateToken(Tokentype.eol);
 	}
 
 	/**
@@ -775,9 +795,9 @@ class G64Basic {
 		if (tknVal.Type === Tokentype.err)
 			return tknVal;
 
-		console.log("LET:");
-		console.log("     v1:", tknVar);
-		console.log("     v2:", tknVal);
+		//console.log("LET:");
+		//console.log("     v1:", tknVar);
+		//console.log("     v2:", tknVal);
 
 		if (Check.IsSame(tknVar, tknVal)) {
 
@@ -890,18 +910,14 @@ class G64Basic {
 
 		const tknValA: G64Token = this.ExecToken(tkn.Values[0]);
 		const tknValB: G64Token = this.ExecToken(tkn.Values[1]);
-
+		
 		switch (tkn.Name) {
-			case "+":
-				if (Check.IsNum(tknValA)) {
-					tkn.Num = tknValA.Num + tknValB.Num;
-				} else {
-					tkn.Str = tknValA.Str + tknValB.Str;
-				}
+			case "and":
+				tkn.Num = (tknValA.Num & tknValB.Num);
 				break;
 
-			case "*":
-				tkn.Num = tknValA.Num * tknValB.Num;
+			case "or":
+				tkn.Num = (tknValA.Num | tknValB.Num);
 				break;
 
 			case "=":
@@ -910,7 +926,75 @@ class G64Basic {
 				} else {
 					tkn.Num = (tknValA.Str === tknValB.Str) ? -1 : 0;
 				}
+				break;
 
+			case "<>":
+			case "!=":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num !== tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str !== tknValB.Str) ? -1 : 0;
+				}
+				break;
+
+			case "<=":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num <= tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str <= tknValB.Str) ? -1 : 0;
+				}
+				break;
+
+			case ">=":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num >= tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str >= tknValB.Str) ? -1 : 0;
+				}
+				break;
+
+			case "<":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num < tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str < tknValB.Str) ? -1 : 0;
+				}
+				break;
+
+			case ">":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = (tknValA.Num > tknValB.Num) ? -1 : 0;
+				} else {
+					tkn.Num = (tknValA.Str > tknValB.Str) ? -1 : 0;
+				}
+				break;
+
+			case "^":
+				tkn.Num = Math.pow(tknValA.Num, tknValB.Num);
+				break;
+
+			case "*":
+				tkn.Num = tknValA.Num * tknValB.Num;
+				break;
+
+			case "/":
+				if (tknValB.Num === 0) {
+					return Tools.CreateToken(Tokentype.err, "division by zero", ErrorCodes.DIVISION_BY_ZERO);
+				}
+				tkn.Num = tknValA.Num / tknValB.Num;
+				break;
+
+			case "+":
+				if (Check.IsNum(tknValA)) {
+					tkn.Num = tknValA.Num + tknValB.Num;
+				} else {
+					tkn.Str = tknValA.Str + tknValB.Str;
+				}
+				break;
+
+			case "-":
+				tkn.Num = tknValA.Num - tknValB.Num;
+				break;
 		}
 
 		return tkn;

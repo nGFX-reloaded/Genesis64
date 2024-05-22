@@ -100,7 +100,12 @@ class Genesis64 {
 				break;
 			}
 
-			console.log("--- END ---");
+			if (tkn.Type == Tokentype.eol) {
+				console.log("--- EOL ---");
+				break;
+			}
+
+			console.log("--- Part END ---");
 		}
 
 		console.log("|>", this.m_Memory.Variables);
