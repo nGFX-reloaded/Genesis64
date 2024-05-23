@@ -45,6 +45,15 @@ class G64Memory {
 		this.m_Variables.clear();
 	}
 
+	public Poke(addr: number, value: number): void {
+		console.log("memory.poke: " + addr + " = " + value);
+	}
+
+	public Peek(addr: number): number {
+		console.log("memory.peek: " + addr);
+		return 0;
+	}
+
 	//#endregion
 
 }

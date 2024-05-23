@@ -175,7 +175,6 @@ class G64Basic {
 
 		// get ops
 		// ops are more important than fns, as they can be part of a command, so we run them right after the commands
-		// todo: merge with TokenizeItem, ie. find a way to detect x+y when there is no command to test startsWith against
 		tkn = this.TokenizeOps(tkn, code);
 		if (tkn.Type !== Tokentype.nop)
 			return tkn;
@@ -442,7 +441,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "next", "nE", 130);
 		this.AddCommand(Tokentype.cmd, "on", "", 145);
 		this.AddCommand(Tokentype.cmd, "open", "oP", 159);
-		this.AddCommand(Tokentype.cmd, "poke", "pO", 151);
+		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.CreateParam(2, [ParamType.adr, ParamType.byte], null, ","), this.Cmd_Poke.bind(this));
 		this.AddCommand(Tokentype.cmd, "print", "?", 153, null, this.Cmd_Print.bind(this));
 		this.AddCommand(Tokentype.cmd, "print#", "pR", 152);
 		this.AddCommand(Tokentype.cmd, "read", "rE", 135);
@@ -462,26 +461,27 @@ class G64Basic {
 		//
 		// fn num
 		//
-		const paramFnNum: CmdParam = this.CreateParam(1, [ParamType.num]);
-		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramFnNum, this.FnNum.bind(this));
-		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "cos", "", 190, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "exp", "eX", 189, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "fn", "", 165, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "fre", "fR", 184, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "int", "", 181, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "len", "", 195, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "log", "", 188, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "peek", "pE", 194, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "pos", "", 185, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "rnd", "rN", 187, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "sgn", "sG", 180, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191, paramFnNum, this.FnNum.bind(this));
-		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "tan", "", 192, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183, paramFnNum);
-		this.AddCommand(Tokentype.fnnum, "val", "vA", 197, this.CreateParam(1, [ParamType.str]));
+		const paramNum: CmdParam = this.CreateParam(1, [ParamType.num]);
+		const paramStr: CmdParam = this.CreateParam(1, [ParamType.str]);
+		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramStr, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "cos", "", 190, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "exp", "eX", 189, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "fn", "", 165, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "fre", "fR", 184, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "int", "", 181, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "len", "", 195, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "log", "", 188, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "peek", "pE", 194, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "pos", "", 185, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "rnd", "rN", 187, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "sgn", "sG", 180, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "sin", "sI", 191, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "sqr", "sQ", 186, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "tan", "", 192, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "usr", "uS", 183, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "val", "vA", 197, paramStr, this.FnNum.bind(this));
 
 		//
 		// fn str
@@ -521,8 +521,8 @@ class G64Basic {
 
 		//
 		// unary ops
-		this.AddCommand(Tokentype.not, "not", "nO", 168, paramFnNum, this.UnaryOps.bind(this));
-		this.AddCommand(Tokentype.not, "-", "", 45, paramFnNum, this.UnaryOps.bind(this));
+		this.AddCommand(Tokentype.not, "not", "nO", 168, paramNum, this.UnaryOps.bind(this));
+		this.AddCommand(Tokentype.not, "-", "", 45, paramNum, this.UnaryOps.bind(this));
 
 		//
 		// sysvar / const
@@ -728,8 +728,6 @@ class G64Basic {
 		const match: string[] = param.match(/^\s*(.+)(?:then|goto)(.+)/);
 		let split: string[] = [];
 
-		console.log(cmd.Name, ">>>", match);
-
 		if (match !== null) {
 
 			// remove full match from array 
@@ -741,7 +739,6 @@ class G64Basic {
 				split = [match[0].trim(), match[1].trim()];
 			}
 		}
-		console.log(cmd.Name, "--->>>", match);
 
 		return split;
 	}
@@ -816,6 +813,26 @@ class G64Basic {
 
 	}
 
+	private Cmd_Poke(tkn: G64Token): G64Token {
+
+		const tknAdr: G64Token = this.ExecToken(tkn.Values[0]);
+		const tknVal: G64Token = this.ExecToken(tkn.Values[1]);
+
+		if (tknAdr.Type === Tokentype.err)
+			return tknAdr;
+
+		if (tknVal.Type === Tokentype.err)
+			return tknVal;
+
+		if (Check.IsAdr(tknAdr) && Check.IsByte(tknVal)) {
+			this.m_Memory.Poke(Math.floor(tknAdr.Num), Math.floor(tknVal.Num));
+			return tknVal;
+		}
+
+		// ToDo: add detail error hint.
+		return Tools.CreateToken(Tokentype.err, "'poke', invalid address or value", ErrorCodes.ILLEGAL_QUANTITY);
+	}
+
 	/**
 	 * print command, ie. print a value to the screen
 	 * see: https://www.c64-wiki.de/wiki/PRINT
@@ -849,54 +866,103 @@ class G64Basic {
 	private FnNum(tkn: G64Token): G64Token {
 
 		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
+		tkn.Num = 0;
 
 		if (tknVal.Type === Tokentype.err)
 			return tknVal;
-
-		const cmd = this.m_BasicCmds[tkn.Id];
 
 		switch (tkn.Name) {
 			case "abs":
 				tkn.Num = Math.abs(tknVal.Num);
 				break;
+
 			case "asc":
+				const bytes: number[] = Petscii.BasToPet(tknVal.Str);
+				if (bytes.length > 0) {
+					tkn.Num = bytes[0];
+				} else {
+					return Tools.CreateToken(Tokentype.err, "'asc', in basic v2 the string cannot be empty", ErrorCodes.ILLEGAL_QUANTITY);
+				}
 				break;
+
 			case "atn":
+				tkn.Num = Math.atan(tknVal.Num);
 				break;
+
 			case "cos":
+				tkn.Num = Math.cos(tknVal.Num);
 				break;
+
 			case "exp":
+				tkn.Num = Math.exp(tknVal.Num);
 				break;
+
 			case "fn":
+				// ToDo: implement FN
+				console.log("FnNum: to be supplied FN");
 				break;
+
 			case "fre":
+				// ToDo: implement FRE
+				console.log("FnNum: to be supplied FRE");
 				break;
+
 			case "int":
+				tkn.Num = Math.floor(tknVal.Num);
 				break;
+
 			case "len":
+				tkn.Num = Petscii.BasToPet(tknVal.Str).length;
 				break;
+
 			case "log":
+				tkn.Num = Math.log(tknVal.Num);
 				break;
+
 			case "peek":
+				if (Check.IsAdr(tknVal)) {
+					tkn.Num = this.m_Memory.Peek(Math.floor(tknVal.Num));
+				} else {
+					return Tools.CreateToken(Tokentype.err, "'peek', invalid address", ErrorCodes.ILLEGAL_QUANTITY);
+				}
 				break;
+
 			case "pos":
+				// Todo: implement POS
+				console.log("FnNum: to be supplied POS");
 				break;
+
 			case "rnd":
+				tkn.Num = Math.random() * tknVal.Num;
+				console.log("rnd, add mersenne twister");
 				break;
+
 			case "sgn":
+				tkn.Num = (tknVal.Num < 0) ? -1 : (tknVal.Num > 0) ? 1 : 0;
 				break;
+
 			case "sin":
 				tkn.Num = Math.sin(tknVal.Num);
 				break;
+
 			case "sqr":
-				break;
-			case "tan":
-				break;
-			case "usr":
-				break;
-			case "val":
+				tkn.Num = Math.sqrt(tknVal.Num);
 				break;
 
+			case "tan":
+				tkn.Num = Math.tan(tknVal.Num);
+				break;
+
+			case "usr":
+				// ToDo: implement USR
+				console.log("FnNum: to be supplied USR");
+				break;
+
+			case "val":
+				const num = parseFloat(tknVal.Str.replace(/\s+/g, ""));
+				if (!isNaN(num))
+					tkn.Num = num;
+				break;
 		}
 
 		return tkn;
@@ -910,7 +976,7 @@ class G64Basic {
 
 		const tknValA: G64Token = this.ExecToken(tkn.Values[0]);
 		const tknValB: G64Token = this.ExecToken(tkn.Values[1]);
-		
+
 		switch (tkn.Name) {
 			case "and":
 				tkn.Num = (tknValA.Num & tknValB.Num);
