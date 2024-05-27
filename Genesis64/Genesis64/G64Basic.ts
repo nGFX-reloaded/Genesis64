@@ -155,6 +155,9 @@ class G64Basic {
 		this.m_regexLit.lastIndex = -1;
 		this.m_regexVar.lastIndex = -1;
 
+		// remove whiatespace
+		code = code.trim();
+
 		// fix numbers
 		code = code; // todo: fix numbers
 
@@ -268,7 +271,6 @@ class G64Basic {
 					split = [tmpA, tmpB];
 				}
 
-
 				// if the first split is empty, we have an unary opperator (-)
 				// numbers are allowed, so we check if the second split is a number
 				if (split[0].trim() === "") {
@@ -278,7 +280,6 @@ class G64Basic {
 						continue;
 					}
 				}
-
 
 				tkn.Id = this.m_lstOps[i];
 				tkn.Name = cmd.Name;
@@ -434,7 +435,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "if", "", 139, this.CreateParam(2, [ParamType.num, ParamType.cmd], this.Param_If.bind(this)), this.Cmd_If.bind(this));
 		this.AddCommand(Tokentype.cmd, "input", "", 133);
 		this.AddCommand(Tokentype.cmd, "input#", "iN", 132);
-		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.same], null, "="), this.Cmd_Let.bind(this));
+		this.AddCommand(Tokentype.cmd, "let", "lE", 136, this.CreateParam(2, [ParamType.var, ParamType.any], null, "="), this.Cmd_Let.bind(this));
 		this.AddCommand(Tokentype.cmd, "list", "lI", 155);
 		this.AddCommand(Tokentype.cmd, "load", "lA", 147);
 		this.AddCommand(Tokentype.cmd, "new", "", 162);
@@ -461,8 +462,8 @@ class G64Basic {
 		//
 		// fn num
 		//
-		const paramNum: CmdParam = this.CreateParam(1, [ParamType.num]);
-		const paramStr: CmdParam = this.CreateParam(1, [ParamType.str]);
+		const paramNum: CmdParam = this.CreateParam(1, [ParamType.num], this.Param_Fn.bind(this));
+		const paramStr: CmdParam = this.CreateParam(1, [ParamType.str], this.Param_Fn.bind(this));
 		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramStr, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramNum, this.FnNum.bind(this));
@@ -486,11 +487,12 @@ class G64Basic {
 		//
 		// fn str
 		//
-		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199);
-		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200);
-		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202);
-		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201);
-		this.AddCommand(Tokentype.fnstr, "str$", "stR", 196);
+		const paramStrNum: CmdParam = this.CreateParam(2, [ParamType.str, ParamType.byte], this.Param_Fn.bind(this));
+		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199, paramNum, this.FnStr.bind(this) );
+		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200, paramStrNum, this.FnStr.bind(this));
+		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202, this.CreateParam(-2, [ParamType.str, ParamType.byte, ParamType.byte], this.Param_Fn.bind(this)), this.FnStr.bind(this));
+		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201, paramStrNum, this.FnStr.bind(this));
+		this.AddCommand(Tokentype.fnstr, "str$", "stR", 196, paramNum, this.FnStr.bind(this));
 
 		//
 		// fn out
@@ -743,6 +745,24 @@ class G64Basic {
 		return split;
 	}
 
+	private Param_Fn(cmd: BasicCmd, param: string): string[] {
+
+
+		// fnout has the barcket as part of the command, so we add a start (
+		if (cmd.Type == Tokentype.fnout) {
+			param = "(" + param;
+		}
+
+		// remove brackets
+		if (param.startsWith("(") && param.endsWith(")")) {
+			const result: Matching = Tools.FindMatching(param);
+			if (result.Has) {
+				param = param.substring(1, param.length - 1);
+			}
+		}
+
+		return Tools.CodeSplitter(param, ",");
+	}
 
 	//#endregion
 
@@ -757,6 +777,10 @@ class G64Basic {
 		return Tools.CreateToken(Tokentype.nop);
 	}
 
+	/**
+	 * if command, ie. if a condition is true, execute the next command
+	 * see: https://www.c64-wiki.de/wiki/IF
+	 */
 	private Cmd_If(tkn: G64Token): G64Token {
 
 		const tknComp: G64Token = this.ExecToken(tkn.Values[0]);
@@ -813,6 +837,10 @@ class G64Basic {
 
 	}
 
+	/**
+	 * poke command, ie. write a value to a memory address
+	 * see: https://www.c64-wiki.de/wiki/POKE
+	 */
 	private Cmd_Poke(tkn: G64Token): G64Token {
 
 		const tknAdr: G64Token = this.ExecToken(tkn.Values[0]);
@@ -863,6 +891,9 @@ class G64Basic {
 	// --- fns, ops ---
 	//
 
+	/**
+	 * all numerical functions
+	 */
 	private FnNum(tkn: G64Token): G64Token {
 
 		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
@@ -968,6 +999,56 @@ class G64Basic {
 		return tkn;
 	}
 
+	private FnStr(tkn: G64Token): G64Token {
+
+		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
+
+		tkn.Str = "";
+
+		if (tknVal.Type === Tokentype.err)
+			return tknVal;
+
+		if (tkn.Name === "chr$") {
+			tkn.Str = Petscii.PetToBas([tknVal.Num]);
+
+		} else if (tkn.Name === "str$") {
+			tkn.Str = tknVal.Num.toString(); // toPrecision(8); <- use with print
+
+		} else {
+			const bytes: number[] = Petscii.BasToPet(tknVal.Str);
+			const tknValB: G64Token = this.ExecToken(tkn.Values[1]);
+
+			if (tknValB.Type === Tokentype.err)
+				return tknValB;
+
+			if (tkn.Name === "left$") {
+				tkn.Str = Petscii.PetToBas(bytes.slice(0, tknValB.Num));
+
+			} else if (tkn.Name === "right$") {
+				tkn.Str = Petscii.PetToBas(bytes.slice(-tknValB.Num));
+
+			} else {
+				let len: number = bytes.length - 1;
+
+				if (tknValB.Num < 1)
+				return Tools.CreateToken(Tokentype.err, "'mid$', start must be greater than 0", ErrorCodes.ILLEGAL_QUANTITY);
+
+				if (tkn.Values.length === 3) {
+					const tknValC: G64Token = this.ExecToken(tkn.Values[2]);
+
+					if (tknValC.Type === Tokentype.err)
+						return tknValC;
+
+					len = tknValC.Num;
+				}
+
+				tkn.Str = Petscii.PetToBas(bytes.slice(tknValB.Num - 1, tknValB.Num + len));
+			}
+		}
+
+		return tkn;
+	}
+
 	/**
 	 * ops, ie. +, -, *, /, etc.
 	 * see: https://www.c64-wiki.de/wiki/Operatoren
@@ -1054,6 +1135,7 @@ class G64Basic {
 				if (Check.IsNum(tknValA)) {
 					tkn.Num = tknValA.Num + tknValB.Num;
 				} else {
+					tkn.Type = Tokentype.str;
 					tkn.Str = tknValA.Str + tknValB.Str;
 				}
 				break;
@@ -1066,6 +1148,10 @@ class G64Basic {
 		return tkn;
 	}
 
+	/**
+	 * unary ops, ie. not, -
+	 * see: https://www.c64-wiki.de/wiki/Operatoren
+	 */
 	private UnaryOps(tkn: G64Token): G64Token {
 
 		const tknVal: G64Token = this.ExecToken(tkn.Values[0]);
