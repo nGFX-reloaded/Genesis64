@@ -277,12 +277,12 @@ class Tools {
 	/**
 	 * Creates a token
 	 * @param	type		token type
-	 * @param	str			[optional] string value, on error: error message
+	 * @param	str			[optional] string value, on error: error message, will be converted to petscii bytes[]
 	 * @param	num			[optional] number value, on error: error id
 	 * @returns			G64Token
 	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
-		let tkn: G64Token = { Type: type, Values: [], Str: "", Num: 0 };
+		let tkn: G64Token = { Type: type, Values: [], Str:"", Num: 0 };
 
 		switch (type) {
 			case Tokentype.line:
@@ -351,7 +351,13 @@ class Tools {
 					Str: "",
 					Values: []
 				};
+				break;
 
+			case Tokentype.link: 
+				tkn = {
+					Type: type,
+					Str: (typeof str !== "undefined") ? str : ""
+				};
 				break;
 		}
 

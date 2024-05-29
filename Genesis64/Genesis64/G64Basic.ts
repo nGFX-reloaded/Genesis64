@@ -66,6 +66,8 @@ class G64Basic {
 	private m_lstOps: number[] = [];
 	private m_lstUnary: number[] = [];
 
+	private m_fnNames: string = "";
+
 	private m_mapCmd: Map<string, number> = new Map<string, number>();
 	private m_mapAbbrv: Map<string, number> = new Map<string, number>();
 	private m_mapVar: Map<Tokentype, number> = new Map<Tokentype, number>();
@@ -169,6 +171,11 @@ class G64Basic {
 			}
 		}
 
+		// connectors
+		if (code === "," || code === ";") {
+			return Tools.CreateToken(Tokentype.link, code);
+		}
+
 		// get commands
 		// a line (or part) always starts with a command, everything else is an error
 		tkn = this.TokenizeItem(tkn, code, this.m_lstCmd);
@@ -206,6 +213,8 @@ class G64Basic {
 		if (this.m_regexVar.test(code)) {
 			return this.TokenizeVar(tkn, code);
 		}
+
+		
 
 		return Tools.CreateToken(Tokentype.err, "cannot parse: '" + Tools.RestoreLiterals(code, this.m_ParserLiterals) + "'", ErrorCodes.SYNTAX);
 	}
@@ -419,11 +428,12 @@ class G64Basic {
 		//
 		// commands
 		//
+		const paramNone: CmdParam = this.CreateParam(0, [], null);
 		this.AddCommand(Tokentype.cmd, "close", "clO", 160);
-		this.AddCommand(Tokentype.cmd, "clr", "cL", 156);
+		this.AddCommand(Tokentype.cmd, "clr", "cL", 156, paramNone, this.Cmd_Clr.bind(this));
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
 		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157);
-		this.AddCommand(Tokentype.cmd, "data", "dA", 131);
+		this.AddCommand(Tokentype.cmd, "data", "dA", 131); // Note: on run grab data lines and link tokens to the data[] in memory
 		this.AddCommand(Tokentype.cmd, "def", "dE", 150);
 		this.AddCommand(Tokentype.cmd, "dim", "dI", 134);
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
@@ -443,7 +453,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "on", "", 145);
 		this.AddCommand(Tokentype.cmd, "open", "oP", 159);
 		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.CreateParam(2, [ParamType.adr, ParamType.byte], null, ","), this.Cmd_Poke.bind(this));
-		this.AddCommand(Tokentype.cmd, "print", "?", 153, null, this.Cmd_Print.bind(this));
+		this.AddCommand(Tokentype.cmd, "print", "?", 153, this.CreateParam(0, [ParamType.any], this.Param_Print.bind(this)), this.Cmd_Print.bind(this));
 		this.AddCommand(Tokentype.cmd, "print#", "pR", 152);
 		this.AddCommand(Tokentype.cmd, "read", "rE", 135);
 		this.AddCommand(Tokentype.cmd, "rem", "", 143);
@@ -543,7 +553,6 @@ class G64Basic {
 		this.AddCommand(Tokentype.anum, "", "", -1, null, this.GetVar.bind(this));
 		this.AddCommand(Tokentype.aint, "", "", -1, null, this.GetVar.bind(this));
 		this.AddCommand(Tokentype.astr, "", "", -1, null, this.GetVar.bind(this));
-
 
 		this.BuiltRegex();
 
@@ -702,13 +711,15 @@ class G64Basic {
 
 		}
 
+		this.m_fnNames = fn.join("|");
+
 		// let is an extra ugly special case, temp add it here
 		const letRegexString: string = "(?:let\\s*)?(?:\\w+\\d?[%$]?(?:\\(.+\\))?\\s*=.*)";
 		this.m_regexLet = new RegExp("^" + letRegexString);
 		cmd.push(letRegexString);
 
 		this.m_regexCmd = new RegExp("^(" + cmd.join("|") + ")", "g");
-		this.m_regexFn = new RegExp("^(" + fn.join("|") + ")", "g");
+		this.m_regexFn = new RegExp("^(" + this.m_fnNames + ")", "g");
 		this.m_regexOps = new RegExp("(" + ops.join("|") + ")", "g");
 
 		this.m_regexNum = /^(?:[-\+]?(?:\d*\.)?\d+(?:e[-\+]?\d+)?|\$[0-9a-f]+|\%[01]+)$/; // numbers, inc. hex $xx and $xxxx, bin %xxxxxxxx
@@ -717,6 +728,8 @@ class G64Basic {
 
 		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");
+
+		
 
 	}
 
@@ -743,6 +756,85 @@ class G64Basic {
 		}
 
 		return split;
+	}
+
+	private Param_Print(cmd: BasicCmd, code: string): string[] {
+
+		let i: number, j: number;
+		let aParts: string[] = [], aFirst: string[] = [], aSecond: string[] = [];
+		let match: RegExpMatchArray;
+		let hasMatch: boolean;
+
+
+		// check for "," andf then for ";"
+		aFirst = Tools.CodeSplitter(code, ",");
+		for (i = 0; i < aFirst.length; i++) {
+			aSecond = Tools.CodeSplitter(aFirst[i], ";");
+			for (j = 0; j < aSecond.length; j++) {
+				aParts.push(aSecond[j]);
+				if (j < aSecond.length - 1) aParts.push(";");
+			}
+			if (i < aFirst.length - 1) aParts.push(",");
+		}
+
+		// remove space between numbers (1 2 => 12) and between number variables and numbers (A 2 => A2)
+		for (i = 0; i < aParts.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp(/(\d+|[a-zA-Z]+\d*)\s+(\d+)/).exec(aParts[i]);
+				if (match !== null) {
+					aParts[i] = aParts[i].replace(match[0], match[1] + match[2]);
+				} else {
+					hasMatch = false;
+				}
+			}
+		}
+
+		// split before functions if they are preceeded by ), ], }, number or letter
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp("(.*[\\)\\]\\}0-9a-aA-Z]\s*)((?:" + this.m_fnNames + ").*)").exec(aFirst[i]);
+
+				if (match !== null) {
+					aParts.push(match[1]);
+					aFirst[i] = match[2];
+				} else {
+					aParts.push(aFirst[i]);
+					hasMatch = false;
+				}
+			}
+		}
+
+		// split before literals, except when used in a compare statement or ops or functions (error)
+		aFirst = aParts.slice();
+		aParts.length = 0;
+		for (i = 0; i < aFirst.length; i++) {
+			hasMatch = true;
+			while (hasMatch) {
+				match = new RegExp(/(.*[^\+\-\*\/\^=\<\>\(])\s*(\{\d+}.*)/).exec(aFirst[i]);
+
+				if (!this.m_regexFn.test(aFirst[i]) && match !== null && match[1] !== "not") { // not is a special case, todo: move to regex
+					aParts.push(match[1]);
+					aFirst[i] = match[2];
+				} else {
+					aParts.push(aFirst[i]);
+					hasMatch = false;
+				}
+			}
+		}
+
+		// remove empty elements from aParts array
+		for (i = 0; i < aParts.length; i++) {
+			if (aParts[i].length === 0) {
+				aParts.splice(i, 1);
+				i--;
+			}
+		}
+
+		return aParts;
 	}
 
 	private Param_Fn(cmd: BasicCmd, param: string): string[] {
@@ -785,9 +877,6 @@ class G64Basic {
 
 		const tknComp: G64Token = this.ExecToken(tkn.Values[0]);
 
-		console.log("IF:", tknComp);
-
-
 		if (tknComp.Type === Tokentype.err)
 			return tknComp;
 
@@ -815,10 +904,6 @@ class G64Basic {
 
 		if (tknVal.Type === Tokentype.err)
 			return tknVal;
-
-		//console.log("LET:");
-		//console.log("     v1:", tknVar);
-		//console.log("     v2:", tknVal);
 
 		if (Check.IsSame(tknVar, tknVal)) {
 
@@ -870,15 +955,21 @@ class G64Basic {
 		tkn.Str = "";
 
 		for (let i: number = 0; i < tkn.Values.length; i++) {
-			const tknVal: G64Token = this.ExecToken(tkn.Values[i]);
 
-			if (tknVal.Type === Tokentype.err)
-				return tknVal;
-
-			if (Check.IsStr(tknVal)) {
-				tkn.Str += tknVal.Str;
+			if (tkn.Values[i].Type === Tokentype.link) {
+				tkn.Str += tkn.Values[i].Str;
 			} else {
-				tkn.Str += tknVal.Num.toString();
+
+				const tknVal: G64Token = this.ExecToken(tkn.Values[i]);
+
+				if (tknVal.Type === Tokentype.err)
+					return tknVal;
+
+				if (Check.IsStr(tknVal)) {
+					tkn.Str += tknVal.Str;
+				} else if (Check.IsNum(tknVal)) {
+					tkn.Str += tknVal.Num.toString();
+				}
 			}
 		}
 
