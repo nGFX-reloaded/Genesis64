@@ -433,7 +433,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "clr", "cL", 156, paramNone, this.Cmd_Clr.bind(this));
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
 		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157);
-		this.AddCommand(Tokentype.cmd, "data", "dA", 131); // Note: on run grab data lines and link tokens to the data[] in memory
+		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.CreateParam(0, [ParamType.any], this.Param_Data.bind(this)), this.Cmd_Data.bind(this)); // Note: on run grab data lines and link tokens to the data[] in memory
 		this.AddCommand(Tokentype.cmd, "def", "dE", 150);
 		this.AddCommand(Tokentype.cmd, "dim", "dI", 134);
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
@@ -738,6 +738,19 @@ class G64Basic {
 
 	//#region " ----- Param Splitters ----- "
 
+	private Param_Data(cmd: BasicCmd, param: string): string[] {
+
+		param = param.trim();
+
+		let aParts: string[] = Tools.CodeSplitter(param, ",");
+
+		console.log("data:", aParts);
+
+
+
+		return [];
+	}
+
 	private Param_If(cmd: BasicCmd, param: string): string[] {
 
 		const match: string[] = param.match(/^\s*(.+)(?:then|goto)(.+)/);
@@ -866,6 +879,14 @@ class G64Basic {
 	 */
 	private Cmd_Clr(tkn: G64Token): G64Token {
 		this.m_Memory.Clear();
+		return Tools.CreateToken(Tokentype.nop);
+	}
+
+	/**
+	 * DATA command, ie. data for a program
+	 * see: https://www.c64-wiki.de/wiki/DATA
+	 */
+	private Cmd_Data(tkn: G64Token): G64Token {
 		return Tools.CreateToken(Tokentype.nop);
 	}
 
