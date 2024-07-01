@@ -158,6 +158,42 @@ class Tools {
 
 	}
 
+	public static NumberToString(num: number): string {
+
+		const digits: number = 1000000000;
+		const sign: string = (num < 0) ? "-" : " ";
+		let numStr: string = num.toString();
+		let round: number = 0;
+
+		// remove leading 0
+		if (numStr.startsWith("0."))
+			numStr = numStr.substring(1);
+
+		// limit to 11 digits and round off last digit
+		if (numStr.length > 11) {
+			if (num < 1) {
+				round = parseFloat(numStr) * digits;
+				numStr = (Math.round(round) / digits).toString();
+
+			} else {
+				numStr = num.toExponential().toString();
+
+				if (numStr.includes("e")) {
+					let parts: string[] = numStr.split("e");
+					round = parseFloat(parts[0]) * digits; 
+					numStr = (Math.round(round) / digits).toString() + "e" + parts[1];
+				}
+
+			}
+
+			// remove leading 0 again
+			if (numStr.startsWith("0."))
+				numStr = numStr.substring(1);
+		}
+
+		return sign + numStr;
+	}
+
 	/**
 	 * escapes a few special characters for regexes
 	 * @param			code			code to escape
@@ -282,7 +318,7 @@ class Tools {
 	 * @returns			G64Token
 	 */
 	public static CreateToken(type: Tokentype, str?: string, num?: number): G64Token {
-		let tkn: G64Token = { Type: type, Values: [], Str:"", Num: 0 };
+		let tkn: G64Token = { Type: type, Values: [], Str: "", Num: 0 };
 
 		switch (type) {
 			case Tokentype.line:
@@ -353,7 +389,7 @@ class Tools {
 				};
 				break;
 
-			case Tokentype.link: 
+			case Tokentype.link:
 				tkn = {
 					Type: type,
 					Str: (typeof str !== "undefined") ? str : ""

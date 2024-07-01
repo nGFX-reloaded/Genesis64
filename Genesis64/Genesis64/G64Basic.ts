@@ -214,7 +214,7 @@ class G64Basic {
 			return this.TokenizeVar(tkn, code);
 		}
 
-		
+
 
 		return Tools.CreateToken(Tokentype.err, "cannot parse: '" + Tools.RestoreLiterals(code, this.m_ParserLiterals) + "'", ErrorCodes.SYNTAX);
 	}
@@ -498,7 +498,7 @@ class G64Basic {
 		// fn str
 		//
 		const paramStrNum: CmdParam = this.CreateParam(2, [ParamType.str, ParamType.byte], this.Param_Fn.bind(this));
-		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199, paramNum, this.FnStr.bind(this) );
+		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199, paramNum, this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200, paramStrNum, this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202, this.CreateParam(-2, [ParamType.str, ParamType.byte, ParamType.byte], this.Param_Fn.bind(this)), this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201, paramStrNum, this.FnStr.bind(this));
@@ -507,8 +507,9 @@ class G64Basic {
 		//
 		// fn out
 		//
-		this.AddCommand(Tokentype.fnout, "spc(", "sP", 166);
-		this.AddCommand(Tokentype.fnout, "tab(", "tA", 163);
+		const paramFnOut: CmdParam = this.CreateParam(1, [ParamType.byte], this.Param_Fn.bind(this));
+		this.AddCommand(Tokentype.fnout, "spc(", "sP", 166, paramFnOut);
+		this.AddCommand(Tokentype.fnout, "tab(", "tA", 163, paramFnOut); 
 
 		//
 		// ops
@@ -729,7 +730,7 @@ class G64Basic {
 		this.m_regexAbbrv = new RegExp("(" + abbrv.join("|") + ")", "g");
 		this.m_regexDeAbbrv = new RegExp("(" + deabbrv.join("|") + ")", "g");
 
-		
+
 
 	}
 
@@ -868,7 +869,7 @@ class G64Basic {
 
 		return Tools.CodeSplitter(param, ",");
 	}
-
+	
 	//#endregion
 
 	//#region " ----- BASIC V2 Commands / Functions ----- "
@@ -973,12 +974,33 @@ class G64Basic {
 	 */
 	private Cmd_Print(tkn: G64Token): G64Token {
 
-		tkn.Str = "";
+		let out: string = "";
+		let crlf: boolean = true;
 
 		for (let i: number = 0; i < tkn.Values.length; i++) {
 
 			if (tkn.Values[i].Type === Tokentype.link) {
-				tkn.Str += tkn.Values[i].Str;
+				if (tkn.Values[i].Str == ",") {
+					// this.m_memory.WriteLine("           ".substr(0, 10 - (this.m_memory.GetByte(this.m_memory.ADR_CRSR_X) % 10)), false);
+					out += "           ".substring(0, 10 - (out.length % 10));
+				} else {
+					// nop
+				}
+
+				if (i == tkn.Values.length - 1)
+					crlf = false;
+
+			} else if (tkn.Values[i].Type === Tokentype.fnout) {
+				if (tkn.Values[i].Id === this.m_mapCmd.get("tab(")) {
+					out += " ".repeat(tkn.Values[i].Values[0].Num);
+				} else {
+					out += " ".repeat(tkn.Values[i].Values[0].Num);
+				}
+
+				// nop
+				if (i == tkn.Values.length - 1)
+					crlf = false;
+
 			} else {
 
 				const tknVal: G64Token = this.ExecToken(tkn.Values[i]);
@@ -987,14 +1009,14 @@ class G64Basic {
 					return tknVal;
 
 				if (Check.IsStr(tknVal)) {
-					tkn.Str += tknVal.Str;
+					out += tknVal.Str;
 				} else if (Check.IsNum(tknVal)) {
-					tkn.Str += tknVal.Num.toString();
+					out += Tools.NumberToString(tknVal.Num);
 				}
 			}
 		}
 
-		console.log("PRINT:", tkn.Str);
+		console.log("PRINT:", out);
 
 		return tkn;
 	}
@@ -1143,7 +1165,7 @@ class G64Basic {
 				let len: number = bytes.length - 1;
 
 				if (tknValB.Num < 1)
-				return Tools.CreateToken(Tokentype.err, "'mid$', start must be greater than 0", ErrorCodes.ILLEGAL_QUANTITY);
+					return Tools.CreateToken(Tokentype.err, "'mid$', start must be greater than 0", ErrorCodes.ILLEGAL_QUANTITY);
 
 				if (tkn.Values.length === 3) {
 					const tknValC: G64Token = this.ExecToken(tkn.Values[2]);
