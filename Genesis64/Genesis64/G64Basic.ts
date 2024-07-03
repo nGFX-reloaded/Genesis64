@@ -455,7 +455,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "poke", "pO", 151, this.CreateParam(2, [ParamType.adr, ParamType.byte], null, ","), this.Cmd_Poke.bind(this));
 		this.AddCommand(Tokentype.cmd, "print", "?", 153, this.CreateParam(0, [ParamType.any], this.Param_Print.bind(this)), this.Cmd_Print.bind(this));
 		this.AddCommand(Tokentype.cmd, "print#", "pR", 152);
-		this.AddCommand(Tokentype.cmd, "read", "rE", 135);
+		this.AddCommand(Tokentype.cmd, "read", "rE", 135, this.CreateParam(-1, [ParamType.var]), this.Cmd_Read.bind(this));
 		this.AddCommand(Tokentype.cmd, "rem", "", 143);
 		this.AddCommand(Tokentype.cmd, "restore", "reS", 140);
 		this.AddCommand(Tokentype.cmd, "return", "reT", 142);
@@ -472,8 +472,8 @@ class G64Basic {
 		//
 		// fn num
 		//
-		const paramNum: CmdParam = this.CreateParam(1, [ParamType.num], this.Param_Fn.bind(this));
-		const paramStr: CmdParam = this.CreateParam(1, [ParamType.str], this.Param_Fn.bind(this));
+		const paramNum: CmdParam = this.CreateParam(1, [ParamType.num], this.Param_Functions.bind(this));
+		const paramStr: CmdParam = this.CreateParam(1, [ParamType.str], this.Param_Functions.bind(this));
 		this.AddCommand(Tokentype.fnnum, "abs", "aB", 182, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "asc", "aS", 198, paramStr, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramNum, this.FnNum.bind(this));
@@ -497,19 +497,19 @@ class G64Basic {
 		//
 		// fn str
 		//
-		const paramStrNum: CmdParam = this.CreateParam(2, [ParamType.str, ParamType.byte], this.Param_Fn.bind(this));
+		const paramStrNum: CmdParam = this.CreateParam(2, [ParamType.str, ParamType.byte], this.Param_Functions.bind(this));
 		this.AddCommand(Tokentype.fnstr, "chr$", "cH", 199, paramNum, this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "left$", "leF", 200, paramStrNum, this.FnStr.bind(this));
-		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202, this.CreateParam(-2, [ParamType.str, ParamType.byte, ParamType.byte], this.Param_Fn.bind(this)), this.FnStr.bind(this));
+		this.AddCommand(Tokentype.fnstr, "mid$", "mI", 202, this.CreateParam(-2, [ParamType.str, ParamType.byte, ParamType.byte], this.Param_Functions.bind(this)), this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "right$", "rI", 201, paramStrNum, this.FnStr.bind(this));
 		this.AddCommand(Tokentype.fnstr, "str$", "stR", 196, paramNum, this.FnStr.bind(this));
 
 		//
 		// fn out
 		//
-		const paramFnOut: CmdParam = this.CreateParam(1, [ParamType.byte], this.Param_Fn.bind(this));
+		const paramFnOut: CmdParam = this.CreateParam(1, [ParamType.byte], this.Param_Functions.bind(this));
 		this.AddCommand(Tokentype.fnout, "spc(", "sP", 166, paramFnOut);
-		this.AddCommand(Tokentype.fnout, "tab(", "tA", 163, paramFnOut); 
+		this.AddCommand(Tokentype.fnout, "tab(", "tA", 163, paramFnOut);
 
 		//
 		// ops
@@ -648,7 +648,7 @@ class G64Basic {
 		const param: CmdParam = {
 			Len: len,
 			Type: type,
-			Split: "",
+			Split: ",",
 		}
 
 		if (typeof fn !== "undefined" && fn !== null) {
@@ -752,6 +752,24 @@ class G64Basic {
 		return [];
 	}
 
+	private Param_Functions(cmd: BasicCmd, param: string): string[] {
+
+		// fnout has the barcket as part of the command, so we add a start (
+		if (cmd.Type == Tokentype.fnout) {
+			param = "(" + param;
+		}
+
+		// remove brackets
+		if (param.startsWith("(") && param.endsWith(")")) {
+			const result: Matching = Tools.FindMatching(param);
+			if (result.Has) {
+				param = param.substring(1, param.length - 1);
+			}
+		}
+
+		return Tools.CodeSplitter(param, ",");
+	}
+
 	private Param_If(cmd: BasicCmd, param: string): string[] {
 
 		const match: string[] = param.match(/^\s*(.+)(?:then|goto)(.+)/);
@@ -851,25 +869,6 @@ class G64Basic {
 		return aParts;
 	}
 
-	private Param_Fn(cmd: BasicCmd, param: string): string[] {
-
-
-		// fnout has the barcket as part of the command, so we add a start (
-		if (cmd.Type == Tokentype.fnout) {
-			param = "(" + param;
-		}
-
-		// remove brackets
-		if (param.startsWith("(") && param.endsWith(")")) {
-			const result: Matching = Tools.FindMatching(param);
-			if (result.Has) {
-				param = param.substring(1, param.length - 1);
-			}
-		}
-
-		return Tools.CodeSplitter(param, ",");
-	}
-	
 	//#endregion
 
 	//#region " ----- BASIC V2 Commands / Functions ----- "
@@ -1017,6 +1016,35 @@ class G64Basic {
 		}
 
 		console.log("PRINT:", out);
+
+		return tkn;
+	}
+
+	/**
+	 * read command, ie. read a value from the data stack
+	 * see: https://www.c64-wiki.de/wiki/READ
+	 */
+	private Cmd_Read(tkn: G64Token): G64Token {
+
+		console.log("read:", tkn.Values);
+
+		for (let i: number = 0; i < tkn.Values.length; i++) {
+			if (Check.IsVar(tkn.Values[i])) {
+				// read from data stack
+				const tknVar: G64Token = this.ExecToken(tkn.Values[i]);
+
+				if (tknVar.Type === Tokentype.err)
+					return tknVar;
+
+				console.log("--> reading:", tknVar);
+			} else {
+
+				return Tools.CreateToken(Tokentype.err, "'read', variable expected, got " + Tools.GetTokentypeName( Check.GetBaseType(tkn.Values[i])), ErrorCodes.SYNTAX);
+
+			}
+
+		}
+
 
 		return tkn;
 	}
