@@ -50,7 +50,9 @@ class Genesis64 {
 	public Test() {
 		const code = (document.getElementById("code") as HTMLPreElement).innerText;
 
+		this.m_Memory.Init();
 		this.m_Basic.Init(this.m_Memory, BasicVersion.v2);
+
 
 		this.CommitCode(code);
 

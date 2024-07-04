@@ -12,6 +12,9 @@ class G64Memory {
 	private m_DataPointer: number = 0;
 	private m_DataRef: G64Token[] = [];
 
+	private m_ramBuffer: ArrayBuffer;
+	private m_ramView: Uint8Array;
+
 	//#endregion
 
 	//#region " ----- Publics ----- "
@@ -22,7 +25,21 @@ class G64Memory {
 
 	// init, constructor
 
+	public Init(): void {
 
+		// create the g64 "ram"
+		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array
+		this.m_ramBuffer = new ArrayBuffer(1024 * 64);
+		this.m_ramView = new Uint8Array(this.m_ramBuffer);
+		this.m_ramView.fill(0);
+
+		let val: boolean = true;
+		for (let i: number = 0; i < this.m_ramView.length; i++) {
+			if ((i % 64) == 0) val = !val;
+			this.m_ramView[i] = (val) ? 255 : 0;
+		}
+
+	}
 
 	//#region " --- Variables --- "
 
