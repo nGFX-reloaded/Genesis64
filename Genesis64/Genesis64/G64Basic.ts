@@ -744,12 +744,34 @@ class G64Basic {
 		param = param.trim();
 
 		let aParts: string[] = Tools.CodeSplitter(param, ",");
+		let aData: string[] = [];
 
-		console.log("data:", aParts);
+		for (let i: number = 0; i < aParts.length; i++) {
 
+			aParts[i] = aParts[i].trim();
 
+			// numbers
+			if (this.m_regexNum.test(aParts[i].trim())) {
+				aData.push(aParts[i]);
 
-		return [];
+			} else {
+				if (aParts[i].includes("{") && aParts[i].includes("{")) {
+					if (!this.m_regexLit.test(aParts[i])) {
+						const text: string = Tools.RestoreLiterals(aParts[i], this.m_ParserLiterals);
+						const lit: string = /.*{(\d+)}.*/.exec(aParts[i])[1];
+						aParts[i] = "{" + lit + "}";
+						this.m_ParserLiterals[lit] = text;
+					}
+					
+				} else {
+					aParts[i] = "{" + this.m_ParserLiterals.length + "}";
+					this.m_ParserLiterals.push(aParts[i]);
+				}
+				aData.push(aParts[i]);
+			}
+		}
+
+		return aData;
 	}
 
 	private Param_Functions(cmd: BasicCmd, param: string): string[] {
@@ -1039,7 +1061,7 @@ class G64Basic {
 				console.log("--> reading:", tknVar);
 			} else {
 
-				return Tools.CreateToken(Tokentype.err, "'read', variable expected, got " + Tools.GetTokentypeName( Check.GetBaseType(tkn.Values[i])), ErrorCodes.SYNTAX);
+				return Tools.CreateToken(Tokentype.err, "'read', variable expected, got " + Tools.GetTokentypeName(Check.GetBaseType(tkn.Values[i])), ErrorCodes.SYNTAX);
 
 			}
 
@@ -1096,7 +1118,7 @@ class G64Basic {
 				break;
 
 			case "fre":
-				// ToDo: implement FRE
+				// ToDo: implement FRE (count tokens?)
 				console.log("FnNum: to be supplied FRE");
 				break;
 

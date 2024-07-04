@@ -1,1 +1,1 @@
-﻿10 data "1",2,3.5:read a$,b,"a": ?a$,b,c%
+﻿10 data ."das", "ist",1,test, ", komma", 2"3
