@@ -1,1 +1,1 @@
-﻿10 data ."das", "ist",1,test, ", komma", 2"3
+﻿10 def fn test(x)=x*2:?fn test(2)
