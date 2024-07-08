@@ -434,7 +434,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
 		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157);
 		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.CreateParam(0, [ParamType.any], this.Param_Data.bind(this)), this.Cmd_Data.bind(this)); // Note: on run grab data lines and link tokens to the data[] in memory
-		this.AddCommand(Tokentype.cmd, "def", "dE", 150, this.CreateParam(-2,[ParamType.cmd, ParamType.var], this.Param_Def.bind(this)), this.Cmd_Def.bind(this));
+		this.AddCommand(Tokentype.cmd, "def", "dE", 150, this.CreateParam(3,[ParamType.str, ParamType.var,ParamType.num], this.Param_Def.bind(this)), this.Cmd_Def.bind(this));
 		this.AddCommand(Tokentype.cmd, "dim", "dI", 134);
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
 		this.AddCommand(Tokentype.cmd, "for", "fO", 129);
@@ -479,7 +479,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.fnnum, "atn", "aT", 193, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "cos", "", 190, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "exp", "eX", 189, paramNum, this.FnNum.bind(this));
-		this.AddCommand(Tokentype.fnnum, "fn", "", 165, paramNum, this.FnNum.bind(this));
+		this.AddCommand(Tokentype.fnnum, "fn", "", 165, this.CreateParam(2,[ParamType.str, ParamType.var], this.Param_Fn.bind(this)), this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "fre", "fR", 184, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "int", "", 181, paramNum, this.FnNum.bind(this));
 		this.AddCommand(Tokentype.fnnum, "len", "", 195, paramNum, this.FnNum.bind(this));
@@ -776,10 +776,16 @@ class G64Basic {
 
 	private Param_Def(cmd: BasicCmd, param: string): string[] {
 		
-		let match: string[] = param.match(/(fn.+)=(.+)/);
-
+		let match: string[] = param.match(/fn\s*(.+)\s*\((.+)\)\s*=(.+)/);
+		
 		if (match !== null) {
 			match = match.slice(1);
+
+			// turn match 0 into a literal
+			const lit: string = match[0];
+			match[0] = "{" + this.m_ParserLiterals.length + "}";
+			this.m_ParserLiterals.push(lit);
+
 		} else {
 			match = [param]
 		}
