@@ -434,7 +434,7 @@ class G64Basic {
 		this.AddCommand(Tokentype.cmd, "cont", "cO", 154);
 		this.AddCommand(Tokentype.cmd, "cmd", "cM", 157);
 		this.AddCommand(Tokentype.cmd, "data", "dA", 131, this.CreateParam(0, [ParamType.any], this.Param_Data.bind(this)), this.Cmd_Data.bind(this)); // Note: on run grab data lines and link tokens to the data[] in memory
-		this.AddCommand(Tokentype.cmd, "def", "dE", 150);
+		this.AddCommand(Tokentype.cmd, "def", "dE", 150, this.CreateParam(-2,[ParamType.cmd, ParamType.var], this.Param_Def.bind(this)), this.Cmd_Def.bind(this));
 		this.AddCommand(Tokentype.cmd, "dim", "dI", 134);
 		this.AddCommand(Tokentype.cmd, "end", "eN", 128);
 		this.AddCommand(Tokentype.cmd, "for", "fO", 129);
@@ -774,6 +774,27 @@ class G64Basic {
 		return aData;
 	}
 
+	private Param_Def(cmd: BasicCmd, param: string): string[] {
+		
+		let match: string[] = param.match(/(fn.+)=(.+)/);
+
+		if (match !== null) {
+			match = match.slice(1);
+		} else {
+			match = [param]
+		}
+
+		return match;
+	}
+
+	private Param_Fn(cmd: BasicCmd, param: string): string[] {
+
+		console.log("fn -->", param);
+
+		return [];
+
+	}
+
 	private Param_Functions(cmd: BasicCmd, param: string): string[] {
 
 		// fnout has the barcket as part of the command, so we add a start (
@@ -910,6 +931,17 @@ class G64Basic {
 	 */
 	private Cmd_Data(tkn: G64Token): G64Token {
 		return Tools.CreateToken(Tokentype.nop);
+	}
+
+	/**
+	 * def command, ie. define a function
+	 * see: https://www.c64-wiki.de/wiki/DEF
+	 */
+	private Cmd_Def(tkn: G64Token): G64Token {
+
+		console.log("---> def:", tkn);
+
+		return tkn;
 	}
 
 	/**
